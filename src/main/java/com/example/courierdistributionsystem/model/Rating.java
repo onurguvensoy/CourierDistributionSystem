@@ -1,0 +1,32 @@
+package com.example.courierdistributionsystem.model;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Rating {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
+    private User customer;
+
+    @ManyToOne
+    @JoinColumn(name = "courier_id")
+    private User courier;
+
+    @ManyToOne
+    @JoinColumn(name = "package_id")
+    private Package deliveryPackage;
+
+    private Double courierRating;
+    private Double deliveryRating;
+    private String comment;
+    private boolean anonymous;
+} 
