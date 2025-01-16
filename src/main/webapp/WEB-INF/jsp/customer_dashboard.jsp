@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <title>Customer Dashboard - Courier Distribution System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places"></script>
     <style>
         body {
             background-color: #f8f9fa;
@@ -24,6 +25,18 @@
         .nav-pills .nav-link.active {
             background-color: #0d6efd;
             color: white;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .map-container {
+            position: relative;
+        }
+        .package-marker {
+            cursor: pointer;
         }
     </style>
 </head>
@@ -96,14 +109,30 @@
                             <h3>Send a Package</h3>
                             <form class="mt-4" action="/api/packages" method="POST" id="sendPackageForm">
                                 <input type="hidden" name="username" value="${user.username}">
+                                
+                                <!-- Pickup Address Section -->
                                 <div class="mb-3">
                                     <label class="form-label">Pickup Address</label>
-                                    <input type="text" class="form-control" name="pickupAddress" required>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" name="pickupAddress" id="pickupAddress" required>
+                                        <button type="button" class="btn btn-outline-primary" id="useCurrentLocation">
+                                            Use Current Location
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <!-- Delivery Address Section -->
                                 <div class="mb-3">
                                     <label class="form-label">Delivery Address</label>
-                                    <input type="text" class="form-control" name="deliveryAddress" required>
+                                    <input type="text" class="form-control" name="deliveryAddress" id="deliveryAddress" required readonly>
+                                    <small class="text-muted">Click on the map to select delivery location</small>
                                 </div>
+
+                                <!-- Map for selecting locations -->
+                                <div class="mb-3">
+                                    <div id="sendPackageMap" style="height: 400px; width: 100%; border-radius: 5px;"></div>
+                                </div>
+
                                 <div class="mb-3">
                                     <label class="form-label">Package Weight (kg)</label>
                                     <input type="number" step="0.1" class="form-control" name="weight" required>
@@ -116,9 +145,193 @@
                             </form>
                         </div>
 
+                        <script>
+                            var sendPackageMap;
+                            var sendPackageGeocoder;
+                            var pickupMarker;
+                            var deliveryMarker;
+                            var searchBox;
+
+                            // Initialize the map for sending packages
+                            function initSendPackageMap() {
+                                sendPackageGeocoder = new google.maps.Geocoder();
+                                
+                                // Default location (Istanbul, Fatih)
+                                const defaultLocation = { lat: 41.0082, lng: 28.9784 };
+                                
+                                // Create the map with custom options
+                                sendPackageMap = new google.maps.Map(document.getElementById('sendPackageMap'), {
+                                    zoom: 13,
+                                    center: defaultLocation,
+                                    // Disable unnecessary controls
+                                    streetViewControl: false,
+                                    mapTypeControl: false,
+                                    fullscreenControl: false,
+                                    // Map style with labels
+                                    styles: [
+                                        {
+                                            featureType: "poi",
+                                            stylers: [{ visibility: "on" }]
+                                        },
+                                        {
+                                            featureType: "transit",
+                                            stylers: [{ visibility: "on" }]
+                                        },
+                                        {
+                                            featureType: "road",
+                                            elementType: "labels",
+                                            stylers: [{ visibility: "on" }]
+                                        },
+                                        {
+                                            featureType: "road",
+                                            elementType: "geometry",
+                                            stylers: [{ visibility: "on" }]
+                                        },
+                                        {
+                                            featureType: "landscape",
+                                            stylers: [{ visibility: "on" }]
+                                        },
+                                        {
+                                            featureType: "water",
+                                            stylers: [{ visibility: "on" }]
+                                        },
+                                        {
+                                            featureType: "administrative",
+                                            stylers: [{ visibility: "on" }]
+                                        }
+                                    ]
+                                });
+
+                                // Create search box for pickup address
+                                const pickupInput = document.getElementById('pickupAddress');
+                                const pickupSearchBox = new google.maps.places.SearchBox(pickupInput);
+                                
+                                // Bias the SearchBox results towards current map's viewport
+                                sendPackageMap.addListener('bounds_changed', function() {
+                                    pickupSearchBox.setBounds(sendPackageMap.getBounds());
+                                });
+
+                                // Try to get user's current location
+                                if (navigator.geolocation) {
+                                    navigator.geolocation.getCurrentPosition(
+                                        (position) => {
+                                            const pos = {
+                                                lat: position.coords.latitude,
+                                                lng: position.coords.longitude
+                                            };
+                                            sendPackageMap.setCenter(pos);
+                                            
+                                            // Set current location as default pickup location
+                                            sendPackageGeocoder.geocode({ location: pos }, function(results, status) {
+                                                if (status === 'OK') {
+                                                    if (results[0]) {
+                                                        document.getElementById('pickupAddress').value = results[0].formatted_address;
+                                                        if (pickupMarker) pickupMarker.setMap(null);
+                                                        pickupMarker = new google.maps.Marker({
+                                                            position: pos,
+                                                            map: sendPackageMap,
+                                                            icon: {
+                                                                url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                                                                scaledSize: new google.maps.Size(32, 32)
+                                                            },
+                                                            title: 'Pickup Location'
+                                                        });
+                                                    }
+                                                }
+                                            });
+                                        },
+                                        () => {
+                                            // If geolocation fails, use default location
+                                            sendPackageMap.setCenter(defaultLocation);
+                                        },
+                                        { maximumAge: 10000, timeout: 5000 }
+                                    );
+                                } else {
+                                    // Browser doesn't support Geolocation, use default location
+                                    sendPackageMap.setCenter(defaultLocation);
+                                }
+
+                                // Listen for clicks on the map for delivery location
+                                sendPackageMap.addListener('click', function(event) {
+                                    // Update delivery marker
+                                    if (deliveryMarker) deliveryMarker.setMap(null);
+                                    deliveryMarker = new google.maps.Marker({
+                                        position: event.latLng,
+                                        map: sendPackageMap,
+                                        icon: {
+                                            url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                                            scaledSize: new google.maps.Size(32, 32)
+                                        },
+                                        title: 'Delivery Location'
+                                    });
+
+                                    // Get address for clicked location
+                                    sendPackageGeocoder.geocode({ location: event.latLng }, function(results, status) {
+                                        if (status === 'OK') {
+                                            if (results[0]) {
+                                                document.getElementById('deliveryAddress').value = results[0].formatted_address;
+                                            }
+                                        }
+                                    });
+                                });
+                            }
+
+                            // Handle "Use Current Location" button click
+                            document.getElementById('useCurrentLocation').addEventListener('click', function() {
+                                if (navigator.geolocation) {
+                                    navigator.geolocation.getCurrentPosition(
+                                        (position) => {
+                                            const pos = {
+                                                lat: position.coords.latitude,
+                                                lng: position.coords.longitude
+                                            };
+                                            
+                                            // Update map and marker
+                                            sendPackageMap.setCenter(pos);
+                                            if (pickupMarker) pickupMarker.setMap(null);
+                                            pickupMarker = new google.maps.Marker({
+                                                position: pos,
+                                                map: sendPackageMap,
+                                                icon: {
+                                                    url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                                                    scaledSize: new google.maps.Size(32, 32)
+                                                },
+                                                title: 'Pickup Location'
+                                            });
+
+                                            // Get and set address
+                                            sendPackageGeocoder.geocode({ location: pos }, function(results, status) {
+                                                if (status === 'OK') {
+                                                    if (results[0]) {
+                                                        document.getElementById('pickupAddress').value = results[0].formatted_address;
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    );
+                                }
+                            });
+
+                            // Initialize send package map when the tab is shown
+                            document.querySelector('a[href="#send-package"]').addEventListener('click', function() {
+                                setTimeout(function() {
+                                    if (!sendPackageMap) {
+                                        initSendPackageMap();
+                                    }
+                                }, 100);
+                            });
+                        </script>
+
                         <!-- Track Packages Tab -->
                         <div class="tab-pane fade" id="track-packages">
                             <h3>Track Packages</h3>
+                            
+                            <!-- Map View -->
+                            <div class="map-container">
+                                <div id="map"></div>
+                            </div>
+
+                            <!-- Table View -->
                             <div class="table-responsive mt-3">
                                 <table class="table">
                                     <thead>
@@ -154,21 +367,76 @@
     <script src="/webjars/sockjs-client/sockjs.min.js"></script>
     <script src="/webjars/stomp-websocket/stomp.min.js"></script>
     <script>
+        // Global variables
         var stompClient = null;
         var userId = "${user.id}";
+        var map = null;
+        var sendPackageMap = null;
+        var geocoder = null;
+        var markers = new Map();
+        var isConnecting = false;
+        var reconnectTimeout = null;
 
         function connect() {
+            if (isConnecting) return;
+            isConnecting = true;
+            
+            if (stompClient !== null) {
+                stompClient.disconnect();
+            }
+
+            console.log('Attempting to connect to WebSocket...');
             var socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
-            stompClient.connect({}, function(frame) {
-                console.log('Connected: ' + frame);
-                
-                // Subscribe to package updates for this customer
-                stompClient.subscribe('/topic/customer/' + userId + '/package-updates', function(message) {
-                    var deliveryPackage = JSON.parse(message.body);
-                    updatePackageInTable(deliveryPackage);
-                });
-            });
+            
+            // Disable debug logging
+            stompClient.debug = null;
+
+            stompClient.connect({}, 
+                function(frame) {
+                    console.log('Connected to WebSocket');
+                    isConnecting = false;
+                    if (reconnectTimeout) {
+                        clearTimeout(reconnectTimeout);
+                        reconnectTimeout = null;
+                    }
+                    
+                    // Subscribe to package updates for this customer
+                    stompClient.subscribe('/topic/customer/' + userId + '/package-updates', function(message) {
+                        try {
+                            var deliveryPackage = JSON.parse(message.body);
+                            updatePackageInTable(deliveryPackage);
+                            // Update map markers if map is initialized
+                            if (map && geocoder) {
+                                addPackageToMap(deliveryPackage);
+                            }
+                        } catch (error) {
+                            console.error('Error processing message:', error);
+                        }
+                    });
+                },
+                function(error) {
+                    console.error('STOMP error:', error);
+                    isConnecting = false;
+                    reconnect();
+                }
+            );
+
+            socket.onclose = function() {
+                console.log('WebSocket connection closed');
+                isConnecting = false;
+                reconnect();
+            };
+        }
+
+        function reconnect() {
+            if (!reconnectTimeout) {
+                console.log('Scheduling reconnection...');
+                reconnectTimeout = setTimeout(function() {
+                    console.log('Attempting to reconnect...');
+                    connect();
+                }, 5000); // Try to reconnect after 5 seconds
+            }
         }
 
         function updatePackageInTable(deliveryPackage) {
@@ -194,9 +462,14 @@
             }
         }
 
-        // Handle form submission
+        // Remove duplicate declarations and update the form submission
         document.getElementById('sendPackageForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            if (!stompClient || !stompClient.connected) {
+                alert('Connection to server lost. Please try again.');
+                return;
+            }
             
             const formData = new FormData(this);
             const data = {};
@@ -209,14 +482,179 @@
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
-            .then(package => {
-                updatePackageInTable(package);
-                this.reset();
-                // Switch to track packages tab
-                document.querySelector('a[href="#track-packages"]').click();
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
             })
-            .catch(error => console.error('Error:', error));
+            .then(package => {
+                // Switch to track packages tab first to ensure map is initialized
+                document.querySelector('a[href="#track-packages"]').click();
+                
+                // Wait for map initialization
+                setTimeout(() => {
+                    // Update local table
+                    updatePackageInTable(package);
+                    
+                    // Notify all couriers about new package
+                    if (stompClient && stompClient.connected) {
+                        stompClient.send("/app/packages/new", {}, JSON.stringify(package));
+                    }
+                    
+                    // Reset form
+                    this.reset();
+                    
+                    // Show success message
+                    alert('Package created successfully!');
+                }, 500);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to create package. Please try again.');
+            });
+        });
+
+        function initMap() {
+            if (!geocoder) {
+                geocoder = new google.maps.Geocoder();
+            }
+            
+            if (!map) {
+                map = new google.maps.Map(document.getElementById('map'), {
+                    zoom: 12,
+                    center: { lat: 0, lng: 0 }
+                });
+
+                // Try to get user's current location
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const pos = {
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude
+                            };
+                            map.setCenter(pos);
+                            
+                            // Add a marker for current location
+                            new google.maps.Marker({
+                                position: pos,
+                                map: map,
+                                icon: {
+                                    url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                                    scaledSize: new google.maps.Size(32, 32)
+                                },
+                                title: 'Your Location'
+                            });
+
+                            // Initialize markers for existing packages
+                            const packages = Array.from(document.querySelectorAll('tr[data-package-id]')).map(row => ({
+                                id: row.getAttribute('data-package-id'),
+                                pickupAddress: row.cells[1].textContent,
+                                deliveryAddress: row.cells[2].textContent,
+                                status: row.cells[3].textContent
+                            }));
+
+                            packages.forEach(addPackageToMap);
+                        },
+                        () => handleGeolocationError()
+                    );
+                } else {
+                    handleGeolocationError();
+                }
+            }
+        }
+
+        function handleGeolocationError() {
+            // Fallback to first package location
+            const packages = Array.from(document.querySelectorAll('tr[data-package-id]')).map(row => ({
+                id: row.getAttribute('data-package-id'),
+                pickupAddress: row.cells[1].textContent,
+                deliveryAddress: row.cells[2].textContent,
+                status: row.cells[3].textContent
+            }));
+            
+            if (packages.length > 0) {
+                geocoder.geocode({ address: packages[0].pickupAddress }, function(results, status) {
+                    if (status === 'OK') {
+                        map.setCenter(results[0].geometry.location);
+                        packages.forEach(addPackageToMap);
+                    }
+                });
+            }
+        }
+
+        function addPackageToMap(deliveryPackage) {
+            if (!geocoder || !map) return; // Ensure geocoder and map are initialized
+
+            // Add pickup marker
+            geocoder.geocode({ address: deliveryPackage.pickupAddress }, function(results, status) {
+                if (status === 'OK') {
+                    const marker = new google.maps.Marker({
+                        map: map,
+                        position: results[0].geometry.location,
+                        icon: {
+                            url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+                            scaledSize: new google.maps.Size(32, 32)
+                        },
+                        title: 'Pickup: ' + deliveryPackage.pickupAddress
+                    });
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div>
+                                <h6>Package #${deliveryPackage.id}</h6>
+                                <p><strong>Pickup Location</strong><br>${deliveryPackage.pickupAddress}</p>
+                                <p><strong>Status:</strong> ${deliveryPackage.status}</p>
+                            </div>
+                        `
+                    });
+
+                    marker.addListener('click', () => {
+                        infoWindow.open(map, marker);
+                    });
+
+                    markers.set('pickup-' + deliveryPackage.id, marker);
+                }
+            });
+
+            // Add delivery marker
+            geocoder.geocode({ address: deliveryPackage.deliveryAddress }, function(results, status) {
+                if (status === 'OK') {
+                    const marker = new google.maps.Marker({
+                        map: map,
+                        position: results[0].geometry.location,
+                        icon: {
+                            url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                            scaledSize: new google.maps.Size(32, 32)
+                        },
+                        title: 'Delivery: ' + deliveryPackage.deliveryAddress
+                    });
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div>
+                                <h6>Package #${deliveryPackage.id}</h6>
+                                <p><strong>Delivery Location</strong><br>${deliveryPackage.deliveryAddress}</p>
+                                <p><strong>Status:</strong> ${deliveryPackage.status}</p>
+                            </div>
+                        `
+                    });
+
+                    marker.addListener('click', () => {
+                        infoWindow.open(map, marker);
+                    });
+
+                    markers.set('delivery-' + deliveryPackage.id, marker);
+                }
+            });
+        }
+
+        // Initialize map when the track packages tab is shown
+        document.querySelector('a[href="#track-packages"]').addEventListener('click', function() {
+            setTimeout(function() {
+                initMap();
+            }, 100);
         });
 
         // Connect when page loads

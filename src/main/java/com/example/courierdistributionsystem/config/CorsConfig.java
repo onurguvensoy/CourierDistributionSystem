@@ -14,8 +14,8 @@ public class CorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         
-        // Allow both HTTP ports
-        config.addAllowedOrigin("http://localhost:8080");
+        // Allow localhost origins with any port
+        config.addAllowedOriginPattern("http://localhost:[*]");
         
         // Allow specific HTTP methods
         config.addAllowedMethod("GET");

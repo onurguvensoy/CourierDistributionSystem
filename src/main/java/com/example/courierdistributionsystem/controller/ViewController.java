@@ -6,6 +6,7 @@ import com.example.courierdistributionsystem.repository.PackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,9 @@ public class ViewController {
 
     @Autowired
     private PackageRepository packageRepository;
+
+    @Value("${google.maps.api.key}")
+    private String googleMapsApiKey;
 
     @GetMapping("/")
     public String home() {
@@ -95,6 +99,7 @@ public class ViewController {
         model.addAttribute("user", courier);
         model.addAttribute("availablePackages", availablePackages);
         model.addAttribute("activeDeliveries", activeDeliveries);
+        model.addAttribute("googleMapsApiKey", googleMapsApiKey);
         return "courier_dashboard";
     }
 
@@ -117,6 +122,7 @@ public class ViewController {
 
         model.addAttribute("user", user);
         model.addAttribute("myPackages", myPackages);
+        model.addAttribute("googleMapsApiKey", googleMapsApiKey);
         return "customer_dashboard";
     }
 } 
