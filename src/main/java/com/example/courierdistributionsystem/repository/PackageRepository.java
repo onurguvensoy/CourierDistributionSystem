@@ -6,14 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface PackageRepository extends JpaRepository<Package, Long> {
-    Optional<Package> findByTrackingNumber(String trackingNumber);
-    List<Package> findByCourier(User courier);
     List<Package> findByCustomer(User customer);
-    List<Package> findByCurrentStatus(Package.PackageStatus status);
-    List<Package> findByCourierAndCurrentStatus(User courier, Package.PackageStatus status);
-    List<Package> findByIsActiveTrue();
+    List<Package> findByCourier(User courier);
+    List<Package> findByStatus(Package.PackageStatus status);
+    List<Package> findByCourierAndStatusIn(User courier, List<Package.PackageStatus> statuses);
 } 

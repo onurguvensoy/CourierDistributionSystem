@@ -4,6 +4,7 @@ import com.example.courierdistributionsystem.model.Package;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.PackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.service.WebSocketService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +21,9 @@ public class PackageController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private WebSocketService webSocketService;
 
     @GetMapping
     public List<Package> getAllPackages() {
@@ -45,8 +49,14 @@ public class PackageController {
         User customer = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         packageRequest.setCustomer(customer);
-        packageRequest.setCurrentStatus(Package.PackageStatus.CREATED);
-        return packageRepository.save(packageRequest);
+        packageRequest.setStatus(Package.PackageStatus.PENDING);
+        
+        Package savedPackage = packageRepository.save(packageRequest);
+        
+        // Notify all couriers about the new available package
+        webSocketService.notifyNewPackageAvailable(savedPackage);
+        
+        return savedPackage;
     }
 
     @GetMapping("/{id}")
@@ -61,15 +71,19 @@ public class PackageController {
         Package package_ = packageRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Package not found with id: " + id));
 
-        package_.setCurrentStatus(packageDetails.getCurrentStatus());
+        package_.setStatus(packageDetails.getStatus());
         package_.setDeliveryAddress(packageDetails.getDeliveryAddress());
         package_.setPickupAddress(packageDetails.getPickupAddress());
         package_.setDescription(packageDetails.getDescription());
-        package_.setPreferredDeliveryTime(packageDetails.getPreferredDeliveryTime());
-        package_.setDeliveryTimeWindow(packageDetails.getDeliveryTimeWindow());
-        package_.setSpecialInstructions(packageDetails.getSpecialInstructions());
+        package_.setWeight(packageDetails.getWeight());
 
         Package updatedPackage = packageRepository.save(package_);
+        
+        // Notify about package updates
+        if (updatedPackage.getCourier() != null) {
+            webSocketService.notifyPackageStatusUpdate(updatedPackage);
+        }
+        
         return ResponseEntity.ok(updatedPackage);
     }
 
@@ -89,8 +103,12 @@ public class PackageController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         package_.setCourier(courier);
-        package_.setCurrentStatus(Package.PackageStatus.ASSIGNED);
+        package_.setStatus(Package.PackageStatus.ASSIGNED);
         Package updatedPackage = packageRepository.save(package_);
+        
+        // Notify about package assignment
+        webSocketService.notifyPackageStatusUpdate(updatedPackage);
+        
         return ResponseEntity.ok(updatedPackage);
     }
 } 

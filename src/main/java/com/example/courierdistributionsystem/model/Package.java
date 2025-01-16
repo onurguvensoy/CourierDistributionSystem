@@ -1,79 +1,67 @@
 package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "packages")
 public class Package {
+    
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id", nullable = false)
     private User customer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "courier_id")
     private User courier;
 
-    @Column(unique = true, nullable = false)
-    private String trackingNumber;
+    @Column(nullable = false)
+    private String pickupAddress;
 
     @Column(nullable = false)
     private String deliveryAddress;
 
-    private String pickupAddress;
+    @Column(nullable = false)
+    private Double weight;
 
+    @Column(nullable = false)
     private String description;
 
-    private LocalDateTime createdAt;
-
     @Enumerated(EnumType.STRING)
-    private PackageStatus currentStatus = PackageStatus.CREATED;
-
-    private boolean isActive = true;
+    @Column(nullable = false)
+    private PackageStatus status = PackageStatus.PENDING;
 
     private LocalDateTime preferredDeliveryTime;
-
+    
     private String deliveryTimeWindow;
-
-    private LocalDateTime estimatedDeliveryTime;
-
+    
     private String specialInstructions;
 
-    @OneToMany(mappedBy = "deliveryPackage", cascade = CascadeType.ALL)
-    private List<DeliveryReport> deliveryReports;
-
-    @OneToMany(mappedBy = "deliveryPackage", cascade = CascadeType.ALL)
-    private List<LocationHistory> locationHistory;
-
-    @OneToMany(mappedBy = "deliveryPackage", cascade = CascadeType.ALL)
-    private List<Rating> ratings;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        trackingNumber = generateTrackingNumber();
-    }
-
-    private String generateTrackingNumber() {
-        return "TN" + System.currentTimeMillis();
-    }
-
     public enum PackageStatus {
+        PENDING,
         CREATED,
         ASSIGNED,
-        IN_TRANSIT,
+        PICKED_UP,
         DELIVERED,
-        FAILED,
         CANCELLED
+    }
+
+    // Alias methods for backward compatibility
+    public PackageStatus getCurrentStatus() {
+        return this.status;
+    }
+
+    public void setCurrentStatus(PackageStatus status) {
+        this.status = status;
     }
 } 

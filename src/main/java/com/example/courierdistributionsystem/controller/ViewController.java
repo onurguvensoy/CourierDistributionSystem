@@ -1,6 +1,8 @@
 package com.example.courierdistributionsystem.controller;
 
+import com.example.courierdistributionsystem.model.Package;
 import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.repository.PackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +11,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.util.List;
+
 @Controller
 @RequestMapping("/")
 public class ViewController {
@@ -16,25 +20,103 @@ public class ViewController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PackageRepository packageRepository;
+
     @GetMapping("/")
     public String home() {
         return "redirect:/auth/login";
     }
 
     @GetMapping("/dashboard")
-    public String dashboard(HttpSession session, Model model) {
-        // Check if user is logged in
+    public String dashboard(HttpSession session) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
             return "redirect:/auth/login";
         }
 
-        // Get user information
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
+
+        // Redirect to role-specific dashboard
+        switch (user.getRole()) {
+            case ADMIN:
+                return "redirect:/admin/dashboard";
+            case COURIER:
+                return "redirect:/courier/dashboard";
+            case CUSTOMER:
+                return "redirect:/customer/dashboard";
+            default:
+                return "redirect:/auth/login";
+        }
+    }
+
+    @GetMapping("/admin/dashboard")
+    public String adminDashboard(HttpSession session, Model model) {
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            return "redirect:/auth/login";
+        }
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != User.UserRole.ADMIN) {
+            return "redirect:/dashboard";
+        }
+
         model.addAttribute("user", user);
-        model.addAttribute("role", session.getAttribute("role"));
-        return "dashboard";
+        return "admin_dashboard";
+    }
+
+    @GetMapping("/courier/dashboard")
+    public String courierDashboard(HttpSession session, Model model) {
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            return "redirect:/auth/login";
+        }
+
+        User courier = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (courier.getRole() != User.UserRole.COURIER) {
+            return "redirect:/dashboard";
+        }
+
+        // Get available packages (PENDING status)
+        List<Package> availablePackages = packageRepository.findByStatus(Package.PackageStatus.PENDING);
+
+        // Get active deliveries for this courier (ASSIGNED or PICKED_UP status)
+        List<Package> activeDeliveries = packageRepository.findByCourierAndStatusIn(
+            courier, 
+            List.of(Package.PackageStatus.ASSIGNED, Package.PackageStatus.PICKED_UP)
+        );
+
+        model.addAttribute("user", courier);
+        model.addAttribute("availablePackages", availablePackages);
+        model.addAttribute("activeDeliveries", activeDeliveries);
+        return "courier_dashboard";
+    }
+
+    @GetMapping("/customer/dashboard")
+    public String customerDashboard(HttpSession session, Model model) {
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            return "redirect:/auth/login";
+        }
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != User.UserRole.CUSTOMER) {
+            return "redirect:/dashboard";
+        }
+
+        // Get customer's packages
+        List<Package> myPackages = packageRepository.findByCustomer(user);
+
+        model.addAttribute("user", user);
+        model.addAttribute("myPackages", myPackages);
+        return "customer_dashboard";
     }
 } 

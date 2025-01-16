@@ -1,5 +1,7 @@
 package com.example.courierdistributionsystem.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,6 +31,9 @@ public class User {
     @Column(nullable = false, columnDefinition = "DOUBLE DEFAULT 0.0")
     private Double averageRating;
 
+    private LocalDateTime createdAt;
+
+    
     public enum UserRole {
         ADMIN, CUSTOMER, COURIER
     }
