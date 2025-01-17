@@ -42,7 +42,7 @@ public class ViewController {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Redirect to role-specific dashboard
+
         switch (user.getRole()) {
             case ADMIN:
                 return "redirect:/admin/dashboard";
@@ -87,10 +87,9 @@ public class ViewController {
             return "redirect:/dashboard";
         }
 
-        // Get available packages (PENDING status)
+ 
         List<Package> availablePackages = packageRepository.findByStatus(Package.PackageStatus.PENDING);
 
-        // Get active deliveries for this courier (ASSIGNED or PICKED_UP status)
         List<Package> activeDeliveries = packageRepository.findByCourierAndStatusIn(
             courier, 
             List.of(Package.PackageStatus.ASSIGNED, Package.PackageStatus.PICKED_UP)
@@ -117,7 +116,8 @@ public class ViewController {
             return "redirect:/dashboard";
         }
 
-        // Get customer's packages
+      
+
         List<Package> myPackages = packageRepository.findByCustomer(user);
 
         model.addAttribute("user", user);

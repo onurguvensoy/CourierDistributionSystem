@@ -68,22 +68,22 @@ public class AuthController {
             return "signup";
         }
 
-        // Check if username already exists
+  
         if (userRepository.existsByUsername(user.getUsername())) {
             result.rejectValue("username", "error.user", "Username is already taken");
             return "signup";
         }
 
-        // Check if email already exists
+     
         if (userRepository.existsByEmail(user.getEmail())) {
             result.rejectValue("email", "error.user", "Email is already registered");
             return "signup";
         }
 
-        // Set default values
+   
         user.setAverageRating(0.0);
         
-        // Save the user
+        
         userRepository.save(user);
         
         redirectAttributes.addAttribute("registered", true);

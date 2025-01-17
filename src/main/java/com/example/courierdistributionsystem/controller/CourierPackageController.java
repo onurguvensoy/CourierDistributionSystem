@@ -54,7 +54,7 @@ public class CourierPackageController {
         pkg.setStatus(Package.PackageStatus.ASSIGNED);
         packageRepository.save(pkg);
 
-        // Send WebSocket notification
+        
         webSocketService.notifyPackageStatusUpdate(pkg);
 
         redirectAttributes.addFlashAttribute("message", "Package assigned successfully");
@@ -91,7 +91,6 @@ public class CourierPackageController {
             pkg.setStatus(newStatus);
             packageRepository.save(pkg);
 
-            // Send WebSocket notification
             webSocketService.notifyPackageStatusUpdate(pkg);
 
             redirectAttributes.addFlashAttribute("message", "Delivery status updated successfully");
