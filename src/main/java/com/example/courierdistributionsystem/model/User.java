@@ -1,7 +1,7 @@
 package com.example.courierdistributionsystem.model;
 
 import java.time.LocalDateTime;
-
+import com.example.courierdistributionsystem.model.role.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,6 +13,7 @@ import lombok.*;
 @Table(name = "users")
 public class User {
     @Id
+    @NonNull
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
@@ -25,16 +26,12 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    private UserRole role;
+    @OneToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
 
-    @Column(nullable = false, columnDefinition = "DOUBLE DEFAULT 0.0")
-    private Double averageRating;
+ 
 
     private LocalDateTime createdAt;
 
-    
-    public enum UserRole {
-        ADMIN, CUSTOMER, COURIER
-    }
 } 

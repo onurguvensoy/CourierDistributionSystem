@@ -1,4 +1,4 @@
-package com.example.courierdistributionsystem.service;
+package com.example.courierdistributionsystem.endpoints;
 
 import com.example.courierdistributionsystem.model.Package;
 import org.springframework.beans.factory.annotation.Autowired;

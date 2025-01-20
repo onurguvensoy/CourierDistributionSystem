@@ -4,7 +4,7 @@ import com.example.courierdistributionsystem.model.Package;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.PackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
-import com.example.courierdistributionsystem.service.WebSocketService;
+import com.example.courierdistributionsystem.endpoints.WebSocketService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -38,7 +38,8 @@ public class CourierPackageController {
         User courier = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (courier.getRole() != User.UserRole.COURIER) {
+        if (!courier.getRole().getRoleName().equals("COURIER")) {
+            redirectAttributes.addFlashAttribute("error", "Only couriers can accept packages");
             return "redirect:/dashboard";
         }
 
@@ -74,7 +75,8 @@ public class CourierPackageController {
         User courier = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (courier.getRole() != User.UserRole.COURIER) {
+        if (!courier.getRole().getRoleName().equals("COURIER")) {
+            redirectAttributes.addFlashAttribute("error", "Only couriers can update package status");
             return "redirect:/dashboard";
         }
 

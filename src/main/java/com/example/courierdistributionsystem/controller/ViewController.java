@@ -42,13 +42,12 @@ public class ViewController {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-
-        switch (user.getRole()) {
-            case ADMIN:
+        switch (user.getRole().getRoleName()) {
+            case "ADMIN":
                 return "redirect:/admin/dashboard";
-            case COURIER:
+            case "COURIER":
                 return "redirect:/courier/dashboard";
-            case CUSTOMER:
+            case "CUSTOMER":
                 return "redirect:/customer/dashboard";
             default:
                 return "redirect:/auth/login";
@@ -65,7 +64,7 @@ public class ViewController {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (user.getRole() != User.UserRole.ADMIN) {
+        if (!user.getRole().getRoleName().equals("ADMIN")) {
             return "redirect:/dashboard";
         }
 
@@ -83,11 +82,10 @@ public class ViewController {
         User courier = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (courier.getRole() != User.UserRole.COURIER) {
+        if (!courier.getRole().getRoleName().equals("COURIER")) {
             return "redirect:/dashboard";
         }
 
- 
         List<Package> availablePackages = packageRepository.findByStatus(Package.PackageStatus.PENDING);
 
         List<Package> activeDeliveries = packageRepository.findByCourierAndStatusIn(
@@ -112,11 +110,9 @@ public class ViewController {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (user.getRole() != User.UserRole.CUSTOMER) {
+        if (!user.getRole().getRoleName().equals("CUSTOMER")) {
             return "redirect:/dashboard";
         }
-
-      
 
         List<Package> myPackages = packageRepository.findByCustomer(user);
 

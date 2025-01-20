@@ -54,13 +54,55 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label for="role" class="form-label">Role</label>
-                    <form:select path="role" class="form-control" required="true">
-                        <form:option value="CUSTOMER">Customer</form:option>
-                        <form:option value="COURIER">Courier</form:option>
-                    </form:select>
-                    <form:errors path="role" cssClass="error-message"/>
+                    <label for="roleType" class="form-label">Role</label>
+                    <select name="roleType" class="form-control" id="roleType" required>
+                        <option value="CUSTOMER">Customer</option>
+                        <option value="COURIER">Courier</option>
+                    </select>
                 </div>
+                
+                <!-- Customer Fields -->
+                <div id="customerFields" class="role-fields">
+                    <div class="mb-3">
+                        <label for="deliveryAddress" class="form-label">Delivery Address</label>
+                        <input type="text" name="deliveryAddress" class="form-control"/>
+                    </div>
+                    <div class="mb-3">
+                        <label for="billingAddress" class="form-label">Billing Address</label>
+                        <input type="text" name="billingAddress" class="form-control"/>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phoneNumber" class="form-label">Phone Number</label>
+                        <input type="text" name="phoneNumber" class="form-control"/>
+                    </div>
+                </div>
+                
+                <!-- Courier Fields -->
+                <div id="courierFields" class="role-fields" style="display: none;">
+                    <div class="mb-3">
+                        <label for="vehicleType" class="form-label">Vehicle Type</label>
+                        <select name="vehicleType" class="form-control">
+                            <option value="CAR">Car</option>
+                            <option value="MOTORCYCLE">Motorcycle</option>
+                            <option value="BICYCLE">Bicycle</option>
+                        </select>
+                    </div>
+                </div>
+
+                <script>
+                    document.getElementById('roleType').addEventListener('change', function() {
+                        const customerFields = document.getElementById('customerFields');
+                        const courierFields = document.getElementById('courierFields');
+                        
+                        if (this.value === 'CUSTOMER') {
+                            customerFields.style.display = 'block';
+                            courierFields.style.display = 'none';
+                        } else {
+                            customerFields.style.display = 'none';
+                            courierFields.style.display = 'block';
+                        }
+                    });
+                </script>
                 
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary">Sign Up</button>

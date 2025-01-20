@@ -4,7 +4,7 @@ import com.example.courierdistributionsystem.model.Package;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.PackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
-import com.example.courierdistributionsystem.service.WebSocketService;
+import com.example.courierdistributionsystem.endpoints.WebSocketService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
