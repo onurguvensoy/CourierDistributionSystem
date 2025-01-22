@@ -1,3 +1,4 @@
+/*
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.DeliveryReport;
@@ -104,4 +105,4 @@ public class DeliveryReportController {
         deliveryReportRepository.delete(report);
         return ResponseEntity.ok().build();
     }
-} 
+} */

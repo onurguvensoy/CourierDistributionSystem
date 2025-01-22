@@ -2,8 +2,7 @@ package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.Package;
 import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.PackageRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.service.ViewService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,16 +18,17 @@ import java.util.List;
 public class ViewController {
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PackageRepository packageRepository;
+    private ViewService viewService;
 
     @Value("${google.maps.api.key}")
     private String googleMapsApiKey;
 
-    @GetMapping("/")
-    public String home() {
+    @GetMapping
+    public String home(HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        if (username != null) {
+            return "redirect:/dashboard";
+        }
         return "redirect:/auth/login";
     }
 
@@ -38,20 +38,7 @@ public class ViewController {
         if (username == null) {
             return "redirect:/auth/login";
         }
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        switch (user.getRole().getRoleName()) {
-            case "ADMIN":
-                return "redirect:/admin/dashboard";
-            case "COURIER":
-                return "redirect:/courier/dashboard";
-            case "CUSTOMER":
-                return "redirect:/customer/dashboard";
-            default:
-                return "redirect:/auth/login";
-        }
+        return viewService.getDashboardRedirect(username);
     }
 
     @GetMapping("/admin/dashboard")
@@ -61,10 +48,8 @@ public class ViewController {
             return "redirect:/auth/login";
         }
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!user.getRole().getRoleName().equals("ADMIN")) {
+        User user = viewService.getUserByUsername(username);
+        if (!viewService.isValidRole(user, "ADMIN")) {
             return "redirect:/dashboard";
         }
 
@@ -79,19 +64,13 @@ public class ViewController {
             return "redirect:/auth/login";
         }
 
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!courier.getRole().getRoleName().equals("COURIER")) {
+        User courier = viewService.getUserByUsername(username);
+        if (!viewService.isValidRole(courier, "COURIER")) {
             return "redirect:/dashboard";
         }
 
-        List<Package> availablePackages = packageRepository.findByStatus(Package.PackageStatus.PENDING);
-
-        List<Package> activeDeliveries = packageRepository.findByCourierAndStatusIn(
-            courier, 
-            List.of(Package.PackageStatus.ASSIGNED, Package.PackageStatus.PICKED_UP)
-        );
+        List<Package> availablePackages = viewService.getAvailablePackages();
+        List<Package> activeDeliveries = viewService.getActiveDeliveries(courier);
 
         model.addAttribute("user", courier);
         model.addAttribute("availablePackages", availablePackages);
@@ -107,14 +86,12 @@ public class ViewController {
             return "redirect:/auth/login";
         }
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!user.getRole().getRoleName().equals("CUSTOMER")) {
+        User user = viewService.getUserByUsername(username);
+        if (!viewService.isValidRole(user, "CUSTOMER")) {
             return "redirect:/dashboard";
         }
 
-        List<Package> myPackages = packageRepository.findByCustomer(user);
+        List<Package> myPackages = viewService.getCustomerPackages(user);
 
         model.addAttribute("user", user);
         model.addAttribute("myPackages", myPackages);

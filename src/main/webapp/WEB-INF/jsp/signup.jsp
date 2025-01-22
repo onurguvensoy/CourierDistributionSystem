@@ -34,7 +34,7 @@
                 <div class="error-message text-center">${error}</div>
             </c:if>
             
-            <form:form action="/auth/signup" method="post" modelAttribute="user">
+            <form:form action="/auth/signup" method="post" modelAttribute="signupForm">
                 <div class="mb-3">
                     <label for="username" class="form-label">Username</label>
                     <form:input path="username" class="form-control" required="true"/>
@@ -55,25 +55,25 @@
                 
                 <div class="mb-3">
                     <label for="roleType" class="form-label">Role</label>
-                    <select name="roleType" class="form-control" id="roleType" required>
-                        <option value="CUSTOMER">Customer</option>
-                        <option value="COURIER">Courier</option>
-                    </select>
+                    <form:select path="roleType" class="form-control" required="true">
+                        <form:option value="CUSTOMER">Customer</form:option>
+                        <form:option value="COURIER">Courier</form:option>
+                    </form:select>
                 </div>
                 
                 <!-- Customer Fields -->
                 <div id="customerFields" class="role-fields">
                     <div class="mb-3">
                         <label for="deliveryAddress" class="form-label">Delivery Address</label>
-                        <input type="text" name="deliveryAddress" class="form-control"/>
+                        <form:input path="deliveryAddress" class="form-control"/>
                     </div>
                     <div class="mb-3">
                         <label for="billingAddress" class="form-label">Billing Address</label>
-                        <input type="text" name="billingAddress" class="form-control"/>
+                        <form:input path="billingAddress" class="form-control"/>
                     </div>
                     <div class="mb-3">
                         <label for="phoneNumber" class="form-label">Phone Number</label>
-                        <input type="text" name="phoneNumber" class="form-control"/>
+                        <form:input path="phoneNumber" class="form-control"/>
                     </div>
                 </div>
                 
@@ -81,11 +81,11 @@
                 <div id="courierFields" class="role-fields" style="display: none;">
                     <div class="mb-3">
                         <label for="vehicleType" class="form-label">Vehicle Type</label>
-                        <select name="vehicleType" class="form-control">
-                            <option value="CAR">Car</option>
-                            <option value="MOTORCYCLE">Motorcycle</option>
-                            <option value="BICYCLE">Bicycle</option>
-                        </select>
+                        <form:select path="vehicleType" class="form-control">
+                            <form:option value="CAR">Car</form:option>
+                            <form:option value="MOTORCYCLE">Motorcycle</form:option>
+                            <form:option value="BICYCLE">Bicycle</form:option>
+                        </form:select>
                     </div>
                 </div>
 

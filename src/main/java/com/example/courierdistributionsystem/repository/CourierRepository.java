@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CourierAvailabilityRepository extends JpaRepository<CourierAvailability, Long> {
+public interface CourierRepository extends JpaRepository<CourierAvailability, Long> {
     Optional<CourierAvailability> findByCourier(User courier);
     List<CourierAvailability> findByAvailableTrue();
     List<CourierAvailability> findByCurrentZone(String zone);

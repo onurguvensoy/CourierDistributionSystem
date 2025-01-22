@@ -1,3 +1,4 @@
+/*
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.Rating;
@@ -72,4 +73,4 @@ public class RatingController {
         ratingRepository.delete(rating);
         return ResponseEntity.ok().build();
     }
-} 
+} */

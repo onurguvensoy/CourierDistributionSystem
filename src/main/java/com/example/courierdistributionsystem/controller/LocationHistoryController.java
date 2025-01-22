@@ -1,3 +1,4 @@
+/*
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.LocationHistory;
@@ -41,4 +42,4 @@ public class LocationHistoryController {
                 .orElseThrow(() -> new RuntimeException("Package not found"));
         return locationHistoryRepository.findByDeliveryPackage(deliveryPackage);
     }
-} 
+} */
