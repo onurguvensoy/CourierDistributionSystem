@@ -32,10 +32,26 @@ public class AuthService {
             String email = signupData.get("email");
             String password = signupData.get("password");
             String roleType = signupData.get("roleType");
+            String phoneNumber = signupData.get("phoneNumber");
+            String deliveryAddress = signupData.get("deliveryAddress");
+            String vehicleType = signupData.get("vehicleType");
             
             if (username == null || email == null || password == null || roleType == null) {
                 response.put("error", "Missing required fields");
                 return response;
+            }
+
+            // Role-specific validation
+            if (roleType.equals("CUSTOMER")) {
+                if (phoneNumber == null || deliveryAddress == null) {
+                    response.put("error", "Phone number and delivery address are required for customers");
+                    return response;
+                }
+            } else if (roleType.equals("COURIER")) {
+                if (phoneNumber == null) {
+                    response.put("error", "Phone number is required for couriers");
+                    return response;
+                }
             }
 
             if (isUsernameExists(username)) {
@@ -59,14 +75,16 @@ public class AuthService {
             if (roleType.equals("CUSTOMER")) {
                 Customer customer = Customer.builder()
                         .user(user)
-                        .deliveryAddress(signupData.get("deliveryAddress"))
-                        .phoneNumber(signupData.get("phoneNumber"))
+                        .deliveryAddress(deliveryAddress)
+                        .phoneNumber(phoneNumber)
+                        .createdAt(LocalDateTime.now())
+                        .averageRating(0.0)
                         .build();
                 user.setCustomer(customer);
             } else if (roleType.equals("COURIER")) {
                 Courier courier = Courier.builder()
                         .user(user)
-                        .phoneNumber(signupData.get("phoneNumber"))
+                        .phoneNumber(phoneNumber)
                         .isAvailable(true)
                         .build();
                 user.setCourier(courier);

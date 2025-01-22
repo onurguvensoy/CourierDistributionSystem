@@ -15,6 +15,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Controller
 @RequestMapping("/")
@@ -39,24 +40,19 @@ public class ViewController {
     }
 
     @GetMapping("/auth/login")
-    public String showLoginForm(@RequestParam(required = false) String error,
-                              @RequestParam(required = false) String registered,
-                              @RequestParam(required = false) String logout,
-                              Model model,
-                              HttpSession session) {
+    public String showLoginForm(Model model, HttpSession session) {
         if (session.getAttribute("username") != null) {
             return "redirect:/dashboard";
         }
-
-        if (error != null) {
-            model.addAttribute("error", "Invalid username or password");
+        
+        if (model.containsAttribute("error")) {
+            model.addAttribute("error", model.getAttribute("error"));
         }
-        if (registered != null) {
-            model.addAttribute("message", "Registration successful! Please login");
+        
+        if (model.containsAttribute("message")) {
+            model.addAttribute("message", model.getAttribute("message"));
         }
-        if (logout != null) {
-            model.addAttribute("message", "You have been logged out successfully");
-        }
+        
         return "login";
     }
 
@@ -71,7 +67,7 @@ public class ViewController {
         ));
 
         if (response.containsKey("error")) {
-            redirectAttributes.addAttribute("error", true);
+            redirectAttributes.addFlashAttribute("error", response.get("error"));
             return "redirect:/auth/login";
         }
 
@@ -92,40 +88,62 @@ public class ViewController {
         if (session.getAttribute("username") != null) {
             return "redirect:/dashboard";
         }
-
-        model.addAttribute("signupForm", new SignupForm());
+        
+        if (!model.containsAttribute("signupForm")) {
+            model.addAttribute("signupForm", new SignupForm());
+        }
+        
         return "signup";
     }
 
     @PostMapping("/auth/signup")
-    public String signup(@ModelAttribute SignupForm signupForm,
-                        RedirectAttributes redirectAttributes) {
-        try {
-            authService.PostSignup(signupForm.getUsername(), 
-                                 signupForm.getEmail(), 
-                                 signupForm.getPassword(), 
-                                 signupForm.getRoleType());
-            redirectAttributes.addAttribute("registered", true);
-            return "redirect:/auth/login";
-        } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-            return "redirect:/auth/signup";
+    public String handleSignup(@ModelAttribute SignupForm signupForm, 
+                             Model model, 
+                             HttpSession session,
+                             RedirectAttributes redirectAttributes) {
+        Map<String, String> signupData = new HashMap<>();
+        signupData.put("username", signupForm.getUsername());
+        signupData.put("email", signupForm.getEmail());
+        signupData.put("password", signupForm.getPassword());
+        signupData.put("roleType", signupForm.getRoleType());
+        signupData.put("phoneNumber", signupForm.getPhoneNumber());
+        signupData.put("deliveryAddress", signupForm.getDeliveryAddress());
+        signupData.put("vehicleType", signupForm.getVehicleType());
+        
+        Map<String, String> response = authService.CheckSignup(signupData);
+        
+        if (response.containsKey("error")) {
+            model.addAttribute("error", response.get("error"));
+            model.addAttribute("signupForm", signupForm);
+            return "signup";
         }
+        
+        redirectAttributes.addFlashAttribute("message", "Registration successful! Please login.");
+        return "redirect:/auth/login";
     }
 
-    @PostMapping("/auth/logout")
-    public String logout(HttpSession session) {
-        session.invalidate();
-        return "redirect:/auth/login?logout=true";
+    @RequestMapping(value = "/auth/logout", method = {RequestMethod.GET, RequestMethod.POST})
+    public String logout(HttpSession session, RedirectAttributes redirectAttributes) {
+        authService.logoutUser();
+        redirectAttributes.addFlashAttribute("message", "You have been logged out successfully");
+        return "redirect:/auth/login";
     }
 
     @GetMapping("/dashboard")
-    public String dashboard(HttpSession session) {
+    public String dashboard(HttpSession session, RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
             return "redirect:/auth/login";
         }
-        return viewService.getDashboardRedirect(username);
+        
+        try {
+            return viewService.getDashboardRedirect(username);
+        } catch (RuntimeException e) {
+            // If user not found in database but exists in session, invalidate session
+            session.invalidate();
+            redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
+            return "redirect:/auth/login";
+        }
     }
 
     @GetMapping("/admin/dashboard")
