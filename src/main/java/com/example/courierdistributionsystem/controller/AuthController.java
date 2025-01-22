@@ -1,18 +1,16 @@
 package com.example.courierdistributionsystem.controller;
-import com.example.courierdistributionsystem.model.SignupForm;
+
 import com.example.courierdistributionsystem.service.AuthService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-
 
 import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     @Autowired
@@ -23,13 +21,11 @@ public class AuthController {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            // Extract required fields
             String username = signupRequest.get("username");
             String email = signupRequest.get("email");
             String password = signupRequest.get("password");
             String roleType = signupRequest.get("roleType");
             
-            // Validate required fields
             if (username == null || email == null || password == null || roleType == null) {
                 response.put("status", "error");
                 response.put("message", "Missing required fields");
@@ -104,39 +100,6 @@ public class AuthController {
             response.put("message", "An error occurred during logout");
             return ResponseEntity.internalServerError().body(response);
         }
-    }
-
-    // Web view endpoints
-    @GetMapping("/login")
-    public String showLoginForm(@RequestParam(required = false) String error,
-                              @RequestParam(required = false) String registered,
-                              @RequestParam(required = false) String logout,
-                              Model model,
-                              HttpSession session) {
-        if (session.getAttribute("username") != null) {
-            return "redirect:/dashboard";
-        }
-
-        if (error != null) {
-            model.addAttribute("error", "Invalid username or password");
-        }
-        if (registered != null) {
-            model.addAttribute("message", "Registration successful! Please login");
-        }
-        if (logout != null) {
-            model.addAttribute("message", "You have been logged out successfully");
-        }
-        return "login";
-    }
-
-    @GetMapping("/signup")
-    public String showSignupForm(Model model, HttpSession session) {
-        if (session.getAttribute("username") != null) {
-            return "redirect:/dashboard";
-        }
-
-        model.addAttribute("signupForm", new SignupForm());
-        return "signup";
     }
 }
 
