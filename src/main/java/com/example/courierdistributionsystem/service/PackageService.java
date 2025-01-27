@@ -1,4 +1,3 @@
-/*
 package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.model.Package;
@@ -7,7 +6,10 @@ import com.example.courierdistributionsystem.repository.PackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PackageService {
@@ -21,98 +23,123 @@ public class PackageService {
     @Autowired
     private WebSocketService webSocketService;
 
-    public Package createPackage(Package packageRequest, String username) {
-        User customer = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-                
-        if (customer.getRole() != User.UserRole.CUSTOMER) {
-            throw new IllegalStateException("Only customers can create packages");
-        }
-        
-        packageRequest.setCustomer(customer);
-        packageRequest.setStatus(Package.PackageStatus.PENDING);
-        
-        Package savedPackage = packageRepository.save(packageRequest);
-        webSocketService.notifyNewPackageAvailable(savedPackage);
-        
-        return savedPackage;
+    public List<Package> getAllPackages() {
+        return packageRepository.findAll();
     }
 
     public Package getPackageById(Long id) {
         return packageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Package not found with id: " + id));
+            .orElseThrow(() -> new IllegalArgumentException("Package not found with id: " + id));
     }
 
-    public Package takePackage(Long packageId, String username) {
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public Package createPackage(Map<String, String> packageRequest) {
+        String username = packageRequest.get("username");
+        String pickupAddress = packageRequest.get("pickupAddress");
+        String deliveryAddress = packageRequest.get("deliveryAddress");
+        String description = packageRequest.get("description");
+        String weightStr = packageRequest.get("weight");
 
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalStateException("Only couriers can accept packages");
+        if (username == null || pickupAddress == null || deliveryAddress == null) {
+            throw new IllegalArgumentException("Missing required fields");
         }
 
-        Package pkg = getPackageById(packageId);
+        User customer = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
-        if (pkg.getStatus() != Package.PackageStatus.PENDING) {
-            throw new IllegalStateException("Package is no longer available");
-        }
-
-        pkg.setCourier(courier);
-        pkg.setStatus(Package.PackageStatus.ASSIGNED);
-        pkg = packageRepository.save(pkg);
-        
-        webSocketService.notifyPackageStatusUpdate(pkg);
-        
-        return pkg;
-    }
-
-    public Package updateDeliveryStatus(Long packageId, String status, String username) {
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalStateException("Only couriers can update package status");
-        }
-
-        Package pkg = getPackageById(packageId);
-
-        if (!pkg.getCourier().getId().equals(courier.getId())) {
-            throw new IllegalStateException("You are not assigned to this package");
-        }
-
-        try {
-            Package.PackageStatus newStatus = Package.PackageStatus.valueOf(status);
-            pkg.setStatus(newStatus);
-            pkg = packageRepository.save(pkg);
-            
-            webSocketService.notifyPackageStatusUpdate(pkg);
-            
-            return pkg;
-        } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("Invalid status");
-        }
-    }
-
-    public List<Package> getAvailablePackages() {
-        return packageRepository.findByStatus(Package.PackageStatus.PENDING);
-    }
-
-    public List<Package> getActiveDeliveries(User courier) {
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalStateException("Only couriers can view active deliveries");
-        }
-        
-        return packageRepository.findByCourierAndStatusIn(
-            courier, 
-            List.of(Package.PackageStatus.ASSIGNED, Package.PackageStatus.PICKED_UP)
-        );
-    }
-
-    public List<Package> getCustomerPackages(User customer) {
         if (customer.getRole() != User.UserRole.CUSTOMER) {
-            throw new IllegalStateException("Only customers can view their packages");
+            throw new IllegalArgumentException("Only customers can create packages");
+        }
+
+        Package newPackage = Package.builder()
+            .customer(customer)
+            .pickupAddress(pickupAddress)
+            .deliveryAddress(deliveryAddress)
+            .description(description)
+            .weight(weightStr != null ? Double.parseDouble(weightStr) : 0.0)
+            .status(Package.PackageStatus.PENDING)
+            .createdAt(LocalDateTime.now())
+            .build();
+
+        Package savedPackage = packageRepository.save(newPackage);
+        webSocketService.notifyNewPackageAvailable(savedPackage);
+        return savedPackage;
+    }
+
+    public Package updatePackage(Long id, Map<String, String> packageRequest) {
+        Package existingPackage = getPackageById(id);
+
+        if (packageRequest.containsKey("status")) {
+            existingPackage.setStatus(Package.PackageStatus.valueOf(packageRequest.get("status")));
+        }
+        if (packageRequest.containsKey("deliveryAddress")) {
+            existingPackage.setDeliveryAddress(packageRequest.get("deliveryAddress"));
+        }
+        if (packageRequest.containsKey("pickupAddress")) {
+            existingPackage.setPickupAddress(packageRequest.get("pickupAddress"));
+        }
+        if (packageRequest.containsKey("description")) {
+            existingPackage.setDescription(packageRequest.get("description"));
+        }
+        if (packageRequest.containsKey("weight")) {
+            existingPackage.setWeight(Double.parseDouble(packageRequest.get("weight")));
+        }
+
+        Package updatedPackage = packageRepository.save(existingPackage);
+        if (updatedPackage.getCourier() != null) {
+            webSocketService.notifyPackageStatusUpdate(updatedPackage);
+        }
+        return updatedPackage;
+    }
+
+    public void deletePackage(Long id) {
+        Package package_ = getPackageById(id);
+        if (package_.getStatus() != Package.PackageStatus.PENDING) {
+            throw new IllegalArgumentException("Cannot delete package that is not in PENDING status");
+        }
+        packageRepository.delete(package_);
+    }
+
+    public List<Package> getCustomerPackages(String username) {
+        User customer = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+        
+        if (customer.getRole() != User.UserRole.CUSTOMER) {
+            throw new IllegalArgumentException("User is not a customer");
         }
         
         return packageRepository.findByCustomer(customer);
     }
-} */
+
+    public List<Package> getCourierPackages(String username) {
+        User courier = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+        
+        if (courier.getRole() != User.UserRole.COURIER) {
+            throw new IllegalArgumentException("User is not a courier");
+        }
+        
+        return packageRepository.findByCourier(courier);
+    }
+
+    public Package assignPackage(Long id, String username) {
+        Package package_ = getPackageById(id);
+        User courier = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+
+        if (courier.getRole() != User.UserRole.COURIER) {
+            throw new IllegalArgumentException("User is not a courier");
+        }
+
+        if (package_.getStatus() != Package.PackageStatus.PENDING) {
+            throw new IllegalArgumentException("Package is not available for assignment");
+        }
+
+        package_.setCourier(courier);
+        package_.setStatus(Package.PackageStatus.ASSIGNED);
+        package_.setAssignedAt(LocalDateTime.now());
+
+        Package updatedPackage = packageRepository.save(package_);
+        webSocketService.notifyPackageStatusUpdate(updatedPackage);
+        return updatedPackage;
+    }
+}

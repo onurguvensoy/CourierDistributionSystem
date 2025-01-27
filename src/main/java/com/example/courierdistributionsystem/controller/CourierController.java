@@ -1,62 +1,111 @@
-/*
 package com.example.courierdistributionsystem.controller;
 
-import com.example.courierdistributionsystem.service.PackageService;
-import jakarta.servlet.http.HttpSession;
+import com.example.courierdistributionsystem.model.Courier;
+import com.example.courierdistributionsystem.service.CourierService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-@Controller
-@RequestMapping("/courier")
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/courier")
 public class CourierController {
 
     @Autowired
-    private PackageService packageService;
+    private CourierService courierService;
 
-    @PostMapping("/take-package")
-    public String takePackage(@RequestParam Long packageId,
-                            HttpSession session,
-                            RedirectAttributes redirectAttributes) {
-        String username = (String) session.getAttribute("username");
-        if (username == null) {
-            return "redirect:/auth/login";
-        }
-
+    @GetMapping("/{userId}")
+    public ResponseEntity<?> getCourierProfile(@PathVariable Long userId) {
+        Map<String, Object> response = new HashMap<>();
         try {
-            packageService.takePackage(packageId, username);
-            redirectAttributes.addFlashAttribute("message", "Package assigned successfully");
-        } catch (IllegalStateException e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-        } catch (RuntimeException e) {
-            redirectAttributes.addFlashAttribute("error", "An error occurred while taking the package");
+            Courier courier = courierService.getCourierByUserId(userId);
+            if (courier == null) {
+                response.put("status", "error");
+                response.put("message", "Courier profile not found");
+                return ResponseEntity.badRequest().body(response);
+            }
+            response.put("status", "success");
+            response.put("data", courier);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to fetch courier profile: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
-
-        return "redirect:/courier/dashboard";
     }
 
-    @PostMapping("/update-delivery-status")
-    public String updateDeliveryStatus(@RequestParam Long packageId,
-                                     @RequestParam String status,
-                                     HttpSession session,
-                                     RedirectAttributes redirectAttributes) {
-        String username = (String) session.getAttribute("username");
-        if (username == null) {
-            return "redirect:/auth/login";
-        }
-
+    @GetMapping("/available")
+    public ResponseEntity<?> getAvailableCouriers() {
+        Map<String, Object> response = new HashMap<>();
         try {
-            packageService.updateDeliveryStatus(packageId, status, username);
-            redirectAttributes.addFlashAttribute("message", "Delivery status updated successfully");
-        } catch (IllegalStateException e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
-        } catch (RuntimeException e) {
-            redirectAttributes.addFlashAttribute("error", "An error occurred while updating the status");
+            List<Courier> couriers = courierService.getAvailableCouriers();
+            response.put("status", "success");
+            response.put("data", couriers);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to fetch available couriers: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
-
-        return "redirect:/courier/dashboard";
     }
-} */
+
+    @PostMapping("/{userId}")
+    public ResponseEntity<?> createCourierProfile(@PathVariable Long userId, @RequestBody Map<String, String> courierRequest) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Courier courier = courierService.createCourierProfile(userId, courierRequest);
+            response.put("status", "success");
+            response.put("data", courier);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to create courier profile: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PutMapping("/{userId}")
+    public ResponseEntity<?> updateCourierProfile(@PathVariable Long userId, @RequestBody Map<String, String> courierRequest) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Courier courier = courierService.updateCourierProfile(userId, courierRequest);
+            response.put("status", "success");
+            response.put("data", courier);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to update courier profile: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PutMapping("/{userId}/location")
+    public ResponseEntity<?> updateCourierLocation(@PathVariable Long userId, @RequestBody Map<String, String> locationRequest) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            courierService.updateCourierLocation(userId, locationRequest);
+            response.put("status", "success");
+            response.put("message", "Location updated successfully");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to update courier location: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+}

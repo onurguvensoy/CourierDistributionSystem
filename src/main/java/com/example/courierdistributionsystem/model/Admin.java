@@ -10,20 +10,21 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "customers")
-public class Customer {
+@Table(name = "admin")
+public class Admin {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @MapsId
+    @JoinColumn(name = "id")
     private User user;
-
-    private String phoneNumber;
-    private String deliveryAddress;
-    private Double averageRating;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
-} 
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+}

@@ -13,7 +13,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>CourierDistributionSystem</name>
-	<description>Courier Distribution System with Role-Based Access</description>
+	<description>Courier Distribution System</description>
 	<url/>
 	<licenses>
 		<license/>

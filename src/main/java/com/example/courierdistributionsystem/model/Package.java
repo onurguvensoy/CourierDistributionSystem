@@ -1,27 +1,26 @@
 package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "packages")
 public class Package {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "customer_id", nullable = false)
     private User customer;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "courier_id")
     private User courier;
 
@@ -31,32 +30,44 @@ public class Package {
     @Column(nullable = false)
     private String deliveryAddress;
 
-    @Column(nullable = false)
-    private Double weight;
-
-    @Column(nullable = false)
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PackageStatus status = PackageStatus.PENDING;
+    private Double weight;
 
-    private LocalDateTime preferredDeliveryTime;
-    
-    private String deliveryTimeWindow;
-    
+    @Enumerated(EnumType.STRING)
+    private PackageStatus status;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime assignedAt;
+    private LocalDateTime pickedUpAt;
+    private LocalDateTime deliveredAt;
+    private LocalDateTime cancelledAt;
+
+    private Double currentLatitude;
+    private Double currentLongitude;
+    private String currentLocation;
+
     private String specialInstructions;
 
     public enum PackageStatus {
         PENDING,
-        CREATED,
         ASSIGNED,
         PICKED_UP,
+        IN_TRANSIT,
         DELIVERED,
         CANCELLED
     }
 
-    // Alias methods for backward compatibility
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (status == null) {
+            status = PackageStatus.PENDING;
+        }
+    }
+
     public PackageStatus getCurrentStatus() {
         return this.status;
     }

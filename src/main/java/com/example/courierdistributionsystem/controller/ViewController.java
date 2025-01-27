@@ -139,7 +139,6 @@ public class ViewController {
         try {
             return viewService.getDashboardRedirect(username);
         } catch (RuntimeException e) {
-            // If user not found in database but exists in session, invalidate session
             session.invalidate();
             redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
             return "redirect:/auth/login";
@@ -203,4 +202,4 @@ public class ViewController {
         model.addAttribute("googleMapsApiKey", googleMapsApiKey);
         return "customer_dashboard";
     }
-} 
+}

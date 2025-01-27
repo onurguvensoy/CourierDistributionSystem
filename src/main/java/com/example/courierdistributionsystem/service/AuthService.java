@@ -34,14 +34,13 @@ public class AuthService {
             String roleType = signupData.get("roleType");
             String phoneNumber = signupData.get("phoneNumber");
             String deliveryAddress = signupData.get("deliveryAddress");
-            String vehicleType = signupData.get("vehicleType");
+
             
             if (username == null || email == null || password == null || roleType == null) {
                 response.put("error", "Missing required fields");
                 return response;
             }
 
-            // Role-specific validation
             if (roleType.equals("CUSTOMER")) {
                 if (phoneNumber == null || deliveryAddress == null) {
                     response.put("error", "Phone number and delivery address are required for customers");
@@ -85,7 +84,7 @@ public class AuthService {
                 Courier courier = Courier.builder()
                         .user(user)
                         .phoneNumber(phoneNumber)
-                        .isAvailable(true)
+                        .available(true)
                         .build();
                 user.setCourier(courier);
             }
@@ -189,7 +188,7 @@ public class AuthService {
         } else if (roleType.equals("COURIER")) {
             Courier courier = Courier.builder()
                     .user(user)
-                    .isAvailable(true)
+                    .available(true)
                     .build();
             user.setCourier(courier);
         }

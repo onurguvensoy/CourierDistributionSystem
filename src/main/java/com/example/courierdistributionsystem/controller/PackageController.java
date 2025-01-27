@@ -1,115 +1,167 @@
-/*
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.Package;
-import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.PackageRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
-import com.example.courierdistributionsystem.service.WebSocketService;
+import com.example.courierdistributionsystem.service.PackageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/packages")
+@RequestMapping("/api/package")
 public class PackageController {
 
     @Autowired
-    private PackageRepository packageRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private WebSocketService webSocketService;
+    private PackageService packageService;
 
     @GetMapping
-    public List<Package> getAllPackages() {
-        return packageRepository.findAll();
-    }
-
-    @GetMapping("/my-packages")
-    public List<Package> getMyPackages(@RequestParam String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return packageRepository.findByCustomer(user);
-    }
-
-    @GetMapping("/assigned-packages")
-    public List<Package> getAssignedPackages(@RequestParam String username) {
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return packageRepository.findByCourier(courier);
+    public ResponseEntity<?> getAllPackages() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<Package> packages = packageService.getAllPackages();
+            response.put("status", "success");
+            response.put("data", packages);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to fetch packages: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 
     @PostMapping
-    public Package createPackage(@Valid @RequestBody Package packageRequest, @RequestParam String username) {
-        User customer = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        packageRequest.setCustomer(customer);
-        packageRequest.setStatus(Package.PackageStatus.PENDING);
-        
-        Package savedPackage = packageRepository.save(packageRequest);
-        
-        // Notify all couriers about the new available package
-        webSocketService.notifyNewPackageAvailable(savedPackage);
-        
-        return savedPackage;
+    public ResponseEntity<?> createPackage(@RequestBody Map<String, String> packageRequest) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Package newPackage = packageService.createPackage(packageRequest);
+            response.put("status", "success");
+            response.put("data", newPackage);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to create package: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Package> getPackageById(@PathVariable Long id) {
-        Package package_ = packageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Package not found with id: " + id));
-        return ResponseEntity.ok(package_);
+    public ResponseEntity<?> getPackageById(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Package package_ = packageService.getPackageById(id);
+            response.put("status", "success");
+            response.put("data", package_);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to fetch package: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Package> updatePackage(@PathVariable Long id, @Valid @RequestBody Package packageDetails) {
-        Package package_ = packageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Package not found with id: " + id));
-
-        package_.setStatus(packageDetails.getStatus());
-        package_.setDeliveryAddress(packageDetails.getDeliveryAddress());
-        package_.setPickupAddress(packageDetails.getPickupAddress());
-        package_.setDescription(packageDetails.getDescription());
-        package_.setWeight(packageDetails.getWeight());
-
-        Package updatedPackage = packageRepository.save(package_);
-        
-        // Notify about package updates
-        if (updatedPackage.getCourier() != null) {
-            webSocketService.notifyPackageStatusUpdate(updatedPackage);
+    public ResponseEntity<?> updatePackage(@PathVariable Long id, @RequestBody Map<String, String> packageRequest) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Package updatedPackage = packageService.updatePackage(id, packageRequest);
+            response.put("status", "success");
+            response.put("data", updatedPackage);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to update package: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
-        
-        return ResponseEntity.ok(updatedPackage);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletePackage(@PathVariable Long id) {
-        Package package_ = packageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Package not found with id: " + id));
-        packageRepository.delete(package_);
-        return ResponseEntity.ok().build();
+        Map<String, Object> response = new HashMap<>();
+        try {
+            packageService.deletePackage(id);
+            response.put("status", "success");
+            response.put("message", "Package deleted successfully");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to delete package: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @GetMapping("/customer/{username}")
+    public ResponseEntity<?> getCustomerPackages(@PathVariable String username) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<Package> packages = packageService.getCustomerPackages(username);
+            response.put("status", "success");
+            response.put("data", packages);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to fetch customer packages: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @GetMapping("/courier/{username}")
+    public ResponseEntity<?> getCourierPackages(@PathVariable String username) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<Package> packages = packageService.getCourierPackages(username);
+            response.put("status", "success");
+            response.put("data", packages);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to fetch courier packages: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 
     @PutMapping("/{id}/assign")
-    public ResponseEntity<Package> assignPackage(@PathVariable Long id, @RequestParam String username) {
-        Package package_ = packageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Package not found with id: " + id));
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        package_.setCourier(courier);
-        package_.setStatus(Package.PackageStatus.ASSIGNED);
-        Package updatedPackage = packageRepository.save(package_);
-        
-        // Notify about package assignment
-        webSocketService.notifyPackageStatusUpdate(updatedPackage);
-        
-        return ResponseEntity.ok(updatedPackage);
+    public ResponseEntity<?> assignPackage(@PathVariable Long id, @RequestParam String username) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Package assignedPackage = packageService.assignPackage(id, username);
+            response.put("status", "success");
+            response.put("data", assignedPackage);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Failed to assign package: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
-} */
+}
