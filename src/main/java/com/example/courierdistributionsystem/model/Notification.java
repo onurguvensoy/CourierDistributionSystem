@@ -17,8 +17,8 @@ public class Notification {
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "package_id")
-    private Package package_;
+    @JoinColumn(name = "delivery_package_id")
+    private DeliveryPackage deliveryPackage;
 
     @Enumerated(EnumType.STRING)
     private NotificationType type;

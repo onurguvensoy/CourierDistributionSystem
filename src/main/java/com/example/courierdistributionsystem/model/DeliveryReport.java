@@ -15,8 +15,8 @@ public class DeliveryReport {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "package_id")
-    private Package deliveryPackage;
+    @JoinColumn(name = "delivery_package_id")
+    private DeliveryPackage deliveryPackage;
 
     @ManyToOne
     @JoinColumn(name = "courier_id")

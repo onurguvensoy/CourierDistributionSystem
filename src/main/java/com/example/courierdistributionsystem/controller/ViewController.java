@@ -1,7 +1,7 @@
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.SignupForm;
-import com.example.courierdistributionsystem.model.Package;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.service.ViewService;
 import com.example.courierdistributionsystem.service.AuthService;
@@ -173,8 +173,8 @@ public class ViewController {
             return "redirect:/dashboard";
         }
 
-        List<Package> availablePackages = viewService.getAvailablePackages();
-        List<Package> activeDeliveries = viewService.getActiveDeliveries(courier);
+        List<DeliveryPackage> availablePackages = viewService.getAvailablePackages();
+        List<DeliveryPackage> activeDeliveries = viewService.getActiveDeliveries(courier);
 
         model.addAttribute("user", courier);
         model.addAttribute("availablePackages", availablePackages);
@@ -195,7 +195,7 @@ public class ViewController {
             return "redirect:/dashboard";
         }
 
-        List<Package> myPackages = viewService.getCustomerPackages(user);
+        List<DeliveryPackage> myPackages = viewService.getCustomerPackages(user);
 
         model.addAttribute("user", user);
         model.addAttribute("myPackages", myPackages);

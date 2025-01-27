@@ -350,7 +350,7 @@
                                                 <td>${deliveryPackage.pickupAddress}</td>
                                                 <td>${deliveryPackage.deliveryAddress}</td>
                                                 <td class="package-status">${deliveryPackage.status}</td>
-                                                <td>${deliveryPackage.courier != null ? deliveryPackage.courier.username : 'Not Assigned'}</td>
+                                                <td>${deliveryPackage.courierUsername != null ? deliveryPackage.courierUsername : 'Not Assigned'}</td>
                                             </tr>
                                         </c:forEach>
                                     </tbody>
@@ -404,11 +404,20 @@
                     // Subscribe to package updates for this customer
                     stompClient.subscribe('/topic/customer/' + userId + '/package-updates', function(message) {
                         try {
-                            var deliveryPackage = JSON.parse(message.body);
-                            updatePackageInTable(deliveryPackage);
-                            // Update map markers if map is initialized
-                            if (map && geocoder) {
-                                addPackageToMap(deliveryPackage);
+                            var data = JSON.parse(message.body);
+                            if (data.type === 'NEW_PACKAGE' || data.type === 'STATUS_UPDATE') {
+                                var deliveryPackage = {
+                                    id: data.id,
+                                    pickupAddress: data.pickupAddress,
+                                    deliveryAddress: data.deliveryAddress,
+                                    status: data.status,
+                                    courierUsername: data.courierUsername
+                                };
+                                updatePackageInTable(deliveryPackage);
+                                // Update map markers if map is initialized
+                                if (map && geocoder) {
+                                    addPackageToMap(deliveryPackage);
+                                }
                             }
                         } catch (error) {
                             console.error('Error processing message:', error);
@@ -445,6 +454,7 @@
                 row.querySelector('.package-status').textContent = deliveryPackage.status;
                 // Update courier if assigned
                 var courierCell = row.cells[4];
+                courierCell.textContent = deliveryPackage.courierUsername || 'Not Assigned';
                 courierCell.textContent = deliveryPackage.courier ? deliveryPackage.courier.username : 'Not Assigned';
             } else {
                 // If package not in table, add it

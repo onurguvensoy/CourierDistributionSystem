@@ -22,8 +22,8 @@ public class Rating {
     private User courier;
 
     @ManyToOne
-    @JoinColumn(name = "package_id")
-    private Package deliveryPackage;
+    @JoinColumn(name = "delivery_package_id")
+    private DeliveryPackage deliveryPackage;
 
     private Double courierRating;
     private Double deliveryRating;

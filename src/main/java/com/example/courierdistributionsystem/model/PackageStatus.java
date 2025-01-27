@@ -6,15 +6,15 @@ import java.time.LocalDateTime;
 
 @Data
 @Entity
-@Table(name = "package_status")
+@Table(name = "delivery_package_status")
 public class PackageStatus {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "package_id", nullable = false)
-    private Package package_;
+    @JoinColumn(name = "delivery_package_id", nullable = false)
+    private DeliveryPackage deliveryPackage;
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
@@ -22,7 +22,7 @@ public class PackageStatus {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Package.PackageStatus status;
+    private DeliveryPackage.DeliveryStatus status;
 
     @Column(columnDefinition = "DOUBLE")
     private Double latitude;

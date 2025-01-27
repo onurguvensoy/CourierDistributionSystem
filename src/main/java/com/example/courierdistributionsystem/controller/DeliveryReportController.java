@@ -1,11 +1,10 @@
-/*
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.DeliveryReport;
-import com.example.courierdistributionsystem.model.Package;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.DeliveryReportRepository;
-import com.example.courierdistributionsystem.repository.PackageRepository;
+import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +22,7 @@ public class DeliveryReportController {
     private DeliveryReportRepository deliveryReportRepository;
 
     @Autowired
-    private PackageRepository packageRepository;
+    private DeliveryPackageRepository packageRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -49,14 +48,14 @@ public class DeliveryReportController {
         User courier = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        Package deliveryPackage = packageRepository.findById(packageId)
+        DeliveryPackage deliveryPackage = packageRepository.findById(packageId)
                 .orElseThrow(() -> new RuntimeException("Package not found"));
 
         report.setDeliveryPackage(deliveryPackage);
         report.setCourier(courier);
         report.setCompletionTime(LocalDateTime.now());
         
-        deliveryPackage.setCurrentStatus(Package.PackageStatus.DELIVERED);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.DELIVERED);
         packageRepository.save(deliveryPackage);
 
         DeliveryReport savedReport = deliveryReportRepository.save(report);
@@ -72,7 +71,7 @@ public class DeliveryReportController {
 
     @GetMapping("/package/{packageId}")
     public ResponseEntity<List<DeliveryReport>> getDeliveryReportsByPackage(@PathVariable Long packageId) {
-        Package deliveryPackage = packageRepository.findById(packageId)
+        DeliveryPackage deliveryPackage = packageRepository.findById(packageId)
                 .orElseThrow(() -> new RuntimeException("Package not found"));
         List<DeliveryReport> reports = deliveryReportRepository.findByDeliveryPackage(deliveryPackage);
         return ResponseEntity.ok(reports);
@@ -105,4 +104,4 @@ public class DeliveryReportController {
         deliveryReportRepository.delete(report);
         return ResponseEntity.ok().build();
     }
-} */
+}

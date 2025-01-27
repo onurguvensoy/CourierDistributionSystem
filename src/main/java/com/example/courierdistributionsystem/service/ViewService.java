@@ -1,8 +1,8 @@
 package com.example.courierdistributionsystem.service;
 
-import com.example.courierdistributionsystem.model.Package;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.PackageRepository;
+import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,7 +15,7 @@ public class ViewService {
     private UserRepository userRepository;
 
     @Autowired
-    private PackageRepository packageRepository;
+    private DeliveryPackageRepository packageRepository;
 
     public User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
@@ -29,7 +29,6 @@ public class ViewService {
             case ADMIN -> "redirect:/admin/dashboard";
             case COURIER -> "redirect:/courier/dashboard";
             case CUSTOMER -> "redirect:/customer/dashboard";
-
         };
     }
 
@@ -42,22 +41,30 @@ public class ViewService {
         }
     }
 
-    public List<Package> getAvailablePackages() {
-        return packageRepository.findByStatus(Package.PackageStatus.PENDING);
+    public List<DeliveryPackage> getAvailablePackages() {
+        return packageRepository.findByStatus(DeliveryPackage.DeliveryStatus.PENDING);
     }
 
-    public List<Package> getActiveDeliveries(User courier) {
+    public List<DeliveryPackage> getActiveDeliveries(User courier) {
+        if (courier == null) {
+            throw new IllegalArgumentException("Courier cannot be null");
+        }
+        
         if (courier.getRole() != User.UserRole.COURIER) {
             throw new IllegalStateException("Only couriers can view active deliveries");
         }
 
         return packageRepository.findByCourierAndStatusIn(
             courier, 
-            List.of(Package.PackageStatus.ASSIGNED, Package.PackageStatus.PICKED_UP)
+            List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, DeliveryPackage.DeliveryStatus.PICKED_UP, DeliveryPackage.DeliveryStatus.IN_TRANSIT)
         );
     }
 
-    public List<Package> getCustomerPackages(User customer) {
+    public List<DeliveryPackage> getCustomerPackages(User customer) {
+        if (customer == null) {
+            throw new IllegalArgumentException("Customer cannot be null");
+        }
+        
         if (customer.getRole() != User.UserRole.CUSTOMER) {
             throw new IllegalStateException("Only customers can view their packages");
         }

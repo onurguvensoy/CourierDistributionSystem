@@ -2,6 +2,7 @@ package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.*;
 import java.time.LocalDateTime;
 
 @Entity
@@ -9,8 +10,9 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "packages")
-public class Package {
+@Table(name = "delivery_packages")
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+public class DeliveryPackage {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,10 +20,14 @@ public class Package {
 
     @ManyToOne
     @JoinColumn(name = "customer_id", nullable = false)
+    @JsonIdentityReference(alwaysAsId = true)
+    @JsonProperty("customerId")
     private User customer;
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
+    @JsonIdentityReference(alwaysAsId = true)
+    @JsonProperty("courierId")
     private User courier;
 
     @Column(nullable = false)
@@ -35,7 +41,8 @@ public class Package {
     private Double weight;
 
     @Enumerated(EnumType.STRING)
-    private PackageStatus status;
+    @Column(nullable = false)
+    private DeliveryStatus status;
 
     private LocalDateTime createdAt;
     private LocalDateTime assignedAt;
@@ -46,10 +53,9 @@ public class Package {
     private Double currentLatitude;
     private Double currentLongitude;
     private String currentLocation;
-
     private String specialInstructions;
 
-    public enum PackageStatus {
+    public enum DeliveryStatus {
         PENDING,
         ASSIGNED,
         PICKED_UP,
@@ -64,15 +70,25 @@ public class Package {
             createdAt = LocalDateTime.now();
         }
         if (status == null) {
-            status = PackageStatus.PENDING;
+            status = DeliveryStatus.PENDING;
         }
     }
 
-    public PackageStatus getCurrentStatus() {
+    @JsonProperty("customerUsername")
+    public String getCustomerUsername() {
+        return customer != null ? customer.getUsername() : null;
+    }
+
+    @JsonProperty("courierUsername")
+    public String getCourierUsername() {
+        return courier != null ? courier.getUsername() : null;
+    }
+
+    public DeliveryStatus getStatus() {
         return this.status;
     }
 
-    public void setCurrentStatus(PackageStatus status) {
+    public void setStatus(DeliveryStatus status) {
         this.status = status;
     }
 } 

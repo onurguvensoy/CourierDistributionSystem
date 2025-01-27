@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface PackageRepository extends JpaRepository<DeliveryPackage, Long> {
+public interface DeliveryPackageRepository extends JpaRepository<DeliveryPackage, Long> {
     List<DeliveryPackage> findByCustomer(User customer);
     List<DeliveryPackage> findByCourier(User courier);
     List<DeliveryPackage> findByStatus(DeliveryPackage.DeliveryStatus status);

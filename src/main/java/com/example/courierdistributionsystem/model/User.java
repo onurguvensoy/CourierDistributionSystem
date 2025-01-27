@@ -3,6 +3,8 @@ package com.example.courierdistributionsystem.model;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import java.util.List;
 
 @Entity
 @Data
@@ -36,6 +38,14 @@ public class User {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "customer")
+    @JsonBackReference
+    private List<DeliveryPackage> customerDeliveries;
+
+    @OneToMany(mappedBy = "courier")
+    @JsonBackReference
+    private List<DeliveryPackage> courierDeliveries;
 
     public enum UserRole {
         CUSTOMER,

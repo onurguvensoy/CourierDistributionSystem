@@ -1,8 +1,8 @@
 package com.example.courierdistributionsystem.service;
 
-import com.example.courierdistributionsystem.model.Package;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.PackageRepository;
+import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -10,12 +10,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Service
 public class PackageService {
 
     @Autowired
-    private PackageRepository packageRepository;
+    private DeliveryPackageRepository packageRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -23,21 +24,22 @@ public class PackageService {
     @Autowired
     private WebSocketService webSocketService;
 
-    public List<Package> getAllPackages() {
+    public List<DeliveryPackage> getAllPackages() {
         return packageRepository.findAll();
     }
 
-    public Package getPackageById(Long id) {
+    public DeliveryPackage getPackageById(Long id) {
         return packageRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Package not found with id: " + id));
     }
 
-    public Package createPackage(Map<String, String> packageRequest) {
+    public DeliveryPackage createPackage(Map<String, String> packageRequest) {
         String username = packageRequest.get("username");
         String pickupAddress = packageRequest.get("pickupAddress");
         String deliveryAddress = packageRequest.get("deliveryAddress");
         String description = packageRequest.get("description");
         String weightStr = packageRequest.get("weight");
+        String specialInstructions = packageRequest.get("specialInstructions");
 
         if (username == null || pickupAddress == null || deliveryAddress == null) {
             throw new IllegalArgumentException("Missing required fields");
@@ -50,27 +52,29 @@ public class PackageService {
             throw new IllegalArgumentException("Only customers can create packages");
         }
 
-        Package newPackage = Package.builder()
+        DeliveryPackage newPackage = DeliveryPackage.builder()
             .customer(customer)
             .pickupAddress(pickupAddress)
             .deliveryAddress(deliveryAddress)
             .description(description)
+            .specialInstructions(specialInstructions)
             .weight(weightStr != null ? Double.parseDouble(weightStr) : 0.0)
-            .status(Package.PackageStatus.PENDING)
+            .status(DeliveryPackage.DeliveryStatus.PENDING)
             .createdAt(LocalDateTime.now())
             .build();
 
-        Package savedPackage = packageRepository.save(newPackage);
-        webSocketService.notifyNewPackageAvailable(savedPackage);
+        DeliveryPackage savedPackage = packageRepository.save(newPackage);
+        webSocketService.notifyNewDeliveryAvailable(savedPackage);
         return savedPackage;
     }
 
-    public Package updatePackage(Long id, Map<String, String> packageRequest) {
-        Package existingPackage = getPackageById(id);
+    public DeliveryPackage updatePackage(Long id, Map<String, String> packageRequest) {
+        DeliveryPackage existingPackage = getPackageById(id);
 
-        if (packageRequest.containsKey("status")) {
-            existingPackage.setStatus(Package.PackageStatus.valueOf(packageRequest.get("status")));
+        if (existingPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+            throw new IllegalArgumentException("Can only update pending packages");
         }
+
         if (packageRequest.containsKey("deliveryAddress")) {
             existingPackage.setDeliveryAddress(packageRequest.get("deliveryAddress"));
         }
@@ -83,23 +87,43 @@ public class PackageService {
         if (packageRequest.containsKey("weight")) {
             existingPackage.setWeight(Double.parseDouble(packageRequest.get("weight")));
         }
-
-        Package updatedPackage = packageRepository.save(existingPackage);
-        if (updatedPackage.getCourier() != null) {
-            webSocketService.notifyPackageStatusUpdate(updatedPackage);
+        if (packageRequest.containsKey("specialInstructions")) {
+            existingPackage.setSpecialInstructions(packageRequest.get("specialInstructions"));
         }
+
+        DeliveryPackage updatedPackage = packageRepository.save(existingPackage);
+        webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
         return updatedPackage;
     }
 
-    public void deletePackage(Long id) {
-        Package package_ = getPackageById(id);
-        if (package_.getStatus() != Package.PackageStatus.PENDING) {
-            throw new IllegalArgumentException("Cannot delete package that is not in PENDING status");
+    public void cancelPackage(Long id, String username) {
+        DeliveryPackage deliveryPackage = getPackageById(id);
+        User customer = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+
+        if (!deliveryPackage.getCustomer().equals(customer)) {
+            throw new IllegalArgumentException("Package does not belong to this customer");
         }
-        packageRepository.delete(package_);
+
+        if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED || 
+            deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.CANCELLED) {
+            throw new IllegalArgumentException("Cannot cancel package in current status");
+        }
+
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.CANCELLED);
+        deliveryPackage.setCancelledAt(LocalDateTime.now());
+
+        if (deliveryPackage.getCourier() != null) {
+            User courier = deliveryPackage.getCourier();
+            courier.getCourier().setAvailable(true);
+            userRepository.save(courier);
+        }
+
+        DeliveryPackage updatedPackage = packageRepository.save(deliveryPackage);
+        webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
     }
 
-    public List<Package> getCustomerPackages(String username) {
+    public List<DeliveryPackage> getCustomerPackages(String username) {
         User customer = userRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
         
@@ -110,36 +134,41 @@ public class PackageService {
         return packageRepository.findByCustomer(customer);
     }
 
-    public List<Package> getCourierPackages(String username) {
-        User courier = userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+    public Map<String, Object> trackPackage(Long packageId, String username) {
+        DeliveryPackage deliveryPackage = getPackageById(packageId);
+        User customer = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+
+        if (!deliveryPackage.getCustomer().equals(customer)) {
+            throw new IllegalArgumentException("Package does not belong to this customer");
+        }
+
+        Map<String, Object> trackingInfo = new HashMap<>();
         
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalArgumentException("User is not a courier");
+        trackingInfo.put("id", deliveryPackage.getId());
+        trackingInfo.put("status", deliveryPackage.getStatus());
+        trackingInfo.put("createdAt", deliveryPackage.getCreatedAt());
+        trackingInfo.put("pickupAddress", deliveryPackage.getPickupAddress());
+        trackingInfo.put("deliveryAddress", deliveryPackage.getDeliveryAddress());
+        trackingInfo.put("description", deliveryPackage.getDescription());
+        trackingInfo.put("specialInstructions", deliveryPackage.getSpecialInstructions());
+        
+        if (deliveryPackage.getCourier() != null) {
+            trackingInfo.put("courierName", deliveryPackage.getCourier().getUsername());
+            trackingInfo.put("courierPhone", deliveryPackage.getCourier().getCourier().getPhoneNumber());
         }
         
-        return packageRepository.findByCourier(courier);
-    }
-
-    public Package assignPackage(Long id, String username) {
-        Package package_ = getPackageById(id);
-        User courier = userRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
-
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalArgumentException("User is not a courier");
+        if (deliveryPackage.getCurrentLatitude() != null && deliveryPackage.getCurrentLongitude() != null) {
+            trackingInfo.put("currentLatitude", deliveryPackage.getCurrentLatitude());
+            trackingInfo.put("currentLongitude", deliveryPackage.getCurrentLongitude());
+            trackingInfo.put("currentLocation", deliveryPackage.getCurrentLocation());
         }
-
-        if (package_.getStatus() != Package.PackageStatus.PENDING) {
-            throw new IllegalArgumentException("Package is not available for assignment");
-        }
-
-        package_.setCourier(courier);
-        package_.setStatus(Package.PackageStatus.ASSIGNED);
-        package_.setAssignedAt(LocalDateTime.now());
-
-        Package updatedPackage = packageRepository.save(package_);
-        webSocketService.notifyPackageStatusUpdate(updatedPackage);
-        return updatedPackage;
+        
+        trackingInfo.put("assignedAt", deliveryPackage.getAssignedAt());
+        trackingInfo.put("pickedUpAt", deliveryPackage.getPickedUpAt());
+        trackingInfo.put("deliveredAt", deliveryPackage.getDeliveredAt());
+        trackingInfo.put("cancelledAt", deliveryPackage.getCancelledAt());
+        
+        return trackingInfo;
     }
 }

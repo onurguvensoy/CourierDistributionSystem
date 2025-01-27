@@ -1,11 +1,10 @@
-/*
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.LocationHistory;
-import com.example.courierdistributionsystem.model.Package;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.LocationHistoryRepository;
-import com.example.courierdistributionsystem.repository.PackageRepository;
+import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
 import com.example.courierdistributionsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +18,7 @@ public class LocationHistoryController {
     private LocationHistoryRepository locationHistoryRepository;
 
     @Autowired
-    private PackageRepository packageRepository;
+    private DeliveryPackageRepository packageRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -38,8 +37,8 @@ public class LocationHistoryController {
 
     @GetMapping("/package/{packageId}")
     public List<LocationHistory> getPackageLocationHistory(@PathVariable Long packageId) {
-        Package deliveryPackage = packageRepository.findById(packageId)
+        DeliveryPackage deliveryPackage = packageRepository.findById(packageId)
                 .orElseThrow(() -> new RuntimeException("Package not found"));
         return locationHistoryRepository.findByDeliveryPackage(deliveryPackage);
     }
-} */
+}
