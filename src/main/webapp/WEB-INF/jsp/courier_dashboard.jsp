@@ -1,10 +1,13 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <title>Courier Dashboard - Courier Distribution System</title>
+    <meta name="_csrf" content="${_csrf.token}"/>
+    <meta name="_csrf_header" content="${_csrf.headerName}"/>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
@@ -109,14 +112,18 @@
                                     </thead>
                                     <tbody id="available-packages-table">
                                         <c:forEach items="${availablePackages}" var="packageData">
-                                            <tr data-package-id="${packageData.id}">
+                                            <tr>
                                                 <td>${packageData.id}</td>
                                                 <td>${packageData.customer.username}</td>
                                                 <td>${packageData.pickupAddress}</td>
                                                 <td>${packageData.deliveryAddress}</td>
                                                 <td>${packageData.weight} kg</td>
                                                 <td>
-                                                    <button onclick="takeDelivery(${packageData.id})" class="btn btn-primary btn-sm">Take Delivery</button>
+                                                    <form action="/api/deliveries/${packageData.id}/assign" method="POST" style="display: inline;">
+                                                        <input type="hidden" name="username" value="${user.username}"/>
+                                                        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                                                        <button type="submit" class="btn btn-primary btn-sm">Take Delivery</button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                         </c:forEach>
@@ -141,7 +148,7 @@
                                     </thead>
                                     <tbody id="active-deliveries-table">
                                         <c:forEach items="${activeDeliveries}" var="packageData">
-                                            <tr data-package-id="${packageData.id}">
+                                            <tr>
                                                 <td>${packageData.id}</td>
                                                 <td>${packageData.customer.username}</td>
                                                 <td>${packageData.pickupAddress}</td>
@@ -149,16 +156,46 @@
                                                 <td>${packageData.status}</td>
                                                 <td>
                                                     <c:choose>
-                                                        <c:when test="${packageData.status == 'ASSIGNED'}">
-                                                            <button onclick="updateDeliveryStatus(${packageData.id}, 'PICKED_UP')" class="btn btn-info btn-sm">Mark as Picked Up</button>
+                                                        <c:when test="${packageData.status eq 'ASSIGNED'}">
+                                                            <form action="/api/deliveries/${packageData.id}/status" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                                <input type="hidden" name="status" value="PICKED_UP"/>
+                                                                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                                                                <button type="submit" class="btn btn-info btn-sm">Mark as Picked Up</button>
+                                                            </form>
+                                                            <form action="/api/deliveries/${packageData.id}/drop" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                                                                <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
+                                                            </form>
                                                         </c:when>
-                                                        <c:when test="${packageData.status == 'PICKED_UP'}">
-                                                            <button onclick="updateDeliveryStatus(${packageData.id}, 'IN_TRANSIT')" class="btn btn-warning btn-sm">Start Delivery</button>
+                                                        <c:when test="${packageData.status eq 'PICKED_UP'}">
+                                                            <form action="/api/deliveries/${packageData.id}/status" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                                <input type="hidden" name="status" value="IN_TRANSIT"/>
+                                                                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                                                                <button type="submit" class="btn btn-warning btn-sm">Start Delivery</button>
+                                                            </form>
+                                                            <form action="/api/deliveries/${packageData.id}/drop" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                                                                <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
+                                                            </form>
                                                         </c:when>
-                                                        <c:when test="${packageData.status == 'IN_TRANSIT'}">
-                                                            <button onclick="updateDeliveryStatus(${packageData.id}, 'DELIVERED')" class="btn btn-success btn-sm">Mark as Delivered</button>
+                                                        <c:when test="${packageData.status eq 'IN_TRANSIT'}">
+                                                            <form action="/api/deliveries/${packageData.id}/status" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                                <input type="hidden" name="status" value="DELIVERED"/>
+                                                                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                                                                <button type="submit" class="btn btn-success btn-sm">Mark as Delivered</button>
+                                                            </form>
+                                                            <form action="/api/deliveries/${packageData.id}/drop" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                                                                <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
+                                                            </form>
                                                         </c:when>
-                                                        <c:when test="${packageData.status == 'DELIVERED'}">
+                                                        <c:when test="${packageData.status eq 'DELIVERED'}">
                                                             <span class="text-success">Delivered</span>
                                                         </c:when>
                                                     </c:choose>
@@ -176,182 +213,87 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB9TgwsRIwLSpC3wEXhzvbpG7C9kTIZjKI&libraries=places&callback=initMap">
-    </script>
     <script>
         let map;
         let markers = new Map();
         let geocoder;
         let directionsService;
         let directionsRenderer;
-        let stompClient = null;
-        
-        function connect() {
-            const socket = new SockJS('/ws');
-            stompClient = Stomp.over(socket);
+
+        function initMap() {
+            const defaultLocation = { lat: 41.0082, lng: 28.9784 }; // Istanbul coordinates
             
-            stompClient.connect({}, function(frame) {
-                console.log('Connected to WebSocket');
-                
-                // Subscribe to package updates
-                stompClient.subscribe('/topic/packages', function(message) {
-                    const data = JSON.parse(message.body);
-                    handleDeliveryUpdate(data);
-                });
-                
-                // Subscribe to courier-specific updates
-                stompClient.subscribe('/topic/courier/${user.username}/packages', function(message) {
-                    const data = JSON.parse(message.body);
-                    handleDeliveryUpdate(data);
-                });
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultLocation,
+                zoom: 12
             });
-        }
-        
-        function takeDelivery(deliveryId) {
-            if (!deliveryId) {
-                console.error('Delivery ID is undefined');
-                return;
-            }
-            
-            const username = '${user.username}';
-            fetch(`/api/deliveries/${deliveryId}/assign?username=${username}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    console.log('Delivery taken successfully');
-                    const row = document.querySelector(`#available-packages-table tr[data-delivery-id="${deliveryId}"]`);
-                    if (row) {
-                        row.remove();
+
+            geocoder = new google.maps.Geocoder();
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+
+            // Get user's location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const pos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        map.setCenter(pos);
+                        // Add user marker
+                        new google.maps.Marker({
+                            position: pos,
+                            map: map,
+                            title: 'Your Location',
+                            icon: {
+                                url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                            }
+                        });
+                    },
+                    () => {
+                        console.log('Error: The Geolocation service failed.');
+                        map.setCenter(defaultLocation);
                     }
-                    // Add to active deliveries
-                    const delivery = data.data;
-                    const activeTable = document.getElementById('active-deliveries-table');
-                    const newRow = document.createElement('tr');
-                    newRow.setAttribute('data-delivery-id', delivery.id);
-                    newRow.innerHTML = `
-                        <td>${delivery.id}</td>
-                        <td>${delivery.customer.username}</td>
-                        <td>${delivery.pickupAddress}</td>
-                        <td>${delivery.deliveryAddress}</td>
-                        <td>${delivery.status}</td>
-                        <td>
-                            <button onclick="updateDeliveryStatus(${delivery.id}, 'PICKED_UP')" class="btn btn-info btn-sm">Mark as Picked Up</button>
-                        </td>
-                    `;
-                    activeTable.appendChild(newRow);
-                } else {
-                    throw new Error(data.message || 'Failed to take delivery');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to take delivery: ' + error.message);
-            });
-        }
-        
-        function updateDeliveryStatus(deliveryId, newStatus) {
-            if (!deliveryId) {
-                console.error('Delivery ID is undefined');
-                return;
+                );
             }
-            
-            const username = '${user.username}';
-            fetch(`/api/deliveries/${deliveryId}/status?username=${username}&status=${newStatus}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    console.log('Status updated successfully');
-                    const delivery = data.data;
-                    updateDeliveryInTables(delivery);
-                    if (map) updateDeliveryOnMap(delivery);
-                } else {
-                    throw new Error(data.message || 'Failed to update status');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to update status: ' + error.message);
-            });
-        }
-        
-        function handleDeliveryUpdate(data) {
-            switch(data.type) {
-                case 'NEW_PACKAGE':
-                    if (data.status === 'PENDING') {
-                        addDeliveryToAvailableTable(data);
-                        if (map) addDeliveryToMap(data);
-                    }
-                    break;
-                case 'STATUS_UPDATE':
-                    updateDeliveryInTables(data);
-                    if (map) updateDeliveryOnMap(data);
-                    break;
-                case 'LOCATION_UPDATE':
-                    if (map) updateDeliveryLocation(data);
-                    break;
-            }
-        }
-        
-        function addDeliveryToAvailableTable(deliveryData) {
-            const tbody = document.getElementById('available-packages-table');
-            const existingRow = document.querySelector(`tr[data-delivery-id="${deliveryData.id}"]`);
-            if (existingRow) return;
-            
-            const row = document.createElement('tr');
-            row.setAttribute('data-delivery-id', deliveryData.id);
-            row.innerHTML = 
-                '<td>' + deliveryData.id + '</td>' +
-                '<td>' + deliveryData.customerUsername + '</td>' +
-                '<td>' + deliveryData.pickupAddress + '</td>' +
-                '<td>' + deliveryData.deliveryAddress + '</td>' +
-                '<td>' + deliveryData.weight + ' kg</td>' +
-                '<td>' +
-                    '<button onclick="takeDelivery(' + deliveryData.id + ')" class="btn btn-primary btn-sm">Take Delivery</button>' +
-                '</td>';
-            tbody.appendChild(row);
-        }
-        
-        function updateDeliveryInTables(deliveryData) {
-            const availableRow = document.querySelector(`#available-packages-table tr[data-delivery-id="${deliveryData.id}"]`);
-            const activeRow = document.querySelector(`#active-deliveries-table tr[data-delivery-id="${deliveryData.id}"]`);
-            
-            if (deliveryData.status === 'PENDING' && !availableRow) {
-                addDeliveryToAvailableTable(deliveryData);
-            } else if (deliveryData.status !== 'PENDING' && availableRow) {
-                availableRow.remove();
-            }
-            
-            if (activeRow) {
-                activeRow.querySelector('td:nth-child(5)').textContent = deliveryData.status;
-                const actionsCell = activeRow.querySelector('td:last-child');
+
+            // Add markers for available packages
+            const availablePackages = Array.from(document.querySelectorAll('#available-packages-table tr'));
+            availablePackages.forEach(packageRow => {
+                const pickupAddress = packageRow.querySelector('td:nth-child(3)').textContent;
+                const deliveryAddress = packageRow.querySelector('td:nth-child(4)').textContent;
                 
-                switch (deliveryData.status) {
-                    case 'ASSIGNED':
-                        actionsCell.innerHTML = '<button onclick="updateDeliveryStatus(' + deliveryData.id + ', \'PICKED_UP\')" class="btn btn-info btn-sm">Mark as Picked Up</button>';
-                        break;
-                    case 'PICKED_UP':
-                        actionsCell.innerHTML = '<button onclick="updateDeliveryStatus(' + deliveryData.id + ', \'IN_TRANSIT\')" class="btn btn-warning btn-sm">Start Delivery</button>';
-                        break;
-                    case 'IN_TRANSIT':
-                        actionsCell.innerHTML = '<button onclick="updateDeliveryStatus(' + deliveryData.id + ', \'DELIVERED\')" class="btn btn-success btn-sm">Mark as Delivered</button>';
-                        break;
-                    case 'DELIVERED':
-                        actionsCell.innerHTML = '<span class="text-success">Delivered</span>';
-                        break;
-                }
-            }
+                // Add pickup location marker
+                geocodeAndAddMarker(pickupAddress, 'pickup');
+                // Add delivery location marker
+                geocodeAndAddMarker(deliveryAddress, 'delivery');
+            });
         }
+
+        function geocodeAndAddMarker(address, type) {
+            geocoder.geocode({ address: address }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const position = results[0].geometry.location;
+                    new google.maps.Marker({
+                        map: map,
+                        position: position,
+                        title: type === 'pickup' ? 'Pickup Location' : 'Delivery Location',
+                        icon: {
+                            url: type === 'pickup' ? 
+                                'http://maps.google.com/mapfiles/ms/icons/green-dot.png' : 
+                                'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                        }
+                    });
+                }
+            });
+        }
+
+        // Initialize map when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+        });
     </script>
 </body>
 </html>

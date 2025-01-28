@@ -160,4 +160,178 @@ public class DeliveryPackageService {
 
         return trackingInfo;
     }
+
+    public List<DeliveryPackage> getAvailableDeliveryPackages() {
+        return deliveryPackageRepository.findByStatus(DeliveryPackage.DeliveryStatus.PENDING);
+    }
+
+    public List<DeliveryPackage> getCourierActiveDeliveryPackages(String username) {
+        User courier = userRepository.findByUsername(username)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+
+        if (courier.getRole() != User.UserRole.COURIER) {
+            throw new IllegalArgumentException("User is not a courier");
+        }
+
+        return deliveryPackageRepository.findByCourierAndStatusIn(courier, 
+            List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, 
+                   DeliveryPackage.DeliveryStatus.PICKED_UP, 
+                   DeliveryPackage.DeliveryStatus.IN_TRANSIT));
+    }
+
+    public DeliveryPackage takeDeliveryPackage(Long packageId, String courierUsername) {
+        User courier = userRepository.findByUsername(courierUsername)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+
+        if (courier.getRole() != User.UserRole.COURIER) {
+            throw new IllegalArgumentException("User is not a courier");
+        }
+
+        if (!courier.getCourier().isAvailable()) {
+            throw new IllegalArgumentException("Courier is not available");
+        }
+
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
+
+        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+            throw new IllegalArgumentException("Package is not available for pickup");
+        }
+
+        deliveryPackage.setCourier(courier);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
+        deliveryPackage.setAssignedAt(LocalDateTime.now());
+
+        courier.getCourier().setAvailable(false);
+        userRepository.save(courier);
+
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
+        return updatedPackage;
+    }
+
+    public DeliveryPackage updateDeliveryStatus(Long packageId, String courierUsername, DeliveryPackage.DeliveryStatus newStatus) {
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
+            
+        User courier = userRepository.findByUsername(courierUsername)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+
+        if (!deliveryPackage.getCourier().equals(courier)) {
+            throw new IllegalArgumentException("Package is not assigned to this courier");
+        }
+
+        validateStatusTransition(deliveryPackage.getStatus(), newStatus);
+        deliveryPackage.setStatus(newStatus);
+
+        switch (newStatus) {
+            case PENDING:
+                throw new IllegalArgumentException("Cannot set status back to PENDING");
+            case ASSIGNED:
+                if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+                    throw new IllegalArgumentException("Can only assign PENDING packages");
+                }
+                deliveryPackage.setAssignedAt(LocalDateTime.now());
+                break;
+            case PICKED_UP:
+                if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.ASSIGNED) {
+                    throw new IllegalArgumentException("Can only pick up ASSIGNED packages");
+                }
+                deliveryPackage.setPickedUpAt(LocalDateTime.now());
+                break;
+            case IN_TRANSIT:
+                if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PICKED_UP) {
+                    throw new IllegalArgumentException("Can only transit PICKED_UP packages");
+                }
+                break;
+            case DELIVERED:
+                if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.IN_TRANSIT) {
+                    throw new IllegalArgumentException("Can only deliver IN_TRANSIT packages");
+                }
+                deliveryPackage.setDeliveredAt(LocalDateTime.now());
+                courier.getCourier().setAvailable(true);
+                userRepository.save(courier);
+                break;
+            case CANCELLED:
+                if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED) {
+                    throw new IllegalArgumentException("Cannot cancel DELIVERED packages");
+                }
+                deliveryPackage.setCancelledAt(LocalDateTime.now());
+                courier.getCourier().setAvailable(true);
+                userRepository.save(courier);
+                break;
+        }
+
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
+        return updatedPackage;
+    }
+
+    public DeliveryPackage updateDeliveryLocation(Long packageId, String courierUsername, Double latitude, Double longitude, String location) {
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
+            
+        User courier = userRepository.findByUsername(courierUsername)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+
+        if (!deliveryPackage.getCourier().equals(courier)) {
+            throw new IllegalArgumentException("Package is not assigned to this courier");
+        }
+
+        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.IN_TRANSIT) {
+            throw new IllegalArgumentException("Package must be in transit to update location");
+        }
+
+        deliveryPackage.setCurrentLatitude(latitude);
+        deliveryPackage.setCurrentLongitude(longitude);
+        deliveryPackage.setCurrentLocation(location);
+
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        webSocketService.notifyDeliveryLocationUpdate(updatedPackage);
+        return updatedPackage;
+    }
+
+    public DeliveryPackage dropDeliveryPackage(Long packageId, String courierUsername) {
+        User courier = userRepository.findByUsername(courierUsername)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+
+        if (courier.getRole() != User.UserRole.COURIER) {
+            throw new IllegalArgumentException("User is not a courier");
+        }
+
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
+
+        if (!deliveryPackage.getCourier().equals(courier)) {
+            throw new IllegalArgumentException("Package is not assigned to this courier");
+        }
+
+        if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED || 
+            deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.CANCELLED) {
+            throw new IllegalArgumentException("Cannot drop a delivered or cancelled package");
+        }
+
+        deliveryPackage.setCourier(null);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        deliveryPackage.setAssignedAt(null);
+
+        courier.getCourier().setAvailable(true);
+        userRepository.save(courier);
+
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
+        return updatedPackage;
+    }
+
+    private void validateStatusTransition(DeliveryPackage.DeliveryStatus currentStatus, DeliveryPackage.DeliveryStatus newStatus) {
+        boolean isValid = switch (currentStatus) {
+            case PENDING -> newStatus == DeliveryPackage.DeliveryStatus.ASSIGNED || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
+            case ASSIGNED -> newStatus == DeliveryPackage.DeliveryStatus.PICKED_UP || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
+            case PICKED_UP -> newStatus == DeliveryPackage.DeliveryStatus.IN_TRANSIT || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
+            case IN_TRANSIT -> newStatus == DeliveryPackage.DeliveryStatus.DELIVERED || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
+            case DELIVERED, CANCELLED -> false;
+        };
+
+        if (!isValid) {
+            throw new IllegalArgumentException(
+                String.format("Invalid status transition from %s to %s", currentStatus, newStatus)
+            );
+        }
+    }
 }
