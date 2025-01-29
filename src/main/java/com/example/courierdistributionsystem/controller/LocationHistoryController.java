@@ -2,10 +2,10 @@ package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.LocationHistory;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.repository.LocationHistoryRepository;
 import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.repository.CourierRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -21,7 +21,7 @@ public class LocationHistoryController {
     private DeliveryPackageRepository packageRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private CourierRepository courierRepository;
 
     @GetMapping
     public List<LocationHistory> getAllLocationHistory() {
@@ -30,8 +30,8 @@ public class LocationHistoryController {
 
     @GetMapping("/courier")
     public List<LocationHistory> getCourierLocationHistory(@RequestParam String username) {
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Courier courier = courierRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Courier not found"));
         return locationHistoryRepository.findByCourier(courier);
     }
 

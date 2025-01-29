@@ -18,7 +18,7 @@ public class PackageStatus {
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
-    private User courier;
+    private Courier courier;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

@@ -3,7 +3,10 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.model.Courier;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.model.Admin;
+import com.example.courierdistributionsystem.repository.CustomerRepository;
+import com.example.courierdistributionsystem.repository.CourierRepository;
+import com.example.courierdistributionsystem.repository.AdminRepository;
 import com.example.courierdistributionsystem.utils.PasswordEncoder;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,12 +22,18 @@ public class AuthService {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
-    private UserRepository userRepository;
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private CourierRepository courierRepository;
+
+    @Autowired
+    private AdminRepository adminRepository;
 
     @Autowired
     private HttpSession httpSession;
 
-    public Map<String, String> CheckSignup(Map<String, String> signupData) {
+    public Map<String, String> signup(Map<String, String> signupData) {
         Map<String, String> response = new HashMap<>();
         
         try {
@@ -35,7 +44,6 @@ public class AuthService {
             String phoneNumber = signupData.get("phoneNumber");
             String deliveryAddress = signupData.get("deliveryAddress");
 
-            
             if (username == null || email == null || password == null || roleType == null) {
                 response.put("error", "Missing required fields");
                 return response;
@@ -63,33 +71,37 @@ public class AuthService {
                 return response;
             }
 
-            User user = User.builder()
-                    .username(username)
-                    .email(email)
-                    .password(passwordEncoder.hashPassword(password))
-                    .role(User.UserRole.valueOf(roleType))
-                    .createdAt(LocalDateTime.now())
-                    .build();
-
             if (roleType.equals("CUSTOMER")) {
                 Customer customer = Customer.builder()
-                        .user(user)
+                        .username(username)
+                        .email(email)
+                        .password(passwordEncoder.hashPassword(password))
+                        .role(User.UserRole.CUSTOMER)
                         .deliveryAddress(deliveryAddress)
                         .phoneNumber(phoneNumber)
-                        .createdAt(LocalDateTime.now())
                         .averageRating(0.0)
                         .build();
-                user.setCustomer(customer);
+                customerRepository.save(customer);
             } else if (roleType.equals("COURIER")) {
                 Courier courier = Courier.builder()
-                        .user(user)
+                        .username(username)
+                        .email(email)
+                        .password(passwordEncoder.hashPassword(password))
+                        .role(User.UserRole.COURIER)
                         .phoneNumber(phoneNumber)
                         .available(true)
                         .build();
-                user.setCourier(courier);
+                courierRepository.save(courier);
+            } else {
+                Admin admin = Admin.builder()
+                        .username(username)
+                        .email(email)
+                        .password(passwordEncoder.hashPassword(password))
+                        .role(User.UserRole.ADMIN)
+                        .build();
+                adminRepository.save(admin);
             }
 
-            userRepository.save(user);
             response.put("success", "User registered successfully");
             return response;
 
@@ -99,43 +111,43 @@ public class AuthService {
         }
     }
 
-    public Map<String, String> CheckLoginUser(Map<String, String> credentials) {
-        Map<String, String> response = new HashMap<>();
-        
+    public Map<String, Object> login(String username, String password) {
+        Map<String, Object> response = new HashMap<>();
         try {
-            String username = credentials.get("username");
-            String password = credentials.get("password");
-
-            if (username == null || password == null) {
-                response.put("error", "Username and password are required");
-                return response;
+            User user = null;
+            
+            // Try to find user in each repository
+            Customer customer = customerRepository.findByUsername(username).orElse(null);
+            if (customer != null) {
+                user = customer;
+            } else {
+                Courier courier = courierRepository.findByUsername(username).orElse(null);
+                if (courier != null) {
+                    user = courier;
+                } else {
+                    Admin admin = adminRepository.findByUsername(username).orElse(null);
+                    if (admin != null) {
+                        user = admin;
+                    }
+                }
             }
 
-            User user = userRepository.findByUsername(username)
-                    .orElse(null);
-
             if (user == null) {
-                response.put("error", "Invalid username or password");
+                response.put("error", "User not found");
                 return response;
             }
 
             String hashedPassword = passwordEncoder.hashPassword(password);
             if (!user.getPassword().equals(hashedPassword)) {
-                response.put("error", "Invalid username or password");
+                response.put("error", "Invalid password");
                 return response;
             }
 
-            response.put("success", "Login successful");
-            response.put("username", user.getUsername());
-            response.put("role", user.getRole().name());
+            httpSession.setAttribute("username", username);
+            httpSession.setAttribute("role", user.getRole().toString());
 
-            if (user.getRole() == User.UserRole.CUSTOMER && user.getCustomer() != null) {
-                response.put("phoneNumber", user.getCustomer().getPhoneNumber());
-            } else if (user.getRole() == User.UserRole.COURIER && user.getCourier() != null) {
-                response.put("phoneNumber", user.getCourier().getPhoneNumber());
-                response.put("isAvailable", String.valueOf(user.getCourier().isAvailable()));
-            }
-            
+            response.put("success", true);
+            response.put("role", user.getRole().toString());
             return response;
 
         } catch (Exception e) {
@@ -149,11 +161,15 @@ public class AuthService {
     }
 
     public boolean isUsernameExists(String username) {
-        return userRepository.existsByUsername(username);
+        return customerRepository.findByUsername(username).isPresent() ||
+               courierRepository.findByUsername(username).isPresent() ||
+               adminRepository.findByUsername(username).isPresent();
     }
 
     public boolean isEmailExists(String email) {
-        return userRepository.existsByEmail(email);
+        return customerRepository.findByEmail(email).isPresent() ||
+               courierRepository.findByEmail(email).isPresent() ||
+               adminRepository.findByEmail(email).isPresent();
     }
 
     public void PostSignup(String username, String email, String password, String roleType) {
@@ -170,29 +186,34 @@ public class AuthService {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        User user = User.builder()
-                .username(username)
-                .email(email)
-                .password(passwordEncoder.hashPassword(password))
-                .role(User.UserRole.valueOf(roleType))
-                .createdAt(LocalDateTime.now())
-                .build();
-
         if (roleType.equals("CUSTOMER")) {
             Customer customer = Customer.builder()
-                    .user(user)
+                    .username(username)
+                    .email(email)
+                    .password(passwordEncoder.hashPassword(password))
+                    .role(User.UserRole.CUSTOMER)
                     .createdAt(LocalDateTime.now())
                     .averageRating(0.0)
                     .build();
-            user.setCustomer(customer);
+            customerRepository.save(customer);
         } else if (roleType.equals("COURIER")) {
             Courier courier = Courier.builder()
-                    .user(user)
-                    .available(true)
+                    .username(username)
+                    .email(email)
+                    .password(passwordEncoder.hashPassword(password))
+                    .role(User.UserRole.COURIER)
+                    .createdAt(LocalDateTime.now())
+                    .averageRating(0.0)
                     .build();
-            user.setCourier(courier);
+            courierRepository.save(courier);
+        } else {
+            Admin admin = Admin.builder()
+                    .username(username)
+                    .email(email)
+                    .password(passwordEncoder.hashPassword(password))
+                    .role(User.UserRole.ADMIN)
+                    .build();
+            adminRepository.save(admin);
         }
-
-        userRepository.save(user);
     }
 }

@@ -2,17 +2,19 @@ package com.example.courierdistributionsystem.model;
 
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
-import lombok.*;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
-@Entity
 @Data
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
 @Table(name = "users")
-public class User {
+@Inheritance(strategy = InheritanceType.JOINED)
+public abstract class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,26 +28,17 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private UserRole role;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    private Customer customer;
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    private Courier courier;
-
-    @Column(nullable = false)
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "customer")
-    @JsonBackReference
-    private List<DeliveryPackage> customerDeliveries;
-
-    @OneToMany(mappedBy = "courier")
-    @JsonBackReference
-    private List<DeliveryPackage> courierDeliveries;
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 
     public enum UserRole {
         CUSTOMER,

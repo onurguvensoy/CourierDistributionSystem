@@ -3,7 +3,6 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.CustomerRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,18 +14,13 @@ public class CustomerService {
     @Autowired
     private CustomerRepository customerRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    public Customer getCustomerByUserId(Long userId) {
-        return customerRepository.findByUserId(userId);
+    public Customer getCustomerById(Long id) {
+        return customerRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
     }
 
-    public Customer updateCustomerProfile(Long userId, Map<String, String> customerRequest) {
-        Customer customer = getCustomerByUserId(userId);
-        if (customer == null) {
-            throw new IllegalArgumentException("Customer not found");
-        }
+    public Customer updateCustomerProfile(Long id, Map<String, String> customerRequest) {
+        Customer customer = getCustomerById(id);
 
         if (customerRequest.containsKey("phoneNumber")) {
             customer.setPhoneNumber(customerRequest.get("phoneNumber"));
@@ -38,18 +32,10 @@ public class CustomerService {
         return customerRepository.save(customer);
     }
 
-    public Customer createCustomerProfile(Long userId, Map<String, String> customerRequest) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        if (user.getRole() != User.UserRole.CUSTOMER) {
-            throw new IllegalArgumentException("User is not a customer");
-        }
-
-        if (customerRepository.findByUserId(userId) != null) {
-            throw new IllegalArgumentException("Customer profile already exists");
-        }
-
+    public Customer createCustomerProfile(Map<String, String> customerRequest) {
+        String username = customerRequest.get("username");
+        String email = customerRequest.get("email");
+        String password = customerRequest.get("password");
         String phoneNumber = customerRequest.get("phoneNumber");
         String deliveryAddress = customerRequest.get("deliveryAddress");
 
@@ -57,10 +43,22 @@ public class CustomerService {
             throw new IllegalArgumentException("Phone number and delivery address are required");
         }
 
+        if (customerRepository.findByUsername(username).isPresent()) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+
+        if (customerRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
         Customer customer = Customer.builder()
-            .user(user)
+            .username(username)
+            .email(email)
+            .password(password)
+            .role(User.UserRole.CUSTOMER)
             .phoneNumber(phoneNumber)
             .deliveryAddress(deliveryAddress)
+            .averageRating(0.0)
             .build();
 
         return customerRepository.save(customer);

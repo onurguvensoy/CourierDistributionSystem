@@ -1,9 +1,11 @@
 package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.model.Courier;
+import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.repository.CustomerRepository;
+import com.example.courierdistributionsystem.repository.CourierRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +21,10 @@ public class DeliveryPackageService {
     private DeliveryPackageRepository deliveryPackageRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private CourierRepository courierRepository;
 
     @Autowired
     private WebSocketService webSocketService;
@@ -45,12 +50,8 @@ public class DeliveryPackageService {
             throw new IllegalArgumentException("Missing required fields");
         }
 
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-
-        if (customer.getRole() != User.UserRole.CUSTOMER) {
-            throw new IllegalArgumentException("Only customers can create delivery packages");
-        }
 
         DeliveryPackage newDelivery = DeliveryPackage.builder()
             .customer(customer)
@@ -98,7 +99,7 @@ public class DeliveryPackageService {
 
     public void cancelDeliveryPackage(Long id, String username) {
         DeliveryPackage deliveryPackage = getDeliveryPackageById(id);
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
         if (!deliveryPackage.getCustomer().equals(customer)) {
@@ -113,8 +114,9 @@ public class DeliveryPackageService {
         deliveryPackage.setCancelledAt(LocalDateTime.now());
 
         if (deliveryPackage.getCourier() != null) {
-            deliveryPackage.getCourier().getCourier().setAvailable(true);
-            userRepository.save(deliveryPackage.getCourier());
+            Courier courier = deliveryPackage.getCourier();
+            courier.setAvailable(true);
+            courierRepository.save(courier);
         }
 
         DeliveryPackage cancelledDelivery = deliveryPackageRepository.save(deliveryPackage);
@@ -122,19 +124,15 @@ public class DeliveryPackageService {
     }
 
     public List<DeliveryPackage> getCustomerDeliveryPackages(String username) {
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-        
-        if (customer.getRole() != User.UserRole.CUSTOMER) {
-            throw new IllegalArgumentException("User is not a customer");
-        }
         
         return deliveryPackageRepository.findByCustomer(customer);
     }
 
     public Map<String, Object> trackDeliveryPackage(Long id, String username) {
         DeliveryPackage deliveryPackage = getDeliveryPackageById(id);
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
         if (!deliveryPackage.getCustomer().equals(customer)) {
@@ -142,20 +140,19 @@ public class DeliveryPackageService {
         }
 
         Map<String, Object> trackingInfo = new HashMap<>();
-        trackingInfo.put("id", deliveryPackage.getId());
         trackingInfo.put("status", deliveryPackage.getStatus());
-        trackingInfo.put("pickupAddress", deliveryPackage.getPickupAddress());
-        trackingInfo.put("deliveryAddress", deliveryPackage.getDeliveryAddress());
-        trackingInfo.put("currentLocation", deliveryPackage.getCurrentLocation());
-        trackingInfo.put("currentLatitude", deliveryPackage.getCurrentLatitude());
-        trackingInfo.put("currentLongitude", deliveryPackage.getCurrentLongitude());
         trackingInfo.put("createdAt", deliveryPackage.getCreatedAt());
-        trackingInfo.put("assignedAt", deliveryPackage.getAssignedAt());
-        trackingInfo.put("pickedUpAt", deliveryPackage.getPickedUpAt());
-        trackingInfo.put("deliveredAt", deliveryPackage.getDeliveredAt());
-        
+        trackingInfo.put("updatedAt", deliveryPackage.getUpdatedAt());
+
         if (deliveryPackage.getCourier() != null) {
-            trackingInfo.put("courierUsername", deliveryPackage.getCourier().getUsername());
+            Courier courier = deliveryPackage.getCourier();
+            trackingInfo.put("courierName", courier.getUsername());
+            trackingInfo.put("courierPhone", courier.getPhoneNumber());
+            trackingInfo.put("currentLocation", Map.of(
+                "latitude", courier.getCurrentLatitude(),
+                "longitude", courier.getCurrentLongitude(),
+                "zone", courier.getCurrentZone()
+            ));
         }
 
         return trackingInfo;
@@ -166,12 +163,8 @@ public class DeliveryPackageService {
     }
 
     public List<DeliveryPackage> getCourierActiveDeliveryPackages(String username) {
-        User courier = userRepository.findByUsername(username)
+        Courier courier = courierRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
-
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalArgumentException("User is not a courier");
-        }
 
         return deliveryPackageRepository.findByCourierAndStatusIn(courier, 
             List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, 
@@ -180,14 +173,10 @@ public class DeliveryPackageService {
     }
 
     public DeliveryPackage takeDeliveryPackage(Long packageId, String courierUsername) {
-        User courier = userRepository.findByUsername(courierUsername)
+        Courier courier = courierRepository.findByUsername(courierUsername)
             .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
 
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalArgumentException("User is not a courier");
-        }
-
-        if (!courier.getCourier().isAvailable()) {
+        if (!courier.isAvailable()) {
             throw new IllegalArgumentException("Courier is not available");
         }
 
@@ -201,8 +190,8 @@ public class DeliveryPackageService {
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
         deliveryPackage.setAssignedAt(LocalDateTime.now());
 
-        courier.getCourier().setAvailable(false);
-        userRepository.save(courier);
+        courier.setAvailable(false);
+        courierRepository.save(courier);
 
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
         webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
@@ -212,7 +201,7 @@ public class DeliveryPackageService {
     public DeliveryPackage updateDeliveryStatus(Long packageId, String courierUsername, DeliveryPackage.DeliveryStatus newStatus) {
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
             
-        User courier = userRepository.findByUsername(courierUsername)
+        Courier courier = courierRepository.findByUsername(courierUsername)
             .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
 
         if (!deliveryPackage.getCourier().equals(courier)) {
@@ -247,17 +236,11 @@ public class DeliveryPackageService {
                     throw new IllegalArgumentException("Can only deliver IN_TRANSIT packages");
                 }
                 deliveryPackage.setDeliveredAt(LocalDateTime.now());
-                courier.getCourier().setAvailable(true);
-                userRepository.save(courier);
+                courier.setAvailable(true);
+                courierRepository.save(courier);
                 break;
             case CANCELLED:
-                if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED) {
-                    throw new IllegalArgumentException("Cannot cancel DELIVERED packages");
-                }
-                deliveryPackage.setCancelledAt(LocalDateTime.now());
-                courier.getCourier().setAvailable(true);
-                userRepository.save(courier);
-                break;
+                throw new IllegalArgumentException("Use cancelDeliveryPackage to cancel a delivery");
         }
 
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
@@ -268,7 +251,7 @@ public class DeliveryPackageService {
     public DeliveryPackage updateDeliveryLocation(Long packageId, String courierUsername, Double latitude, Double longitude, String location) {
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
             
-        User courier = userRepository.findByUsername(courierUsername)
+        Courier courier = courierRepository.findByUsername(courierUsername)
             .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
 
         if (!deliveryPackage.getCourier().equals(courier)) {
@@ -289,12 +272,8 @@ public class DeliveryPackageService {
     }
 
     public DeliveryPackage dropDeliveryPackage(Long packageId, String courierUsername) {
-        User courier = userRepository.findByUsername(courierUsername)
+        Courier courier = courierRepository.findByUsername(courierUsername)
             .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
-
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalArgumentException("User is not a courier");
-        }
 
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
 
@@ -311,8 +290,8 @@ public class DeliveryPackageService {
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
         deliveryPackage.setAssignedAt(null);
 
-        courier.getCourier().setAvailable(true);
-        userRepository.save(courier);
+        courier.setAvailable(true);
+        courierRepository.save(courier);
 
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
         webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
@@ -320,18 +299,14 @@ public class DeliveryPackageService {
     }
 
     private void validateStatusTransition(DeliveryPackage.DeliveryStatus currentStatus, DeliveryPackage.DeliveryStatus newStatus) {
-        boolean isValid = switch (currentStatus) {
-            case PENDING -> newStatus == DeliveryPackage.DeliveryStatus.ASSIGNED || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
-            case ASSIGNED -> newStatus == DeliveryPackage.DeliveryStatus.PICKED_UP || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
-            case PICKED_UP -> newStatus == DeliveryPackage.DeliveryStatus.IN_TRANSIT || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
-            case IN_TRANSIT -> newStatus == DeliveryPackage.DeliveryStatus.DELIVERED || newStatus == DeliveryPackage.DeliveryStatus.CANCELLED;
-            case DELIVERED, CANCELLED -> false;
-        };
+        if (currentStatus == DeliveryPackage.DeliveryStatus.DELIVERED || 
+            currentStatus == DeliveryPackage.DeliveryStatus.CANCELLED) {
+            throw new IllegalArgumentException("Cannot update status of a " + currentStatus + " package");
+        }
 
-        if (!isValid) {
-            throw new IllegalArgumentException(
-                String.format("Invalid status transition from %s to %s", currentStatus, newStatus)
-            );
+        if (newStatus.ordinal() <= currentStatus.ordinal() && 
+            newStatus != DeliveryPackage.DeliveryStatus.CANCELLED) {
+            throw new IllegalArgumentException("Invalid status transition from " + currentStatus + " to " + newStatus);
         }
     }
 }

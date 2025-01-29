@@ -16,19 +16,18 @@ public class CustomerController {
     @Autowired
     private CustomerService customerService;
 
-    @GetMapping("/{userId}")
-    public ResponseEntity<?> getCustomerProfile(@PathVariable Long userId) {
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getCustomerProfile(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Customer customer = customerService.getCustomerByUserId(userId);
-            if (customer == null) {
-                response.put("status", "error");
-                response.put("message", "Customer profile not found");
-                return ResponseEntity.badRequest().body(response);
-            }
+            Customer customer = customerService.getCustomerById(id);
             response.put("status", "success");
             response.put("data", customer);
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
             response.put("status", "error");
             response.put("message", "Failed to fetch customer profile: " + e.getMessage());
@@ -36,11 +35,11 @@ public class CustomerController {
         }
     }
 
-    @PostMapping("/{userId}")
-    public ResponseEntity<?> createCustomerProfile(@PathVariable Long userId, @RequestBody Map<String, String> customerRequest) {
+    @PostMapping
+    public ResponseEntity<?> createCustomerProfile(@RequestBody Map<String, String> customerRequest) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Customer customer = customerService.createCustomerProfile(userId, customerRequest);
+            Customer customer = customerService.createCustomerProfile(customerRequest);
             response.put("status", "success");
             response.put("data", customer);
             return ResponseEntity.ok(response);
@@ -55,11 +54,11 @@ public class CustomerController {
         }
     }
 
-    @PutMapping("/{userId}")
-    public ResponseEntity<?> updateCustomerProfile(@PathVariable Long userId, @RequestBody Map<String, String> customerRequest) {
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateCustomerProfile(@PathVariable Long id, @RequestBody Map<String, String> customerRequest) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Customer customer = customerService.updateCustomerProfile(userId, customerRequest);
+            Customer customer = customerService.updateCustomerProfile(id, customerRequest);
             response.put("status", "success");
             response.put("data", customer);
             return ResponseEntity.ok(response);

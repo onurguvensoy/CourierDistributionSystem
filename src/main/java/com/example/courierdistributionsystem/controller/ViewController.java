@@ -61,17 +61,14 @@ public class ViewController {
                        @RequestParam String password,
                        HttpSession session,
                        RedirectAttributes redirectAttributes) {
-        Map<String, String> response = authService.CheckLoginUser(Map.of(
-            "username", username,
-            "password", password
-        ));
+        Map<String, Object> response = authService.login(username, password);
 
         if (response.containsKey("error")) {
             redirectAttributes.addFlashAttribute("error", response.get("error"));
             return "redirect:/auth/login";
         }
 
-        session.setAttribute("username", response.get("username"));
+        session.setAttribute("username", username);
         session.setAttribute("role", response.get("role"));
         if (response.containsKey("phoneNumber")) {
             session.setAttribute("phoneNumber", response.get("phoneNumber"));
@@ -110,7 +107,7 @@ public class ViewController {
         signupData.put("deliveryAddress", signupForm.getDeliveryAddress());
         signupData.put("vehicleType", signupForm.getVehicleType());
         
-        Map<String, String> response = authService.CheckSignup(signupData);
+        Map<String, String> response = authService.signup(signupData);
         
         if (response.containsKey("error")) {
             model.addAttribute("error", response.get("error"));
@@ -137,7 +134,8 @@ public class ViewController {
         }
         
         try {
-            return viewService.getDashboardRedirect(username);
+            String view = viewService.getDashboardRedirect(username);
+            return view;
         } catch (RuntimeException e) {
             session.invalidate();
             redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
@@ -201,5 +199,60 @@ public class ViewController {
         model.addAttribute("myPackages", myPackages);
         model.addAttribute("googleMapsApiKey", googleMapsApiKey);
         return "customer_dashboard";
+    }
+
+    @PostMapping("/courier/delivery/take")
+    public String takeDelivery(@RequestParam Long packageId,
+                             HttpSession session,
+                             RedirectAttributes redirectAttributes) {
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            return "redirect:/auth/login";
+        }
+
+        try {
+            viewService.takeDeliveryPackage(packageId, username);
+            redirectAttributes.addFlashAttribute("message", "Delivery taken successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/courier/dashboard";
+    }
+
+    @PostMapping("/courier/delivery/update-status")
+    public String updateDeliveryStatus(@RequestParam Long packageId,
+                                     @RequestParam String status,
+                                     HttpSession session,
+                                     RedirectAttributes redirectAttributes) {
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            return "redirect:/auth/login";
+        }
+
+        try {
+            viewService.updateDeliveryStatus(packageId, username, status);
+            redirectAttributes.addFlashAttribute("message", "Status updated successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/courier/dashboard";
+    }
+
+    @PostMapping("/courier/delivery/drop")
+    public String dropDelivery(@RequestParam Long packageId,
+                             HttpSession session,
+                             RedirectAttributes redirectAttributes) {
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            return "redirect:/auth/login";
+        }
+
+        try {
+            viewService.dropDeliveryPackage(packageId, username);
+            redirectAttributes.addFlashAttribute("message", "Delivery dropped successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/courier/dashboard";
     }
 }

@@ -20,7 +20,7 @@ public class LocationHistory {
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
-    private User courier;
+    private Courier courier;
 
     private Double latitude;
     private Double longitude;

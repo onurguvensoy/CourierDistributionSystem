@@ -107,8 +107,9 @@
                         <!-- Send Package Tab -->
                         <div class="tab-pane fade" id="send-package">
                             <h3>Send a Package</h3>
-                            <form class="mt-4" action="/api/packages" method="POST" id="sendPackageForm">
+                            <form class="mt-4" action="/api/deliveries" method="POST" id="sendPackageForm">
                                 <input type="hidden" name="username" value="${user.username}">
+                                <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                 
                                 <!-- Pickup Address Section -->
                                 <div class="mb-3">

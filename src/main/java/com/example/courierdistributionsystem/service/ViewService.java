@@ -1,9 +1,7 @@
 package com.example.courierdistributionsystem.service;
 
-import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.model.*;
+import com.example.courierdistributionsystem.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -12,23 +10,42 @@ import java.util.List;
 public class ViewService {
 
     @Autowired
-    private UserRepository userRepository;
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private CourierRepository courierRepository;
+
+    @Autowired
+    private AdminRepository adminRepository;
 
     @Autowired
     private DeliveryPackageRepository packageRepository;
 
+    @Autowired
+    private DeliveryPackageService deliveryPackageService;
+
     public User getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username).orElse(null);
+        if (customer != null) {
+            return customer;
+        }
+        
+        Courier courier = courierRepository.findByUsername(username).orElse(null);
+        if (courier != null) {
+            return courier;
+        }
+        
+        Admin admin = adminRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        return admin;
     }
 
     public String getDashboardRedirect(String username) {
         User user = getUserByUsername(username);
-
         return switch (user.getRole()) {
-            case ADMIN -> "redirect:/admin/dashboard";
-            case COURIER -> "redirect:/courier/dashboard";
-            case CUSTOMER -> "redirect:/customer/dashboard";
+            case CUSTOMER -> "customer_dashboard";
+            case COURIER -> "courier_dashboard";
+            case ADMIN -> "admin_dashboard";
         };
     }
 
@@ -55,7 +72,7 @@ public class ViewService {
         }
 
         return packageRepository.findByCourierAndStatusIn(
-            courier, 
+            (Courier) courier, 
             List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, DeliveryPackage.DeliveryStatus.PICKED_UP, DeliveryPackage.DeliveryStatus.IN_TRANSIT)
         );
     }
@@ -69,6 +86,19 @@ public class ViewService {
             throw new IllegalStateException("Only customers can view their packages");
         }
         
-        return packageRepository.findByCustomer(customer);
+        return packageRepository.findByCustomer((Customer) customer);
+    }
+
+    public void takeDeliveryPackage(Long packageId, String username) {
+        deliveryPackageService.takeDeliveryPackage(packageId, username);
+    }
+
+    public void updateDeliveryStatus(Long packageId, String username, String status) {
+        DeliveryPackage.DeliveryStatus newStatus = DeliveryPackage.DeliveryStatus.valueOf(status);
+        deliveryPackageService.updateDeliveryStatus(packageId, username, newStatus);
+    }
+
+    public void dropDeliveryPackage(Long packageId, String username) {
+        deliveryPackageService.dropDeliveryPackage(packageId, username);
     }
 }

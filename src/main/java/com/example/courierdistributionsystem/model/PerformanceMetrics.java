@@ -14,7 +14,7 @@ public class PerformanceMetrics {
 
     @ManyToOne
     @JoinColumn(name = "courier_id", nullable = false)
-    private User courier;
+    private Courier courier;
 
     private LocalDate date;
 

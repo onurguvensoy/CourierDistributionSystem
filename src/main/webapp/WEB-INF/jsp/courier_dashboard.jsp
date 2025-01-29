@@ -119,8 +119,8 @@
                                                 <td>${packageData.deliveryAddress}</td>
                                                 <td>${packageData.weight} kg</td>
                                                 <td>
-                                                    <form action="/api/deliveries/${packageData.id}/assign" method="POST" style="display: inline;">
-                                                        <input type="hidden" name="username" value="${user.username}"/>
+                                                    <form action="/courier/delivery/take" method="POST" style="display: inline;">
+                                                        <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                         <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                                         <button type="submit" class="btn btn-primary btn-sm">Take Delivery</button>
                                                     </form>
@@ -157,40 +157,40 @@
                                                 <td>
                                                     <c:choose>
                                                         <c:when test="${packageData.status eq 'ASSIGNED'}">
-                                                            <form action="/api/deliveries/${packageData.id}/status" method="POST" style="display: inline;">
-                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                            <form action="/courier/delivery/update-status" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                                 <input type="hidden" name="status" value="PICKED_UP"/>
                                                                 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                                                 <button type="submit" class="btn btn-info btn-sm">Mark as Picked Up</button>
                                                             </form>
-                                                            <form action="/api/deliveries/${packageData.id}/drop" method="POST" style="display: inline;">
-                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                            <form action="/courier/delivery/drop" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                                 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                                                 <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
                                                             </form>
                                                         </c:when>
                                                         <c:when test="${packageData.status eq 'PICKED_UP'}">
-                                                            <form action="/api/deliveries/${packageData.id}/status" method="POST" style="display: inline;">
-                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                            <form action="/courier/delivery/update-status" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                                 <input type="hidden" name="status" value="IN_TRANSIT"/>
                                                                 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                                                 <button type="submit" class="btn btn-warning btn-sm">Start Delivery</button>
                                                             </form>
-                                                            <form action="/api/deliveries/${packageData.id}/drop" method="POST" style="display: inline;">
-                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                            <form action="/courier/delivery/drop" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                                 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                                                 <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
                                                             </form>
                                                         </c:when>
                                                         <c:when test="${packageData.status eq 'IN_TRANSIT'}">
-                                                            <form action="/api/deliveries/${packageData.id}/status" method="POST" style="display: inline;">
-                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                            <form action="/courier/delivery/update-status" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                                 <input type="hidden" name="status" value="DELIVERED"/>
                                                                 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                                                 <button type="submit" class="btn btn-success btn-sm">Mark as Delivered</button>
                                                             </form>
-                                                            <form action="/api/deliveries/${packageData.id}/drop" method="POST" style="display: inline;">
-                                                                <input type="hidden" name="username" value="${user.username}"/>
+                                                            <form action="/courier/delivery/drop" method="POST" style="display: inline;">
+                                                                <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                                 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                                                                 <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
                                                             </form>

@@ -2,29 +2,22 @@ package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
+import lombok.experimental.SuperBuilder;
 
 @Entity
-@Data
-@Builder
-@NoArgsConstructor
+@Getter
+@Setter
 @AllArgsConstructor
+@ToString(callSuper = true)
+@SuperBuilder
+@EqualsAndHashCode(callSuper = true)
+@DiscriminatorValue("ADMIN")
 @Table(name = "admin")
-public class Admin {
-    @Id
-    private Long id;
-
-    @OneToOne
-    @MapsId
-    @JoinColumn(name = "id")
-    private User user;
-
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
-
+public class Admin extends User {
     @PrePersist
+    @Override
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        super.onCreate();
+        setRole(UserRole.ADMIN);
     }
 }

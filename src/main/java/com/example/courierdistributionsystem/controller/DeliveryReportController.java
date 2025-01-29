@@ -2,10 +2,10 @@ package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.DeliveryReport;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.repository.DeliveryReportRepository;
 import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.repository.CourierRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +25,7 @@ public class DeliveryReportController {
     private DeliveryPackageRepository packageRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private CourierRepository courierRepository;
 
     @GetMapping
     public List<DeliveryReport> getAllDeliveryReports() {
@@ -34,8 +34,8 @@ public class DeliveryReportController {
 
     @GetMapping("/courier")
     public List<DeliveryReport> getCourierDeliveryReports(@RequestParam String username) {
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Courier courier = courierRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Courier not found"));
         return deliveryReportRepository.findByCourier(courier);
     }
 
@@ -45,8 +45,8 @@ public class DeliveryReportController {
             @Valid @RequestBody DeliveryReport report,
             @RequestParam String username) {
         
-        User courier = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Courier courier = courierRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Courier not found"));
         
         DeliveryPackage deliveryPackage = packageRepository.findById(packageId)
                 .orElseThrow(() -> new RuntimeException("Package not found"));

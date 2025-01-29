@@ -17,19 +17,18 @@ public class CourierController {
     @Autowired
     private CourierService courierService;
 
-    @GetMapping("/{userId}")
-    public ResponseEntity<?> getCourierProfile(@PathVariable Long userId) {
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getCourierProfile(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Courier courier = courierService.getCourierByUserId(userId);
-            if (courier == null) {
-                response.put("status", "error");
-                response.put("message", "Courier profile not found");
-                return ResponseEntity.badRequest().body(response);
-            }
+            Courier courier = courierService.getCourierById(id);
             response.put("status", "success");
             response.put("data", courier);
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
             response.put("status", "error");
             response.put("message", "Failed to fetch courier profile: " + e.getMessage());
@@ -52,11 +51,11 @@ public class CourierController {
         }
     }
 
-    @PostMapping("/{userId}")
-    public ResponseEntity<?> createCourierProfile(@PathVariable Long userId, @RequestBody Map<String, String> courierRequest) {
+    @PostMapping
+    public ResponseEntity<?> createCourierProfile(@RequestBody Map<String, String> courierRequest) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Courier courier = courierService.createCourierProfile(userId, courierRequest);
+            Courier courier = courierService.createCourierProfile(courierRequest);
             response.put("status", "success");
             response.put("data", courier);
             return ResponseEntity.ok(response);
@@ -71,11 +70,11 @@ public class CourierController {
         }
     }
 
-    @PutMapping("/{userId}")
-    public ResponseEntity<?> updateCourierProfile(@PathVariable Long userId, @RequestBody Map<String, String> courierRequest) {
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateCourierProfile(@PathVariable Long id, @RequestBody Map<String, String> courierRequest) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Courier courier = courierService.updateCourierProfile(userId, courierRequest);
+            Courier courier = courierService.updateCourierProfile(id, courierRequest);
             response.put("status", "success");
             response.put("data", courier);
             return ResponseEntity.ok(response);
@@ -90,13 +89,12 @@ public class CourierController {
         }
     }
 
-    @PutMapping("/{userId}/location")
-    public ResponseEntity<?> updateCourierLocation(@PathVariable Long userId, @RequestBody Map<String, String> locationRequest) {
+    @PutMapping("/{id}/location")
+    public ResponseEntity<?> updateCourierLocation(@PathVariable Long id, @RequestBody Map<String, String> locationRequest) {
         Map<String, Object> response = new HashMap<>();
         try {
-            courierService.updateCourierLocation(userId, locationRequest);
+            courierService.updateCourierLocation(id, locationRequest);
             response.put("status", "success");
-            response.put("message", "Location updated successfully");
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             response.put("status", "error");

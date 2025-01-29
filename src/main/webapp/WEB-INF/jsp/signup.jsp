@@ -58,6 +58,7 @@
                     <form:select path="roleType" class="form-control" required="true">
                         <form:option value="CUSTOMER">Customer</form:option>
                         <form:option value="COURIER">Courier</form:option>
+                        <form:option value="ADMIN">Admin</form:option>
                     </form:select>
                 </div>
                 
@@ -66,10 +67,6 @@
                     <div class="mb-3">
                         <label for="deliveryAddress" class="form-label">Delivery Address</label>
                         <form:input path="deliveryAddress" class="form-control"/>
-                    </div>
-                    <div class="mb-3">
-                        <label for="billingAddress" class="form-label">Billing Address</label>
-                        <form:input path="billingAddress" class="form-control"/>
                     </div>
                     <div class="mb-3">
                         <label for="phoneNumber" class="form-label">Phone Number</label>
@@ -87,19 +84,39 @@
                             <form:option value="BICYCLE">Bicycle</form:option>
                         </form:select>
                     </div>
+                    <div class="mb-3">
+                        <label for="phoneNumber" class="form-label">Phone Number</label>
+                        <form:input path="phoneNumber" class="form-control"/>
+                    </div>
+                </div>
+
+                <!-- Admin Fields -->
+                <div id="adminFields" class="role-fields" style="display: none;">
+                    <!-- Admin doesn't need additional fields -->
                 </div>
 
                 <script>
                     document.getElementById('roleType').addEventListener('change', function() {
                         const customerFields = document.getElementById('customerFields');
                         const courierFields = document.getElementById('courierFields');
+                        const adminFields = document.getElementById('adminFields');
                         
-                        if (this.value === 'CUSTOMER') {
-                            customerFields.style.display = 'block';
-                            courierFields.style.display = 'none';
-                        } else {
-                            customerFields.style.display = 'none';
-                            courierFields.style.display = 'block';
+                        // Hide all fields first
+                        customerFields.style.display = 'none';
+                        courierFields.style.display = 'none';
+                        adminFields.style.display = 'none';
+                        
+                        // Show relevant fields based on role
+                        switch(this.value) {
+                            case 'CUSTOMER':
+                                customerFields.style.display = 'block';
+                                break;
+                            case 'COURIER':
+                                courierFields.style.display = 'block';
+                                break;
+                            case 'ADMIN':
+                                adminFields.style.display = 'block';
+                                break;
                         }
                     });
                 </script>

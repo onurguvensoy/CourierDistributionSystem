@@ -1,9 +1,11 @@
 package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.model.Courier;
+import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.repository.CustomerRepository;
+import com.example.courierdistributionsystem.repository.CourierRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +21,10 @@ public class PackageService {
     private DeliveryPackageRepository packageRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private CourierRepository courierRepository;
 
     @Autowired
     private WebSocketService webSocketService;
@@ -45,12 +50,8 @@ public class PackageService {
             throw new IllegalArgumentException("Missing required fields");
         }
 
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-
-        if (customer.getRole() != User.UserRole.CUSTOMER) {
-            throw new IllegalArgumentException("Only customers can create packages");
-        }
 
         DeliveryPackage newPackage = DeliveryPackage.builder()
             .customer(customer)
@@ -98,7 +99,7 @@ public class PackageService {
 
     public void cancelPackage(Long id, String username) {
         DeliveryPackage deliveryPackage = getPackageById(id);
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
         if (!deliveryPackage.getCustomer().equals(customer)) {
@@ -114,29 +115,25 @@ public class PackageService {
         deliveryPackage.setCancelledAt(LocalDateTime.now());
 
         if (deliveryPackage.getCourier() != null) {
-            User courier = deliveryPackage.getCourier();
-            courier.getCourier().setAvailable(true);
-            userRepository.save(courier);
+            Courier courier = deliveryPackage.getCourier();
+            courier.setAvailable(true);
+            courierRepository.save(courier);
         }
 
-        DeliveryPackage updatedPackage = packageRepository.save(deliveryPackage);
-        webSocketService.notifyDeliveryStatusUpdate(updatedPackage);
+        DeliveryPackage cancelledPackage = packageRepository.save(deliveryPackage);
+        webSocketService.notifyDeliveryStatusUpdate(cancelledPackage);
     }
 
     public List<DeliveryPackage> getCustomerPackages(String username) {
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-        
-        if (customer.getRole() != User.UserRole.CUSTOMER) {
-            throw new IllegalArgumentException("User is not a customer");
-        }
         
         return packageRepository.findByCustomer(customer);
     }
 
     public Map<String, Object> trackPackage(Long packageId, String username) {
         DeliveryPackage deliveryPackage = getPackageById(packageId);
-        User customer = userRepository.findByUsername(username)
+        Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
         if (!deliveryPackage.getCustomer().equals(customer)) {
@@ -154,8 +151,9 @@ public class PackageService {
         trackingInfo.put("specialInstructions", deliveryPackage.getSpecialInstructions());
         
         if (deliveryPackage.getCourier() != null) {
-            trackingInfo.put("courierName", deliveryPackage.getCourier().getUsername());
-            trackingInfo.put("courierPhone", deliveryPackage.getCourier().getCourier().getPhoneNumber());
+            Courier courier = deliveryPackage.getCourier();
+            trackingInfo.put("courierName", courier.getUsername());
+            trackingInfo.put("courierPhone", courier.getPhoneNumber());
         }
         
         if (deliveryPackage.getCurrentLatitude() != null && deliveryPackage.getCurrentLongitude() != null) {

@@ -20,7 +20,7 @@ public class DeliveryReport {
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
-    private User courier;
+    private Courier courier;
 
     private LocalDateTime deliveryTime;
     private String deliveryNotes;

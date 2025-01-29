@@ -15,11 +15,11 @@ public class Rating {
 
     @ManyToOne
     @JoinColumn(name = "customer_id")
-    private User customer;
+    private Customer customer;
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
-    private User courier;
+    private Courier courier;
 
     @ManyToOne
     @JoinColumn(name = "delivery_package_id")

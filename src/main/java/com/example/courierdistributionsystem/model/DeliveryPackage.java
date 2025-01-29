@@ -22,13 +22,13 @@ public class DeliveryPackage {
     @JoinColumn(name = "customer_id", nullable = false)
     @JsonIdentityReference(alwaysAsId = true)
     @JsonProperty("customerId")
-    private User customer;
+    private Customer customer;
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
     @JsonIdentityReference(alwaysAsId = true)
     @JsonProperty("courierId")
-    private User courier;
+    private Courier courier;
 
     @Column(nullable = false)
     private String pickupAddress;
@@ -49,6 +49,7 @@ public class DeliveryPackage {
     private LocalDateTime pickedUpAt;
     private LocalDateTime deliveredAt;
     private LocalDateTime cancelledAt;
+    private LocalDateTime updatedAt;
 
     private Double currentLatitude;
     private Double currentLongitude;
@@ -72,6 +73,12 @@ public class DeliveryPackage {
         if (status == null) {
             status = DeliveryStatus.PENDING;
         }
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     @JsonProperty("customerUsername")
@@ -90,5 +97,6 @@ public class DeliveryPackage {
 
     public void setStatus(DeliveryStatus status) {
         this.status = status;
+        this.updatedAt = LocalDateTime.now();
     }
 } 

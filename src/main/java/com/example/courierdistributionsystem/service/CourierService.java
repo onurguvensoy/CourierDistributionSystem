@@ -3,7 +3,6 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.CourierRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,24 +16,19 @@ public class CourierService {
     private CourierRepository courierRepository;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
     private WebSocketService webSocketService;
 
-    public Courier getCourierByUserId(Long userId) {
-        return courierRepository.findByUserId(userId);
+    public Courier getCourierById(Long id) {
+        return courierRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
     }
 
     public List<Courier> getAvailableCouriers() {
         return courierRepository.findByAvailable(true);
     }
 
-    public Courier updateCourierProfile(Long userId, Map<String, String> courierRequest) {
-        Courier courier = getCourierByUserId(userId);
-        if (courier == null) {
-            throw new IllegalArgumentException("Courier not found");
-        }
+    public Courier updateCourierProfile(Long id, Map<String, String> courierRequest) {
+        Courier courier = getCourierById(id);
 
         if (courierRequest.containsKey("phoneNumber")) {
             courier.setPhoneNumber(courierRequest.get("phoneNumber"));
@@ -57,18 +51,10 @@ public class CourierService {
         return updatedCourier;
     }
 
-    public Courier createCourierProfile(Long userId, Map<String, String> courierRequest) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        if (user.getRole() != User.UserRole.COURIER) {
-            throw new IllegalArgumentException("User is not a courier");
-        }
-
-        if (courierRepository.findByUserId(userId) != null) {
-            throw new IllegalArgumentException("Courier profile already exists");
-        }
-
+    public Courier createCourierProfile(Map<String, String> courierRequest) {
+        String username = courierRequest.get("username");
+        String email = courierRequest.get("email");
+        String password = courierRequest.get("password");
         String phoneNumber = courierRequest.get("phoneNumber");
         String vehicleType = courierRequest.get("vehicleType");
 
@@ -76,8 +62,19 @@ public class CourierService {
             throw new IllegalArgumentException("Phone number and vehicle type are required");
         }
 
+        if (courierRepository.findByUsername(username).isPresent()) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+
+        if (courierRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
         Courier courier = Courier.builder()
-            .user(user)
+            .username(username)
+            .email(email)
+            .password(password)
+            .role(User.UserRole.COURIER)
             .phoneNumber(phoneNumber)
             .vehicleType(vehicleType)
             .available(true)
@@ -89,29 +86,19 @@ public class CourierService {
         return courierRepository.save(courier);
     }
 
-    public void updateCourierLocation(Long userId, Map<String, String> locationRequest) {
-        Courier courier = getCourierByUserId(userId);
-        if (courier == null) {
-            throw new IllegalArgumentException("Courier not found");
+    public void updateCourierLocation(Long id, Map<String, String> locationRequest) {
+        Courier courier = getCourierById(id);
+        
+        if (locationRequest.containsKey("latitude")) {
+            courier.setCurrentLatitude(Double.parseDouble(locationRequest.get("latitude")));
         }
-
-        String latitude = locationRequest.get("latitude");
-        String longitude = locationRequest.get("longitude");
-        String zone = locationRequest.get("zone");
-
-        if (latitude != null && longitude != null) {
-            courier.setCurrentLatitude(Double.parseDouble(latitude));
-            courier.setCurrentLongitude(Double.parseDouble(longitude));
+        if (locationRequest.containsKey("longitude")) {
+            courier.setCurrentLongitude(Double.parseDouble(locationRequest.get("longitude")));
         }
-
-        if (zone != null) {
-            courier.setCurrentZone(zone);
+        if (locationRequest.containsKey("zone")) {
+            courier.setCurrentZone(locationRequest.get("zone"));
         }
 
         courierRepository.save(courier);
-        webSocketService.notifyCourierAssignment(courier.getId(), Map.of(
-            "type", "LOCATION_UPDATE",
-            "courier", courier
-        ));
     }
 } 

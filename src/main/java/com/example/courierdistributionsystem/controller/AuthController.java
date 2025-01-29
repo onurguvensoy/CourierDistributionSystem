@@ -32,7 +32,13 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            authService.PostSignup(username, email, password, roleType);
+            Map<String, String> signupResponse = authService.signup(signupRequest);
+            
+            if (signupResponse.containsKey("error")) {
+                response.put("status", "error");
+                response.put("message", signupResponse.get("error"));
+                return ResponseEntity.badRequest().body(response);
+            }
             
             response.put("status", "success");
             response.put("message", "User registered successfully");
@@ -55,10 +61,10 @@ public class AuthController {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            Map<String, String> authResponse = authService.CheckLoginUser(Map.of(
-                "username", loginRequest.get("username"),
-                "password", loginRequest.get("password")
-            ));
+            Map<String, Object> authResponse = authService.login(
+                loginRequest.get("username"),
+                loginRequest.get("password")
+            );
 
             if (authResponse.containsKey("error")) {
                 response.put("status", "error");
@@ -66,7 +72,7 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            session.setAttribute("username", authResponse.get("username"));
+            session.setAttribute("username", loginRequest.get("username"));
             session.setAttribute("role", authResponse.get("role"));
             if (authResponse.containsKey("phoneNumber")) {
                 session.setAttribute("phoneNumber", authResponse.get("phoneNumber"));

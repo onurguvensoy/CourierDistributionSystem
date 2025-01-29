@@ -15,7 +15,7 @@ public class CourierAvailability {
 
     @OneToOne
     @JoinColumn(name = "courier_id")
-    private User courier;
+    private Courier courier;
 
     private boolean available;
     private String currentZone;
