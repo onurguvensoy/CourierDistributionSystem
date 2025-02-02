@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <title>Customer Dashboard - Courier Distribution System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/common.css" rel="stylesheet">
     <script src="https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places"></script>
     <style>
         body {
@@ -26,17 +27,27 @@
             background-color: #0d6efd;
             color: white;
         }
-        #map {
+        #map, #sendPackageMap {
             height: 400px;
             width: 100%;
-            border-radius: 5px;
+            border-radius: 8px;
             margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .map-container {
             position: relative;
+            margin-bottom: 20px;
         }
         .package-marker {
             cursor: pointer;
+        }
+        .card {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
         }
     </style>
 </head>

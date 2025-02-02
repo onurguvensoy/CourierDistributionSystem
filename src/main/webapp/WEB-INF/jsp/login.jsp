@@ -6,39 +6,12 @@
     <meta charset="UTF-8">
     <title>Login - Courier Distribution System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/common.css" rel="stylesheet">
     <style>
-        body {
-            background-color: #f8f9fa;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            padding-top: 40px;
-            padding-bottom: 40px;
-        }
         .login-container {
             max-width: 400px;
             width: 100%;
-            margin: auto;
-            padding: 30px;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .error-message {
-            color: #dc3545;
-            margin-bottom: 15px;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-        }
-        .success-message {
-            color: #28a745;
-            margin-bottom: 15px;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
+            margin: 100px auto;
         }
         .form-control:focus {
             border-color: #80bdff;

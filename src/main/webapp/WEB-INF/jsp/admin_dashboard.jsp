@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -7,6 +8,7 @@
     <title>Admin Dashboard - Courier Distribution System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/common.css" rel="stylesheet">
     <style>
         body {
             background-color: #f8f9fa;
@@ -26,18 +28,43 @@
             background-color: #0d6efd;
             color: white;
         }
-        .user-stats {
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            padding: 15px;
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .map-container {
+            position: relative;
             margin-bottom: 20px;
         }
-        .stat-card {
-            text-align: center;
-            padding: 10px;
+        .card {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            transition: transform 0.2s;
+            margin-bottom: 20px;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .table {
             background-color: white;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-card h5 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .stat-card h3 {
+            font-size: 2.5rem;
+            margin: 0;
+            color: #0d6efd;
         }
     </style>
 </head>
@@ -47,7 +74,10 @@
         <div class="dashboard-container">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>Admin Dashboard</h2>
-                <a href="/auth/logout" class="btn btn-outline-danger">Logout</a>
+                <div>
+                    <span class="me-3">Welcome, ${user.username}</span>
+                    <a href="/auth/logout" class="btn btn-outline-danger">Logout</a>
+                </div>
             </div>
         </div>
 
@@ -72,30 +102,38 @@
                     <div class="tab-content">
                         <!-- Overview Tab -->
                         <div class="tab-pane fade show active" id="overview">
-                            <h3>System Overview</h3>
-                            <div class="user-stats row mt-4">
+                            <h3 class="mb-4">System Overview</h3>
+                            <div class="row">
                                 <div class="col-md-3">
-                                    <div class="stat-card">
-                                        <h5>Total Users</h5>
-                                        <h3 id="totalUsers">0</h3>
+                                    <div class="card">
+                                        <div class="stat-card">
+                                            <h5>Total Users</h5>
+                                            <h3 id="totalUsers">0</h3>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="stat-card">
-                                        <h5>Customers</h5>
-                                        <h3 id="totalCustomers">0</h3>
+                                    <div class="card">
+                                        <div class="stat-card">
+                                            <h5>Customers</h5>
+                                            <h3 id="totalCustomers">0</h3>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="stat-card">
-                                        <h5>Couriers</h5>
-                                        <h3 id="totalCouriers">0</h3>
+                                    <div class="card">
+                                        <div class="stat-card">
+                                            <h5>Couriers</h5>
+                                            <h3 id="totalCouriers">0</h3>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
-                                    <div class="stat-card">
-                                        <h5>Admins</h5>
-                                        <h3 id="totalAdmins">0</h3>
+                                    <div class="card">
+                                        <div class="stat-card">
+                                            <h5>Admins</h5>
+                                            <h3 id="totalAdmins">0</h3>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -192,7 +230,7 @@
                                     <td>${user.username}</td>
                                     <td>${user.email}</td>
                                     <td>${user.role}</td>
-                                    <td>${new Date(user.createdAt).toLocaleString()}</td>
+                                    <td><fmt:formatDate value="${user.createdAt}" pattern="dd/MM/yyyy HH:mm"/></td>
                                     <td>
                                         <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id}, '${user.role}')">
                                             <i class="bi bi-trash"></i>

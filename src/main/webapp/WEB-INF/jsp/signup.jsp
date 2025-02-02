@@ -7,21 +7,24 @@
     <meta charset="UTF-8">
     <title>Sign Up - Courier Distribution System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/common.css" rel="stylesheet">
     <style>
         body {
-            background-color: #f8f9fa;
+            display: flex;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px 0;
         }
         .signup-container {
             max-width: 400px;
-            margin: 100px auto;
-            padding: 20px;
-            background-color: white;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            margin: 0 auto;
+            padding: 30px;
         }
         .error-message {
-            color: red;
+            color: #e53935;
             margin-bottom: 15px;
+            font-size: 0.9em;
         }
     </style>
 </head>
@@ -58,7 +61,6 @@
                     <form:select path="roleType" class="form-control" required="true">
                         <form:option value="CUSTOMER">Customer</form:option>
                         <form:option value="COURIER">Courier</form:option>
-                        <form:option value="ADMIN">Admin</form:option>
                     </form:select>
                 </div>
                 
@@ -89,22 +91,15 @@
                         <form:input path="phoneNumber" class="form-control"/>
                     </div>
                 </div>
-
-                <!-- Admin Fields -->
-                <div id="adminFields" class="role-fields" style="display: none;">
-                    <!-- Admin doesn't need additional fields -->
-                </div>
-
                 <script>
                     document.getElementById('roleType').addEventListener('change', function() {
                         const customerFields = document.getElementById('customerFields');
                         const courierFields = document.getElementById('courierFields');
-                        const adminFields = document.getElementById('adminFields');
+    
                         
                         // Hide all fields first
                         customerFields.style.display = 'none';
                         courierFields.style.display = 'none';
-                        adminFields.style.display = 'none';
                         
                         // Show relevant fields based on role
                         switch(this.value) {
@@ -113,9 +108,6 @@
                                 break;
                             case 'COURIER':
                                 courierFields.style.display = 'block';
-                                break;
-                            case 'ADMIN':
-                                adminFields.style.display = 'block';
                                 break;
                         }
                     });

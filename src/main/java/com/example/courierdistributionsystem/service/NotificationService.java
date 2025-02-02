@@ -6,11 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-
 @Service
 public class NotificationService {
 
@@ -23,8 +19,6 @@ public class NotificationService {
     @Autowired
     private CourierRepository courierRepository;
 
-    @Autowired
-    private WebSocketService webSocketService;
 
     public Page<Notification> getUserNotifications(String username, Pageable pageable) {
         Customer customer = customerRepository.findByUsername(username)
@@ -139,14 +133,14 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    private Map<String, Object> createNotificationPayload(Notification notification) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("id", notification.getId());
-        payload.put("type", notification.getType());
-        payload.put("message", notification.getMessage());
-        payload.put("actionUrl", notification.getActionUrl());
-        payload.put("createdAt", notification.getCreatedAt());
-        payload.put("read", notification.isRead());
-        return payload;
-    }
+    // private Map<String, Object> createNotificationPayload(Notification notification) {
+    //     Map<String, Object> payload = new HashMap<>();
+    //     payload.put("id", notification.getId());
+    //     payload.put("type", notification.getType());
+    //     payload.put("message", notification.getMessage());
+    //     payload.put("actionUrl", notification.getActionUrl());
+    //     payload.put("createdAt", notification.getCreatedAt());
+    //     payload.put("read", notification.isRead());
+    //     return payload;
+    // }
 } 

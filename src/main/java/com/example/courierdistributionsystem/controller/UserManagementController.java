@@ -1,9 +1,4 @@
 package com.example.courierdistributionsystem.controller;
-
-import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.model.Customer;
-import com.example.courierdistributionsystem.model.Courier;
-import com.example.courierdistributionsystem.model.Admin;
 import com.example.courierdistributionsystem.service.UserManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

@@ -9,6 +9,7 @@
     <meta name="_csrf" content="${_csrf.token}"/>
     <meta name="_csrf_header" content="${_csrf.headerName}"/>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/common.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places"></script>
@@ -34,14 +35,42 @@
         #map {
             height: 400px;
             width: 100%;
-            border-radius: 5px;
+            border-radius: 8px;
             margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .map-container {
             position: relative;
+            margin-bottom: 20px;
         }
         .package-marker {
             cursor: pointer;
+        }
+        .card {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .table {
+            background-color: white;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-card h5 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .stat-card h3 {
+            font-size: 2.5rem;
+            margin: 0;
+            color: #0d6efd;
         }
     </style>
 </head>
@@ -72,21 +101,21 @@
                 <div class="dashboard-container">
                     <div class="tab-content">
                         <div class="tab-pane fade show active" id="overview">
-                            <h3>Overview</h3>
-                            <div class="row mt-4">
+                            <h3 class="mb-4">Overview</h3>
+                            <div class="row">
                                 <div class="col-md-6">
                                     <div class="card">
-                                        <div class="card-body">
-                                            <h5 class="card-title">Active Deliveries</h5>
-                                            <p class="card-text display-4">${activeDeliveries.size()}</p>
+                                        <div class="stat-card">
+                                            <h5>Active Deliveries</h5>
+                                            <h3>${activeDeliveries.size()}</h3>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="card">
-                                        <div class="card-body">
-                                            <h5 class="card-title">Available Packages</h5>
-                                            <p class="card-text display-4">${availablePackages.size()}</p>
+                                        <div class="stat-card">
+                                            <h5>Available Packages</h5>
+                                            <h3>${availablePackages.size()}</h3>
                                         </div>
                                     </div>
                                 </div>
