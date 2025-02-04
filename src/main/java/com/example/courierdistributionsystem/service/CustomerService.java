@@ -58,7 +58,6 @@ public class CustomerService {
             .role(User.UserRole.CUSTOMER)
             .phoneNumber(phoneNumber)
             .deliveryAddress(deliveryAddress)
-            .averageRating(0.0)
             .build();
 
         return customerRepository.save(customer);

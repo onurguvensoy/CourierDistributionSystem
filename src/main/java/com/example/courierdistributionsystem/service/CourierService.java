@@ -37,7 +37,7 @@ public class CourierService {
             courier.setVehicleType(courierRequest.get("vehicleType"));
         }
         if (courierRequest.containsKey("isAvailable")) {
-            courier.setAvailable(Boolean.parseBoolean(courierRequest.get("isAvailable")));
+            courier.setIsAvailable(Boolean.parseBoolean(courierRequest.get("isAvailable")));
         }
         if (courierRequest.containsKey("currentZone")) {
             courier.setCurrentZone(courierRequest.get("currentZone"));
@@ -78,8 +78,6 @@ public class CourierService {
             .phoneNumber(phoneNumber)
             .vehicleType(vehicleType)
             .available(true)
-            .maxPackageCapacity(5)
-            .currentPackageCount(0)
             .averageRating(0.0)
             .build();
 

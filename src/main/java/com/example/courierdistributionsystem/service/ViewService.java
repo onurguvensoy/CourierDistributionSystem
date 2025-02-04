@@ -1,7 +1,14 @@
 package com.example.courierdistributionsystem.service;
 
-import com.example.courierdistributionsystem.model.*;
-import com.example.courierdistributionsystem.repository.*;
+import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.model.Customer;
+import com.example.courierdistributionsystem.model.Courier;
+import com.example.courierdistributionsystem.model.Admin;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
+import com.example.courierdistributionsystem.repository.CustomerRepository;
+import com.example.courierdistributionsystem.repository.CourierRepository;
+import com.example.courierdistributionsystem.repository.AdminRepository;
+import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -43,9 +50,9 @@ public class ViewService {
     public String getDashboardRedirect(String username) {
         User user = getUserByUsername(username);
         return switch (user.getRole()) {
-            case CUSTOMER -> "customer_dashboard";
-            case COURIER -> "courier_dashboard";
-            case ADMIN -> "admin_dashboard";
+            case CUSTOMER -> "redirect:/customer/dashboard";
+            case COURIER -> "redirect:/courier/dashboard";
+            case ADMIN -> "redirect:/admin/dashboard";
         };
     }
 

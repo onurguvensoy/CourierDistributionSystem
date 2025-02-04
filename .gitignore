@@ -31,7 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
-
+## Cursor ##
+.cursorrules
 
 ### H2 Database ###
 data/

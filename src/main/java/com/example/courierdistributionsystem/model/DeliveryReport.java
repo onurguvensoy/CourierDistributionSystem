@@ -5,6 +5,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "delivery_reports")
 @Data
 @Builder
 @NoArgsConstructor
@@ -14,20 +15,42 @@ public class DeliveryReport {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "delivery_package_id")
+    @ManyToOne
+    @JoinColumn(name = "package_id", nullable = false)
     private DeliveryPackage deliveryPackage;
 
     @ManyToOne
-    @JoinColumn(name = "courier_id")
+    @JoinColumn(name = "courier_id", nullable = false)
     private Courier courier;
 
+    @Column(name = "delivery_time")
     private LocalDateTime deliveryTime;
-    private String deliveryNotes;
-    private boolean customerConfirmation;
-    private Integer deliveryRating;
-    private String deliveryPhotoUrl;
-    private String signatureUrl;
-    private Double distanceTraveled;
+
+    @Column(name = "completion_time")
     private LocalDateTime completionTime;
+
+    @Column(name = "delivery_notes", columnDefinition = "TEXT")
+    private String deliveryNotes;
+
+    @Column(name = "customer_confirmation")
+    private boolean customerConfirmation;
+
+    @Column(name = "delivery_rating")
+    private Integer deliveryRating;
+
+    @Column(name = "delivery_photo_url")
+    private String deliveryPhotoUrl;
+
+    @Column(name = "signature_url")
+    private String signatureUrl;
+
+    @Column(name = "distance_traveled")
+    private Double distanceTraveled;
+
+    @PrePersist
+    protected void onCreate() {
+        if (completionTime == null) {
+            completionTime = LocalDateTime.now();
+        }
+    }
 } 

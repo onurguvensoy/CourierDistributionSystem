@@ -11,9 +11,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity
-@Table(name = "users")
-@Inheritance(strategy = InheritanceType.JOINED)
+@MappedSuperclass
 public abstract class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,14 +33,14 @@ public abstract class User {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    public enum UserRole {
+        ADMIN,
+        CUSTOMER,
+        COURIER
+    }
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-    }
-
-    public enum UserRole {
-        CUSTOMER,
-        COURIER,
-        ADMIN
     }
 }

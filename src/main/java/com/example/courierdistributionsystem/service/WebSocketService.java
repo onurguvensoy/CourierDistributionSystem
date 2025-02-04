@@ -67,4 +67,60 @@ public class WebSocketService {
     public void broadcastStatusUpdate(Object payload) {
         messagingTemplate.convertAndSend("/topic/status", payload);
     }
+
+    /**
+     * Send package status update to customer
+     */
+    public void sendPackageUpdate(String username, DeliveryPackage deliveryPackage) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "PACKAGE_UPDATE");
+        message.put("packageId", deliveryPackage.getId());
+        message.put("status", deliveryPackage.getStatus());
+        message.put("currentLocation", deliveryPackage.getCurrentLocation());
+        
+        if (deliveryPackage.getCourier() != null) {
+            message.put("courierName", deliveryPackage.getCourier().getUsername());
+            message.put("courierPhone", deliveryPackage.getCourier().getPhoneNumber());
+        }
+
+        messagingTemplate.convertAndSendToUser(
+            username,
+            "/queue/package-updates",
+            message
+        );
+    }
+
+    /**
+     * Send location update to customer
+     */
+    public void sendLocationUpdate(String username, Long packageId, String location, Double latitude, Double longitude) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "LOCATION_UPDATE");
+        message.put("packageId", packageId);
+        message.put("location", location);
+        message.put("latitude", latitude);
+        message.put("longitude", longitude);
+
+        messagingTemplate.convertAndSendToUser(
+            username,
+            "/queue/location-updates",
+            message
+        );
+    }
+
+    /**
+     * Send rating prompt to customer
+     */
+    public void sendRatingPrompt(String username, Long packageId) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "RATING_PROMPT");
+        message.put("packageId", packageId);
+        message.put("message", "Please rate your delivery experience");
+
+        messagingTemplate.convertAndSendToUser(
+            username,
+            "/queue/rating-prompts",
+            message
+        );
+    }
 }

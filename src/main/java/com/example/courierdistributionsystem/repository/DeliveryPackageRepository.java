@@ -14,4 +14,6 @@ public interface DeliveryPackageRepository extends JpaRepository<DeliveryPackage
     List<DeliveryPackage> findByCourier(Courier courier);
     List<DeliveryPackage> findByStatus(DeliveryPackage.DeliveryStatus status);
     List<DeliveryPackage> findByCourierAndStatusIn(Courier courier, List<DeliveryPackage.DeliveryStatus> statuses);
+    List<DeliveryPackage> findByCustomerAndStatusIn(Customer customer, List<DeliveryPackage.DeliveryStatus> statuses);
+    List<DeliveryPackage> findByCustomerAndStatus(Customer customer, DeliveryPackage.DeliveryStatus status);
 } 

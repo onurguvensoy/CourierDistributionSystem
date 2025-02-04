@@ -4,7 +4,8 @@ import com.example.courierdistributionsystem.model.SignupForm;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.service.ViewService;
-import com.example.courierdistributionsystem.service.AuthService;
+import com.example.courierdistributionsystem.service.DashboardService;
+import com.example.courierdistributionsystem.dto.CustomerDashboardDTO;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,23 +15,22 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+
 
 @Controller
-@RequestMapping("/")
 public class ViewController {
 
     @Autowired
     private ViewService viewService;
 
+
     @Autowired
-    private AuthService authService;
+    private DashboardService dashboardService;
 
     @Value("${google.maps.api.key}")
     private String googleMapsApiKey;
 
-    @GetMapping
+    @GetMapping("/")
     public String home(HttpSession session) {
         String username = (String) session.getAttribute("username");
         if (username != null) {
@@ -56,30 +56,6 @@ public class ViewController {
         return "login";
     }
 
-    @PostMapping("/auth/login")
-    public String login(@RequestParam String username,
-                       @RequestParam String password,
-                       HttpSession session,
-                       RedirectAttributes redirectAttributes) {
-        Map<String, Object> response = authService.login(username, password);
-
-        if (response.containsKey("error")) {
-            redirectAttributes.addFlashAttribute("error", response.get("error"));
-            return "redirect:/auth/login";
-        }
-
-        session.setAttribute("username", username);
-        session.setAttribute("role", response.get("role"));
-        if (response.containsKey("phoneNumber")) {
-            session.setAttribute("phoneNumber", response.get("phoneNumber"));
-        }
-        if (response.containsKey("isAvailable")) {
-            session.setAttribute("isAvailable", response.get("isAvailable"));
-        }
-
-        return "redirect:/dashboard";
-    }
-
     @GetMapping("/auth/signup")
     public String showSignupForm(Model model, HttpSession session) {
         if (session.getAttribute("username") != null) {
@@ -89,42 +65,11 @@ public class ViewController {
         if (!model.containsAttribute("signupForm")) {
             model.addAttribute("signupForm", new SignupForm());
         }
-        
+   
         return "signup";
     }
 
-    @PostMapping("/auth/signup")
-    public String handleSignup(@ModelAttribute SignupForm signupForm, 
-                             Model model, 
-                             HttpSession session,
-                             RedirectAttributes redirectAttributes) {
-        Map<String, String> signupData = new HashMap<>();
-        signupData.put("username", signupForm.getUsername());
-        signupData.put("email", signupForm.getEmail());
-        signupData.put("password", signupForm.getPassword());
-        signupData.put("roleType", signupForm.getRoleType());
-        signupData.put("phoneNumber", signupForm.getPhoneNumber());
-        signupData.put("deliveryAddress", signupForm.getDeliveryAddress());
-        signupData.put("vehicleType", signupForm.getVehicleType());
-        
-        Map<String, String> response = authService.signup(signupData);
-        
-        if (response.containsKey("error")) {
-            model.addAttribute("error", response.get("error"));
-            model.addAttribute("signupForm", signupForm);
-            return "signup";
-        }
-        
-        redirectAttributes.addFlashAttribute("message", "Registration successful! Please login.");
-        return "redirect:/auth/login";
-    }
-
-    @RequestMapping(value = "/auth/logout", method = {RequestMethod.GET, RequestMethod.POST})
-    public String logout(HttpSession session, RedirectAttributes redirectAttributes) {
-        authService.logoutUser();
-        redirectAttributes.addFlashAttribute("message", "You have been logged out successfully");
-        return "redirect:/auth/login";
-    }
+   
 
     @GetMapping("/dashboard")
     public String dashboard(HttpSession session, RedirectAttributes redirectAttributes) {
@@ -134,8 +79,7 @@ public class ViewController {
         }
         
         try {
-            String view = viewService.getDashboardRedirect(username);
-            return view;
+            return viewService.getDashboardRedirect(username);
         } catch (RuntimeException e) {
             session.invalidate();
             redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
@@ -150,13 +94,19 @@ public class ViewController {
             return "redirect:/auth/login";
         }
 
-        User user = viewService.getUserByUsername(username);
-        if (!viewService.isValidRole(user, "ADMIN")) {
-            return "redirect:/dashboard";
-        }
+        try {
+            User user = viewService.getUserByUsername(username);
+            if (!viewService.isValidRole(user, "ADMIN")) {
+                return viewService.getDashboardRedirect(username);
+            }
 
-        model.addAttribute("user", user);
-        return "admin_dashboard";
+            model.addAttribute("user", user);
+            model.addAttribute("googleMapsApiKey", googleMapsApiKey);
+            return "admin_dashboard";
+        } catch (RuntimeException e) {
+            session.invalidate();
+            return "redirect:/auth/login";
+        }
     }
 
     @GetMapping("/courier/dashboard")
@@ -166,19 +116,24 @@ public class ViewController {
             return "redirect:/auth/login";
         }
 
-        User courier = viewService.getUserByUsername(username);
-        if (!viewService.isValidRole(courier, "COURIER")) {
-            return "redirect:/dashboard";
+        try {
+            User courier = viewService.getUserByUsername(username);
+            if (!viewService.isValidRole(courier, "COURIER")) {
+                return viewService.getDashboardRedirect(username);
+            }
+
+            List<DeliveryPackage> availablePackages = viewService.getAvailablePackages();
+            List<DeliveryPackage> activeDeliveries = viewService.getActiveDeliveries(courier);
+
+            model.addAttribute("user", courier);
+            model.addAttribute("availablePackages", availablePackages);
+            model.addAttribute("activeDeliveries", activeDeliveries);
+            model.addAttribute("googleMapsApiKey", googleMapsApiKey);
+            return "courier_dashboard";
+        } catch (RuntimeException e) {
+            session.invalidate();
+            return "redirect:/auth/login";
         }
-
-        List<DeliveryPackage> availablePackages = viewService.getAvailablePackages();
-        List<DeliveryPackage> activeDeliveries = viewService.getActiveDeliveries(courier);
-
-        model.addAttribute("user", courier);
-        model.addAttribute("availablePackages", availablePackages);
-        model.addAttribute("activeDeliveries", activeDeliveries);
-        model.addAttribute("googleMapsApiKey", googleMapsApiKey);
-        return "courier_dashboard";
     }
 
     @GetMapping("/customer/dashboard")
@@ -188,17 +143,24 @@ public class ViewController {
             return "redirect:/auth/login";
         }
 
-        User user = viewService.getUserByUsername(username);
-        if (!viewService.isValidRole(user, "CUSTOMER")) {
-            return "redirect:/dashboard";
+        try {
+            User user = viewService.getUserByUsername(username);
+            if (!viewService.isValidRole(user, "CUSTOMER")) {
+                return viewService.getDashboardRedirect(username);
+            }
+
+            CustomerDashboardDTO dashboardData = dashboardService.getCustomerDashboard(user);
+            model.addAttribute("user", user);
+            model.addAttribute("activePackages", dashboardData.getActivePackages());
+            model.addAttribute("completedPackages", dashboardData.getCompletedPackages());
+            model.addAttribute("stats", dashboardData.getStats());
+            model.addAttribute("googleMapsApiKey", googleMapsApiKey);
+            
+            return "customer_dashboard";
+        } catch (RuntimeException e) {
+            session.invalidate();
+            return "redirect:/auth/login";
         }
-
-        List<DeliveryPackage> myPackages = viewService.getCustomerPackages(user);
-
-        model.addAttribute("user", user);
-        model.addAttribute("myPackages", myPackages);
-        model.addAttribute("googleMapsApiKey", googleMapsApiKey);
-        return "customer_dashboard";
     }
 
     @PostMapping("/courier/delivery/take")

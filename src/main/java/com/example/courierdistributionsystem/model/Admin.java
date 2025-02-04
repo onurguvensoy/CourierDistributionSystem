@@ -1,23 +1,25 @@
 package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
+import lombok.EqualsAndHashCode;
 
-@Entity
-@Getter
-@Setter
-@AllArgsConstructor
-@ToString(callSuper = true)
+@Data
 @SuperBuilder
+@NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@DiscriminatorValue("ADMIN")
-@Table(name = "admin")
+@Entity
+@Table(name = "admins")
 public class Admin extends User {
+    
     @PrePersist
     @Override
     protected void onCreate() {
         super.onCreate();
-        setRole(UserRole.ADMIN);
+        if (getRole() == null) {
+            setRole(UserRole.ADMIN);
+        }
     }
 }

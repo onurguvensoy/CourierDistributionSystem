@@ -1,11 +1,13 @@
 package com.example.courierdistributionsystem.controller;
 import com.example.courierdistributionsystem.service.UserManagementService;
+import com.example.courierdistributionsystem.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
@@ -88,7 +90,13 @@ public class UserManagementController {
     public ResponseEntity<?> deleteUser(@PathVariable Long id, @RequestParam String role) {
         Map<String, Object> response = new HashMap<>();
         try {
-            userManagementService.deleteUser(id, role);
+            Optional<? extends User> userOpt = userManagementService.findByUsername(role);
+            if (userOpt.isEmpty()) {
+                response.put("status", "error");
+                response.put("message", "User not found");
+                return ResponseEntity.badRequest().body(response);
+            }
+            userManagementService.deleteUser(userOpt.get());
             response.put("status", "success");
             response.put("message", "User deleted successfully");
             return ResponseEntity.ok(response);
@@ -103,8 +111,14 @@ public class UserManagementController {
     public ResponseEntity<?> getUserById(@PathVariable Long id, @RequestParam String role) {
         Map<String, Object> response = new HashMap<>();
         try {
+            Optional<? extends User> userOpt = userManagementService.findByUsername(role);
+            if (userOpt.isEmpty()) {
+                response.put("status", "error");
+                response.put("message", "User not found");
+                return ResponseEntity.badRequest().body(response);
+            }
             response.put("status", "success");
-            response.put("data", userManagementService.getUserById(id, role));
+            response.put("data", userOpt.get());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("status", "error");

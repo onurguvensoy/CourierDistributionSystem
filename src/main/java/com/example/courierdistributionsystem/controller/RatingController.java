@@ -1,76 +1,99 @@
-/*
 package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.model.Rating;
-import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.RatingRepository;
-import com.example.courierdistributionsystem.repository.UserRepository;
+import com.example.courierdistributionsystem.service.DeliveryPackageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ratings")
 public class RatingController {
 
     @Autowired
-    private RatingRepository ratingRepository;
+    private DeliveryPackageService deliveryPackageService;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @GetMapping
-    public List<Rating> getAllRatings() {
-        return ratingRepository.findAll();
-    }
-
-    @GetMapping("/courier/{courierId}")
-    public List<Rating> getCourierRatings(@PathVariable Long courierId) {
-        User courier = userRepository.findById(courierId)
-                .orElseThrow(() -> new RuntimeException("Courier not found"));
-        return ratingRepository.findByCourier(courier);
-    }
-
-    @GetMapping("/my-ratings")
-    public List<Rating> getMyRatings(@RequestParam String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return ratingRepository.findByCustomer(user);
-    }
-
-    @PostMapping("/courier/{courierId}")
-    public ResponseEntity<Rating> createRating(
-            @PathVariable Long courierId,
-            @Valid @RequestBody Rating rating,
+    /**
+     * Rate a completed delivery
+     */
+    @PostMapping("/delivery/{packageId}")
+    public ResponseEntity<?> rateDelivery(
+            @PathVariable Long packageId,
+            @RequestBody Map<String, Object> ratingRequest,
             @RequestParam String username) {
         
-        User customer = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        Map<String, Object> response = new HashMap<>();
         
-        User courier = userRepository.findById(courierId)
-                .orElseThrow(() -> new RuntimeException("Courier not found"));
+        try {
+            // Validate rating value
+            if (!ratingRequest.containsKey("rating")) {
+                response.put("status", "error");
+                response.put("message", "Rating is required");
+                return ResponseEntity.badRequest().body(response);
+            }
 
-        rating.setCustomer(customer);
-        rating.setCourier(courier);
+            Double rating = ((Number) ratingRequest.get("rating")).doubleValue();
+            if (rating < 1 || rating > 5) {
+                response.put("status", "error");
+                response.put("message", "Rating must be between 1 and 5 stars");
+                return ResponseEntity.badRequest().body(response);
+            }
 
-        Rating savedRating = ratingRepository.save(rating);
-        
-        // Update courier's average rating
-        Double averageRating = ratingRepository.getAverageCourierRating(courier);
-        courier.setAverageRating(averageRating != null ? averageRating : 0.0);
-        userRepository.save(courier);
-
-        return ResponseEntity.ok(savedRating);
+            Rating savedRating = deliveryPackageService.rateDelivery(packageId, username, ratingRequest);
+            
+            response.put("status", "success");
+            response.put("message", "Delivery rated successfully");
+            response.put("data", savedRating);
+            return ResponseEntity.ok(response);
+            
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "An unexpected error occurred");
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteRating(@PathVariable Long id) {
-        Rating rating = ratingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Rating not found"));
-        ratingRepository.delete(rating);
-        return ResponseEntity.ok().build();
+    /**
+     * Get rating for a specific delivery
+     */
+    @GetMapping("/delivery/{packageId}")
+    public ResponseEntity<?> getDeliveryRating(
+            @PathVariable Long packageId,
+            @RequestParam String username) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Rating rating = deliveryPackageService.getDeliveryRating(packageId, username);
+            
+            if (rating == null) {
+                response.put("status", "success");
+                response.put("rated", false);
+                response.put("showRatingPopup", true);
+            } else {
+                response.put("status", "success");
+                response.put("rated", true);
+                response.put("data", rating);
+                response.put("showRatingPopup", false);
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (IllegalArgumentException e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "An unexpected error occurred");
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
-} */
+}
