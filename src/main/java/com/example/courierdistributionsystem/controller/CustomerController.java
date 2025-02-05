@@ -1,34 +1,66 @@
 package com.example.courierdistributionsystem.controller;
 
+import com.example.courierdistributionsystem.exception.CustomerException;
 import com.example.courierdistributionsystem.model.Customer;
+import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.service.CustomerService;
+import com.example.courierdistributionsystem.service.UserService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/customer")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
+@Validated
 public class CustomerController {
+    private static final Logger logger = LoggerFactory.getLogger(CustomerController.class);
 
     @Autowired
     private CustomerService customerService;
 
+    @Autowired
+    private UserService userService;
+
     @GetMapping("/{id}")
-    public ResponseEntity<?> getCustomerProfile(@PathVariable Long id) {
+    public ResponseEntity<?> getCustomerProfile(@PathVariable @NotNull Long id) {
+        logger.info("Received request to get customer profile with ID: {}", id);
         Map<String, Object> response = new HashMap<>();
         try {
+            logger.debug("Fetching customer profile for ID: {}", id);
+            
+            Optional<User> user = userService.getUserById(id);
+            if (user.isEmpty()) {
+                logger.warn("No user found with ID: {}", id);
+                throw new CustomerException("Customer not found");
+            }
+
+            if (user.get().getRole() != User.UserRole.CUSTOMER) {
+                logger.warn("User with ID {} is not a customer. Role: {}", id, user.get().getRole());
+                throw new CustomerException("User is not a customer");
+            }
+
             Customer customer = customerService.getCustomerById(id);
             response.put("status", "success");
             response.put("data", customer);
+            logger.info("Successfully retrieved customer profile for ID: {}", id);
             return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
+        } catch (CustomerException e) {
+            logger.warn("Failed to fetch customer profile: {}", e.getMessage());
             response.put("status", "error");
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
+            logger.error("Unexpected error fetching customer profile: {}", e.getMessage(), e);
             response.put("status", "error");
             response.put("message", "Failed to fetch customer profile: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
@@ -36,18 +68,23 @@ public class CustomerController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createCustomerProfile(@RequestBody Map<String, String> customerRequest) {
+    public ResponseEntity<?> createCustomerProfile(@RequestBody @Valid Map<String, String> customerRequest) {
+        logger.info("Received request to create customer profile");
         Map<String, Object> response = new HashMap<>();
         try {
+            logger.debug("Creating customer profile with data: {}", customerRequest);
             Customer customer = customerService.createCustomerProfile(customerRequest);
             response.put("status", "success");
             response.put("data", customer);
+            logger.info("Successfully created customer profile with ID: {}", customer.getId());
             return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
+        } catch (CustomerException e) {
+            logger.warn("Failed to create customer profile: {}", e.getMessage());
             response.put("status", "error");
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
+            logger.error("Unexpected error creating customer profile: {}", e.getMessage(), e);
             response.put("status", "error");
             response.put("message", "Failed to create customer profile: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
@@ -55,18 +92,25 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCustomerProfile(@PathVariable Long id, @RequestBody Map<String, String> customerRequest) {
+    public ResponseEntity<?> updateCustomerProfile(
+            @PathVariable @NotNull Long id,
+            @RequestBody @Valid Map<String, String> customerRequest) {
+        logger.info("Received request to update customer profile with ID: {}", id);
         Map<String, Object> response = new HashMap<>();
         try {
+            logger.debug("Updating customer profile with data: {}", customerRequest);
             Customer customer = customerService.updateCustomerProfile(id, customerRequest);
             response.put("status", "success");
             response.put("data", customer);
+            logger.info("Successfully updated customer profile with ID: {}", id);
             return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
+        } catch (CustomerException e) {
+            logger.warn("Failed to update customer profile: {}", e.getMessage());
             response.put("status", "error");
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
+            logger.error("Unexpected error updating customer profile: {}", e.getMessage(), e);
             response.put("status", "error");
             response.put("message", "Failed to update customer profile: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);

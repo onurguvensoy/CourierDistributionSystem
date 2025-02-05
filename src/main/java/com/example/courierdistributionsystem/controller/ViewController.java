@@ -13,16 +13,18 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-
 @Controller
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ViewController {
+    private static final Logger logger = LoggerFactory.getLogger(ViewController.class);
 
     @Autowired
     private ViewService viewService;
-
 
     @Autowired
     private DashboardService dashboardService;
@@ -31,35 +33,46 @@ public class ViewController {
     private String googleMapsApiKey;
 
     @GetMapping("/")
-    public String home(HttpSession session) {
+    public String home(HttpSession session, RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username != null) {
-            return "redirect:/dashboard";
+            try {
+                return viewService.getDashboardRedirect(username);
+            } catch (Exception e) {
+                logger.error("Error redirecting from home: {}", e.getMessage());
+                session.invalidate();
+                redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
+                return "redirect:/auth/login";
+            }
         }
         return "redirect:/auth/login";
     }
 
     @GetMapping("/auth/login")
-    public String showLoginForm(Model model, HttpSession session) {
-        if (session.getAttribute("username") != null) {
-            return "redirect:/dashboard";
-        }
-        
-        if (model.containsAttribute("error")) {
-            model.addAttribute("error", model.getAttribute("error"));
-        }
-        
-        if (model.containsAttribute("message")) {
-            model.addAttribute("message", model.getAttribute("message"));
+    public String showLoginForm(Model model, HttpSession session, RedirectAttributes redirectAttributes) {
+        String username = (String) session.getAttribute("username");
+        if (username != null) {
+            try {
+                return viewService.getDashboardRedirect(username);
+            } catch (Exception e) {
+                logger.error("Error redirecting from login: {}", e.getMessage());
+                session.invalidate();
+            }
         }
         
         return "login";
     }
 
     @GetMapping("/auth/signup")
-    public String showSignupForm(Model model, HttpSession session) {
-        if (session.getAttribute("username") != null) {
-            return "redirect:/dashboard";
+    public String showSignupForm(Model model, HttpSession session, RedirectAttributes redirectAttributes) {
+        String username = (String) session.getAttribute("username");
+        if (username != null) {
+            try {
+                return viewService.getDashboardRedirect(username);
+            } catch (Exception e) {
+                logger.error("Error redirecting from signup: {}", e.getMessage());
+                session.invalidate();
+            }
         }
         
         if (!model.containsAttribute("signupForm")) {
@@ -69,18 +82,18 @@ public class ViewController {
         return "signup";
     }
 
-   
-
     @GetMapping("/dashboard")
     public String dashboard(HttpSession session, RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
+            redirectAttributes.addFlashAttribute("error", "Please login to continue.");
             return "redirect:/auth/login";
         }
         
         try {
             return viewService.getDashboardRedirect(username);
         } catch (RuntimeException e) {
+            logger.error("Error redirecting to dashboard: {}", e.getMessage());
             session.invalidate();
             redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
             return "redirect:/auth/login";
@@ -88,9 +101,10 @@ public class ViewController {
     }
 
     @GetMapping("/admin/dashboard")
-    public String adminDashboard(HttpSession session, Model model) {
+    public String adminDashboard(HttpSession session, Model model, RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
+            redirectAttributes.addFlashAttribute("error", "Please login to continue.");
             return "redirect:/auth/login";
         }
 
@@ -104,15 +118,18 @@ public class ViewController {
             model.addAttribute("googleMapsApiKey", googleMapsApiKey);
             return "admin_dashboard";
         } catch (RuntimeException e) {
+            logger.error("Error accessing admin dashboard: {}", e.getMessage());
             session.invalidate();
+            redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
             return "redirect:/auth/login";
         }
     }
 
     @GetMapping("/courier/dashboard")
-    public String courierDashboard(HttpSession session, Model model) {
+    public String courierDashboard(HttpSession session, Model model, RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
+            redirectAttributes.addFlashAttribute("error", "Please login to continue.");
             return "redirect:/auth/login";
         }
 
@@ -131,15 +148,18 @@ public class ViewController {
             model.addAttribute("googleMapsApiKey", googleMapsApiKey);
             return "courier_dashboard";
         } catch (RuntimeException e) {
+            logger.error("Error accessing courier dashboard: {}", e.getMessage());
             session.invalidate();
+            redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
             return "redirect:/auth/login";
         }
     }
 
     @GetMapping("/customer/dashboard")
-    public String customerDashboard(HttpSession session, Model model) {
+    public String customerDashboard(HttpSession session, Model model, RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
+            redirectAttributes.addFlashAttribute("error", "Please login to continue.");
             return "redirect:/auth/login";
         }
 
@@ -158,63 +178,84 @@ public class ViewController {
             
             return "customer_dashboard";
         } catch (RuntimeException e) {
+            logger.error("Error accessing customer dashboard: {}", e.getMessage());
             session.invalidate();
+            redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
             return "redirect:/auth/login";
         }
     }
 
     @PostMapping("/courier/delivery/take")
-    public String takeDelivery(@RequestParam Long packageId,
-                             HttpSession session,
-                             RedirectAttributes redirectAttributes) {
+    @ResponseBody
+    public String takeDelivery(
+            @RequestParam Long packageId,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
-            return "redirect:/auth/login";
+            return "{\"status\": \"error\", \"message\": \"Please login to continue.\"}";
         }
 
         try {
+            User courier = viewService.getUserByUsername(username);
+            if (!viewService.isValidRole(courier, "COURIER")) {
+                return "{\"status\": \"error\", \"message\": \"Invalid role for this action.\"}";
+            }
+
             viewService.takeDeliveryPackage(packageId, username);
-            redirectAttributes.addFlashAttribute("message", "Delivery taken successfully");
+            return "{\"status\": \"success\", \"message\": \"Delivery taken successfully\"}";
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            logger.error("Error taking delivery: {}", e.getMessage());
+            return "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}";
         }
-        return "redirect:/courier/dashboard";
     }
 
     @PostMapping("/courier/delivery/update-status")
-    public String updateDeliveryStatus(@RequestParam Long packageId,
-                                     @RequestParam String status,
-                                     HttpSession session,
-                                     RedirectAttributes redirectAttributes) {
+    @ResponseBody
+    public String updateDeliveryStatus(
+            @RequestParam Long packageId,
+            @RequestParam String status,
+            HttpSession session) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
-            return "redirect:/auth/login";
+            return "{\"status\": \"error\", \"message\": \"Please login to continue.\"}";
         }
 
         try {
+            User courier = viewService.getUserByUsername(username);
+            if (!viewService.isValidRole(courier, "COURIER")) {
+                return "{\"status\": \"error\", \"message\": \"Invalid role for this action.\"}";
+            }
+
             viewService.updateDeliveryStatus(packageId, username, status);
-            redirectAttributes.addFlashAttribute("message", "Status updated successfully");
+            return "{\"status\": \"success\", \"message\": \"Status updated successfully\"}";
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            logger.error("Error updating delivery status: {}", e.getMessage());
+            return "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}";
         }
-        return "redirect:/courier/dashboard";
     }
 
     @PostMapping("/courier/delivery/drop")
-    public String dropDelivery(@RequestParam Long packageId,
-                             HttpSession session,
-                             RedirectAttributes redirectAttributes) {
+    @ResponseBody
+    public String dropDelivery(
+            @RequestParam Long packageId,
+            HttpSession session) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
-            return "redirect:/auth/login";
+            return "{\"status\": \"error\", \"message\": \"Please login to continue.\"}";
         }
 
         try {
+            User courier = viewService.getUserByUsername(username);
+            if (!viewService.isValidRole(courier, "COURIER")) {
+                return "{\"status\": \"error\", \"message\": \"Invalid role for this action.\"}";
+            }
+
             viewService.dropDeliveryPackage(packageId, username);
-            redirectAttributes.addFlashAttribute("message", "Delivery dropped successfully");
+            return "{\"status\": \"success\", \"message\": \"Delivery dropped successfully\"}";
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            logger.error("Error dropping delivery: {}", e.getMessage());
+            return "{\"status\": \"error\", \"message\": \"" + e.getMessage() + "\"}";
         }
-        return "redirect:/courier/dashboard";
     }
 }

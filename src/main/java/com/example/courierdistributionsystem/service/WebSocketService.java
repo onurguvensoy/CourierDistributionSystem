@@ -1,6 +1,10 @@
 package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.model.DeliveryPackage;
+import com.example.courierdistributionsystem.model.Notification;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,9 +13,11 @@ import java.util.Map;
 
 @Service
 public class WebSocketService {
-    
+    private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
+
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+
 
     public void notifyNewDeliveryAvailable(DeliveryPackage deliveryPackage) {
         Map<String, Object> message = new HashMap<>();
@@ -122,5 +128,28 @@ public class WebSocketService {
             "/queue/rating-prompts",
             message
         );
+    }
+
+    public void sendToUser(String userId, String destination, Object payload) {
+        try {
+            String userDestination = "/user/" + userId + "/" + destination;
+            logger.debug("Sending WebSocket message to {}: {}", userDestination, payload);
+            messagingTemplate.convertAndSend(userDestination, payload);
+        } catch (Exception e) {
+            logger.error("Failed to send WebSocket message to user {}: {}", userId, e.getMessage(), e);
+        }
+    }
+
+    public void sendNotification(String userId, Notification notification) {
+        sendToUser(userId, "notification", notification);
+    }
+
+    public void broadcastMessage(String destination, Object payload) {
+        try {
+            logger.debug("Broadcasting WebSocket message to {}: {}", destination, payload);
+            messagingTemplate.convertAndSend("/topic/" + destination, payload);
+        } catch (Exception e) {
+            logger.error("Failed to broadcast WebSocket message: {}", e.getMessage(), e);
+        }
     }
 }

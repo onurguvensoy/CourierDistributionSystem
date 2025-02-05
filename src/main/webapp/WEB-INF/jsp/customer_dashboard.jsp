@@ -6,8 +6,6 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="_csrf" content="${_csrf.token}"/>
-    <meta name="_csrf_header" content="${_csrf.headerName}"/>
     <title>Customer Dashboard - Courier Distribution System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/common.css" rel="stylesheet">
@@ -117,7 +115,9 @@
                         <small class="d-block text-muted"><c:out value="${sessionScope.email}"/></small>
                         <small class="d-block text-muted"><c:out value="${sessionScope.phoneNumber}"/></small>
                     </div>
-                    <a href="/auth/logout" class="btn btn-outline-danger">Logout</a>
+                    <form id="logoutForm" action="/api/auth/logout" method="POST" style="margin: 0;">
+                        <button type="submit" class="btn btn-outline-danger">Logout</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -137,11 +137,10 @@
                 </div>
             </div>
 
-            <!-- Content Area -->
+
             <div class="col-md-9">
                 <div class="dashboard-container">
                     <div class="tab-content">
-                        <!-- Overview Tab -->
                         <div class="tab-pane fade show active" id="overview">
                             <h3>Overview</h3>
                             <div class="row mt-4">
@@ -172,7 +171,6 @@
                             </div>
                         </div>
 
-                        <!-- Send Package Tab -->
                         <div class="tab-pane fade" id="send-package">
                             <h3>Send a Package</h3>
                             <div id="sendPackageAlertPlaceholder"></div>
@@ -921,6 +919,26 @@
                     const packageId = this.dataset.packageId;
                     showRatingModal(packageId);
                 });
+            });
+        });
+    </script>
+
+    <script>
+        document.getElementById('logoutForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                window.location.href = '/auth/login';
+            })
+            .catch(error => {
+                console.error('Logout failed:', error);
+                window.location.href = '/auth/login';
             });
         });
     </script>

@@ -260,7 +260,7 @@ public class DeliveryPackageService {
             throw new IllegalStateException("Package is not available for pickup");
         }
 
-        User courier = userService.getUserByUsername(username);
+        User courier = userService.findByUsername(username);
         if (courier == null || courier.getRole() != User.UserRole.COURIER) {
             throw new IllegalArgumentException("Invalid courier");
         }

@@ -47,10 +47,29 @@ public class DeliveryReport {
     @Column(name = "distance_traveled")
     private Double distanceTraveled;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admin_id", nullable = false)
+    private Admin admin;
+
+    @Column(nullable = false)
+    private LocalDateTime timestamp;
+
+    @Column(nullable = false)
+    private String reportType;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String content;
+
+    @Column
+    private String status;
+
     @PrePersist
     protected void onCreate() {
         if (completionTime == null) {
             completionTime = LocalDateTime.now();
+        }
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
         }
     }
 } 

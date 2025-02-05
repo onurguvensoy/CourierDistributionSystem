@@ -20,6 +20,9 @@ public class DeliveryPackage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, nullable = false)
+    private String trackingNumber;
+
     @ManyToOne
     @JoinColumn(name = "customer_id", nullable = false)
     @JsonIdentityReference(alwaysAsId = true)
@@ -109,6 +112,9 @@ public class DeliveryPackage {
         if (status == null) {
             status = DeliveryStatus.PENDING;
         }
+        if (trackingNumber == null) {
+            trackingNumber = generateTrackingNumber();
+        }
         updatedAt = now;
         addStatusHistory("Package created", null);
     }
@@ -167,6 +173,13 @@ public class DeliveryPackage {
     @JsonProperty("courierUsername")
     public String getCourierUsername() {
         return courier != null ? courier.getUsername() : null;
+    }
+
+    private String generateTrackingNumber() {
+        // Generate a unique tracking number with format: CDS-TIMESTAMP-RANDOM
+        return String.format("CDS-%d-%04d", 
+            System.currentTimeMillis() % 1000000000, 
+            (int)(Math.random() * 10000));
     }
 }
 

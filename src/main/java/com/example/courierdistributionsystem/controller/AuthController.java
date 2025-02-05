@@ -1,87 +1,134 @@
 package com.example.courierdistributionsystem.controller;
 
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import com.example.courierdistributionsystem.dto.LoginRequest;
+import com.example.courierdistributionsystem.dto.SignupRequest;
+import com.example.courierdistributionsystem.exception.AuthenticationException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import java.util.Map;
-import java.util.HashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.example.courierdistributionsystem.service.AuthService;
-import com.example.courierdistributionsystem.model.SignupForm;
+import com.example.courierdistributionsystem.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-
-@Controller
+@RestController
+@RequestMapping("/api/auth")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AuthController {
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private UserService userService;
 
-    @PostMapping("/auth/login")
-    public String login(@RequestParam String username,
-                       @RequestParam String password,
-                       HttpSession session,
-                       RedirectAttributes redirectAttributes) {
-        Map<String, Object> response = authService.login(username, password);
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest,
+                                 HttpSession session) {
+        try {
+            Map<String, Object> response = authService.login(loginRequest.getUsername(), 
+                                                           loginRequest.getPassword());
 
-        if (response.containsKey("error")) {
-            redirectAttributes.addFlashAttribute("error", response.get("error"));
-            return "redirect:/auth/login";
-        }
+            if (response.containsKey("error")) {
+                return ResponseEntity.badRequest().body(response);
+            }
 
-        // Store user information in session
-        session.setAttribute("username", username);
-        session.setAttribute("role", response.get("role"));
-        session.setAttribute("userId", response.get("userId"));
-        session.setAttribute("email", response.get("email"));
-        
-        if (response.containsKey("phoneNumber")) {
-            session.setAttribute("phoneNumber", response.get("phoneNumber"));
-        }
-        if (response.containsKey("isAvailable")) {
-            session.setAttribute("isAvailable", response.get("isAvailable"));
-        }
-        if (response.containsKey("deliveryAddress")) {
-            session.setAttribute("deliveryAddress", response.get("deliveryAddress"));
-        }
+            // Store user information in session
+            session.setAttribute("username", loginRequest.getUsername());
+            session.setAttribute("role", response.get("role"));
+            session.setAttribute("userId", response.get("userId"));
+            session.setAttribute("email", response.get("email"));
+            
+            if (response.containsKey("phoneNumber")) {
+                session.setAttribute("phoneNumber", response.get("phoneNumber"));
+            }
+            if (response.containsKey("isAvailable")) {
+                session.setAttribute("isAvailable", response.get("isAvailable"));
+            }
+            if (response.containsKey("deliveryAddress")) {
+                session.setAttribute("deliveryAddress", response.get("deliveryAddress"));
+            }
 
-        return "redirect:/dashboard";
+            return ResponseEntity.ok(response);
+        } catch (AuthenticationException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Authentication Error",
+                "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            logger.error("Unexpected error during login: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Internal Server Error",
+                "message", "An unexpected error occurred during login"
+            ));
+        }
     }
 
-    @PostMapping("/auth/signup")
-    public String handleSignup(@ModelAttribute SignupForm signupForm, 
-                             RedirectAttributes redirectAttributes) {
-        Map<String, String> signupData = new HashMap<>();
-        signupData.put("username", signupForm.getUsername());
-        signupData.put("email", signupForm.getEmail());
-        signupData.put("password", signupForm.getPassword());
-        signupData.put("roleType", signupForm.getRoleType());
-        signupData.put("phoneNumber", signupForm.getPhoneNumber());
-        signupData.put("deliveryAddress", signupForm.getDeliveryAddress());
-        signupData.put("vehicleType", signupForm.getVehicleType());
-        
-        Map<String, String> response = authService.signup(signupData);
-        
-        if (response.containsKey("error")) {
-            redirectAttributes.addFlashAttribute("error", response.get("error"));
-            redirectAttributes.addFlashAttribute("signupForm", signupForm);
-            return "redirect:/auth/signup";
+    @PostMapping("/signup")
+    public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest signupRequest) {
+        try {
+            Map<String, String> response = authService.signup(signupRequest);
+            
+            if (response.containsKey("error")) {
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (AuthenticationException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Authentication Error",
+                "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            logger.error("Unexpected error during signup: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Internal Server Error",
+                "message", "An unexpected error occurred during signup"
+            ));
         }
-        
-        redirectAttributes.addFlashAttribute("message", "Registration successful! Please login.");
-        return "redirect:/auth/login";
     }
 
-    @PostMapping("/auth/logout")
-    public String logout(HttpSession session, RedirectAttributes redirectAttributes) {
-        authService.logoutUser();
-        session.invalidate();
-        redirectAttributes.addFlashAttribute("message", "You have been logged out successfully");
-        return "redirect:/auth/login";
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpSession session) {
+        try {
+            String username = (String) session.getAttribute("username");
+            if (username != null) {
+                logger.info("Logging out user: {}", username);
+            }
+            
+            authService.logoutUser();
+            
+            return ResponseEntity.ok().body(Map.of(
+                "message", "Logged out successfully"
+            ));
+        } catch (AuthenticationException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Authentication Error",
+                "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            logger.error("Unexpected error during logout: {}", e.getMessage(), e);
+            return ResponseEntity.ok().body(Map.of(
+                "message", "Logged out successfully"
+            ));
+        }
     }
 
-    
+    @DeleteMapping("/{username}")
+    public ResponseEntity<?> deleteUser(@PathVariable String username) {
+        try {
+            userService.deleteByUsername(username);
+            return ResponseEntity.ok().body(Map.of("message", "User deleted successfully"));
+        } catch (Exception e) {
+            logger.error("Failed to delete user: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Internal Server Error",
+                "message", "Failed to delete user: " + e.getMessage()
+            ));
+        }
+    }
 }

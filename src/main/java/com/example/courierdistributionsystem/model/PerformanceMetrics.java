@@ -1,47 +1,44 @@
 package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import java.time.LocalDate;
+import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
 
-@Data
 @Entity
 @Table(name = "performance_metrics")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PerformanceMetrics {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "courier_id", nullable = false)
-    private Courier courier;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admin_id", nullable = false)
+    private Admin admin;
 
-    private LocalDate date;
+    @Column(nullable = false)
+    private LocalDateTime timestamp;
 
-    private String zone;
+    @Column(nullable = false)
+    private String metricType;
 
-    private Integer totalDeliveries = 0;
+    @Column(nullable = false)
+    private Double value;
 
-    private Integer successfulDeliveries = 0;
-
-    private Integer failedDeliveries = 0;
-
-    @Column(columnDefinition = "DOUBLE")
-    private Double averageDeliveryTime;
-
-    @Column(columnDefinition = "DOUBLE")
-    private Double totalDistance;
-
-    @Column(columnDefinition = "DOUBLE")
-    private Double totalRevenue;
-
-    @Column(columnDefinition = "DOUBLE")
-    private Double customerSatisfactionScore;
+    @Column
+    private String description;
 
     @PrePersist
     protected void onCreate() {
-        if (date == null) {
-            date = LocalDate.now();
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
         }
     }
 } 

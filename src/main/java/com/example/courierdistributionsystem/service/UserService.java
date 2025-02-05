@@ -1,20 +1,21 @@
 package com.example.courierdistributionsystem.service;
-
 import com.example.courierdistributionsystem.model.*;
+import com.example.courierdistributionsystem.repository.*;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import jakarta.validation.constraints.NotBlank;
+import org.hibernate.Hibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Service class for managing user-related operations.
@@ -24,19 +25,33 @@ import java.util.Map;
 public class UserService {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
-    private final UserManagementService userManagementService;
-    private final PasswordEncoderService passwordEncoder;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private AdminRepository adminRepository;
+
+    @Autowired
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private CourierRepository courierRepository;
+
+    @Autowired
+    private PasswordEncoderService passwordEncoder;
+
     private final Counter userSignupCounter;
     private final Counter userSignupFailureCounter;
     private final Timer userLookupTimer;
 
-    public UserService(UserManagementService userManagementService, 
+    @Autowired
+    public UserService(UserRepository userRepository,
                       PasswordEncoderService passwordEncoder,
                       MeterRegistry meterRegistry) {
-        this.userManagementService = userManagementService;
+        this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         
-        // Initialize metrics
         this.userSignupCounter = Counter.builder("user.signup.total")
                 .description("Total number of user signups")
                 .register(meterRegistry);
@@ -57,12 +72,141 @@ public class UserService {
      * @return the found user
      * @throws UserNotFoundException if no user is found with the given username
      */
-    @Cacheable(value = "users", key = "#username")
-    public User getUserByUsername(@NotBlank String username) {
-        return userLookupTimer.record(() -> 
-            userManagementService.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + username))
-        );
+    @Transactional(readOnly = true)
+    @Cacheable(value = "users", key = "#username", unless = "#result == null")
+    public User findByUsername(@NotBlank String username) {
+        return userLookupTimer.record(() -> {
+            User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
+            
+            // Initialize lazy collections if needed
+            if (user instanceof com.example.courierdistributionsystem.model.Customer) {
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Customer) user).getPackages());
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Customer) user).getRatings());
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Customer) user).getNotifications());
+            } else if (user instanceof com.example.courierdistributionsystem.model.Courier) {
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Courier) user).getDeliveries());
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Courier) user).getReports());
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Courier) user).getRatings());
+            } else if (user instanceof com.example.courierdistributionsystem.model.Admin) {
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Admin) user).getReports());
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Admin) user).getNotifications());
+                Hibernate.initialize(((com.example.courierdistributionsystem.model.Admin) user).getMetrics());
+            }
+            
+            return user;
+        });
+    }
+
+    @Cacheable(value = "users", key = "#email")
+    public Optional<? extends User> findByEmail(String email) {
+        Optional<User> user = userRepository.findByEmail(email);
+        if (user.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return switch (user.get().getRole()) {
+            case ADMIN -> adminRepository.findByEmail(email);
+            case CUSTOMER -> customerRepository.findByEmail(email);
+            case COURIER -> courierRepository.findByEmail(email);
+        };
+    }
+
+    public boolean existsByUsername(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public Admin saveAdmin(Admin admin) {
+        userRepository.save(admin);
+        return adminRepository.save(admin);
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public Customer saveCustomer(Customer customer) {
+        userRepository.save(customer);
+        return customerRepository.save(customer);
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public Courier saveCourier(Courier courier) {
+        userRepository.save(courier);
+        return courierRepository.save(courier);
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public List<Customer> getAllCustomers() {
+        return customerRepository.findAll();
+    }
+
+    public List<Courier> getAllCouriers() {
+        return courierRepository.findAll();
+    }
+
+    public List<Admin> getAllAdmins() {
+        return adminRepository.findAll();
+    }
+
+    public Optional<Courier> getCourierById(Long id) {
+        return courierRepository.findById(id);
+    }
+
+    public Optional<Customer> getCustomerById(Long id) {
+        return customerRepository.findById(id);
+    }
+
+    public Optional<Admin> getAdminById(Long id) {
+        return adminRepository.findById(id);
+    }
+
+    public Optional<User> getUserById(Long id) {
+        return userRepository.findById(id);
+    }
+
+    public Map<String, Object> getUserStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalUsers", userRepository.count());
+        stats.put("totalCustomers", customerRepository.count());
+        stats.put("totalCouriers", courierRepository.count());
+        stats.put("totalAdmins", adminRepository.count());
+        return stats;
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public void deleteUser(User user) {
+        LOGGER.info("Deleting user: {} with role: {}", user.getUsername(), user.getRole());
+        try {
+            switch (user.getRole()) {
+                case ADMIN -> {
+                    Admin admin = (Admin) user;
+                    adminRepository.delete(admin);
+                }
+                case CUSTOMER -> {
+                    Customer customer = (Customer) user;
+                    customerRepository.delete(customer);
+                }
+                case COURIER -> {
+                    Courier courier = (Courier) user;
+                    courierRepository.delete(courier);
+                }
+            }
+            userRepository.delete(user);
+            LOGGER.info("User deleted successfully: {}", user.getUsername());
+        } catch (Exception e) {
+            LOGGER.error("Error deleting user: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to delete user: " + e.getMessage());
+        }
     }
 
     /**
@@ -105,14 +249,14 @@ public class UserService {
             }
 
             // Check if username already exists
-            if (userManagementService.existsByUsername(username)) {
+            if (existsByUsername(username)) {
                 userSignupFailureCounter.increment();
                 response.put("error", "Username already exists");
                 return response;
             }
 
             // Check if email already exists
-            if (userManagementService.existsByEmail(email)) {
+            if (existsByEmail(email)) {
                 userSignupFailureCounter.increment();
                 response.put("error", "Email already exists");
                 return response;
@@ -131,7 +275,7 @@ public class UserService {
                             .phoneNumber(signupRequest.get("phoneNumber"))
                             .deliveryAddress(signupRequest.get("deliveryAddress"))
                             .build();
-                    userManagementService.saveCustomer(customer);
+                    saveCustomer(customer);
                 }
                 case COURIER -> {
                     Courier courier = Courier.builder()
@@ -143,7 +287,7 @@ public class UserService {
                             .vehicleType(signupRequest.get("vehicleType"))
                             .available(true)
                             .build();
-                    userManagementService.saveCourier(courier);
+                    saveCourier(courier);
                 }
                 case ADMIN -> {
                     Admin admin = Admin.builder()
@@ -152,7 +296,7 @@ public class UserService {
                             .password(encodedPassword)
                             .role(userRole)
                             .build();
-                    userManagementService.saveAdmin(admin);
+                    saveAdmin(admin);
                 }
                 default -> {
                     userSignupFailureCounter.increment();
@@ -184,5 +328,17 @@ public class UserService {
         public UserNotFoundException(String message) {
             super(message);
         }
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public void deleteByUsername(String username) {
+        LOGGER.info("Attempting to delete user by username: {}", username);
+        User user = findByUsername(username);
+        if (user == null) {
+            LOGGER.warn("User not found for deletion: {}", username);
+            throw new UserNotFoundException("User not found: " + username);
+        }
+        deleteUser(user);
     }
 } 

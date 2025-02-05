@@ -11,10 +11,14 @@ import com.example.courierdistributionsystem.repository.AdminRepository;
 import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 
 @Service
 public class ViewService {
+    private static final Logger logger = LoggerFactory.getLogger(ViewService.class);
 
     @Autowired
     private CustomerRepository customerRepository;
@@ -31,7 +35,14 @@ public class ViewService {
     @Autowired
     private DeliveryPackageService deliveryPackageService;
 
+    @Autowired
+    private WebSocketService webSocketService;
+
     public User getUserByUsername(String username) {
+        if (username == null) {
+            throw new RuntimeException("Username cannot be null");
+        }
+
         Customer customer = customerRepository.findByUsername(username).orElse(null);
         if (customer != null) {
             return customer;
@@ -42,45 +53,68 @@ public class ViewService {
             return courier;
         }
         
-        Admin admin = adminRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return admin;
+        Admin admin = adminRepository.findByUsername(username).orElse(null);
+        if (admin != null) {
+            return admin;
+        }
+
+        throw new RuntimeException("User not found: " + username);
     }
 
     public String getDashboardRedirect(String username) {
-        User user = getUserByUsername(username);
-        return switch (user.getRole()) {
-            case CUSTOMER -> "redirect:/customer/dashboard";
-            case COURIER -> "redirect:/courier/dashboard";
-            case ADMIN -> "redirect:/admin/dashboard";
+        if (username == null) {
+            logger.error("Username is null in getDashboardRedirect");
+            return "redirect:/auth/login";
+        }
+
+        try {
+            User user = getUserByUsername(username);
+            if (user instanceof Admin) {
+                logger.debug("Redirecting admin user {} to admin dashboard", username);
+                return "redirect:/admin/dashboard";
+            } else if (user instanceof Courier) {
+                logger.debug("Redirecting courier user {} to courier dashboard", username);
+                return "redirect:/courier/dashboard";
+            } else if (user instanceof Customer) {
+                logger.debug("Redirecting customer user {} to customer dashboard", username);
+                return "redirect:/customer/dashboard";
+            } else {
+                logger.error("Unknown user type for user {}", username);
+                throw new RuntimeException("Unknown user type");
+            }
+        } catch (Exception e) {
+            logger.error("Error in getDashboardRedirect for user {}: {}", username, e.getMessage());
+            throw new RuntimeException("Error determining user role: " + e.getMessage());
+        }
+    }
+
+    public boolean isValidRole(User user, String role) {
+        if (user == null || role == null) {
+            return false;
+        }
+
+        return switch (role.toUpperCase()) {
+            case "ADMIN" -> user instanceof Admin;
+            case "COURIER" -> user instanceof Courier;
+            case "CUSTOMER" -> user instanceof Customer;
+            default -> false;
         };
     }
 
-    public boolean isValidRole(User user, String requiredRole) {
-        try {
-            User.UserRole required = User.UserRole.valueOf(requiredRole);
-            return user.getRole() == required;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-    }
-
     public List<DeliveryPackage> getAvailablePackages() {
-        return packageRepository.findByStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        return packageRepository.findByStatusAndCourierIsNull(DeliveryPackage.DeliveryStatus.PENDING);
     }
 
     public List<DeliveryPackage> getActiveDeliveries(User courier) {
-        if (courier == null) {
-            throw new IllegalArgumentException("Courier cannot be null");
-        }
-        
-        if (courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalStateException("Only couriers can view active deliveries");
+        if (!(courier instanceof Courier)) {
+            throw new IllegalArgumentException("User must be a courier");
         }
 
         return packageRepository.findByCourierAndStatusIn(
             (Courier) courier, 
-            List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, DeliveryPackage.DeliveryStatus.PICKED_UP, DeliveryPackage.DeliveryStatus.IN_TRANSIT)
+            List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, 
+                   DeliveryPackage.DeliveryStatus.PICKED_UP, 
+                   DeliveryPackage.DeliveryStatus.IN_TRANSIT)
         );
     }
 
@@ -96,16 +130,58 @@ public class ViewService {
         return packageRepository.findByCustomer((Customer) customer);
     }
 
+    @Transactional
     public void takeDeliveryPackage(Long packageId, String username) {
-        deliveryPackageService.takeDeliveryPackage(packageId, username);
+        DeliveryPackage deliveryPackage = deliveryPackageService.getDeliveryPackageById(packageId);
+        Courier courier = courierRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("Courier not found"));
+
+        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+            throw new RuntimeException("Package is not available for pickup");
+        }
+
+        deliveryPackage.setCourier(courier);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
+        packageRepository.save(deliveryPackage);
+        
+        webSocketService.notifyDeliveryStatusUpdate(deliveryPackage);
     }
 
+    @Transactional
     public void updateDeliveryStatus(Long packageId, String username, String status) {
-        DeliveryPackage.DeliveryStatus newStatus = DeliveryPackage.DeliveryStatus.valueOf(status);
-        deliveryPackageService.updateDeliveryStatus(packageId, username, newStatus);
+        DeliveryPackage deliveryPackage = deliveryPackageService.getDeliveryPackageById(packageId);
+        Courier courier = courierRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("Courier not found"));
+
+        if (!deliveryPackage.getCourier().equals(courier)) {
+            throw new RuntimeException("Package is not assigned to this courier");
+        }
+
+        try {
+            DeliveryPackage.DeliveryStatus newStatus = DeliveryPackage.DeliveryStatus.valueOf(status.toUpperCase());
+            deliveryPackage.setStatus(newStatus);
+            packageRepository.save(deliveryPackage);
+            
+            webSocketService.notifyDeliveryStatusUpdate(deliveryPackage);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid status: " + status);
+        }
     }
 
+    @Transactional
     public void dropDeliveryPackage(Long packageId, String username) {
-        deliveryPackageService.dropDeliveryPackage(packageId, username);
+        DeliveryPackage deliveryPackage = deliveryPackageService.getDeliveryPackageById(packageId);
+        Courier courier = courierRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("Courier not found"));
+
+        if (!deliveryPackage.getCourier().equals(courier)) {
+            throw new RuntimeException("Package is not assigned to this courier");
+        }
+
+        deliveryPackage.setCourier(null);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        packageRepository.save(deliveryPackage);
+        
+        webSocketService.notifyDeliveryStatusUpdate(deliveryPackage);
     }
 }

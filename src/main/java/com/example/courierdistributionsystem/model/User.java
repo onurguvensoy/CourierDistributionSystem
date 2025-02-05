@@ -1,18 +1,24 @@
 package com.example.courierdistributionsystem.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Data
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@MappedSuperclass
-public abstract class User {
+@Entity
+@Table(name = "users")
+@Inheritance(strategy = InheritanceType.JOINED)
+@OnDelete(action = OnDeleteAction.CASCADE)
+public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -23,6 +29,7 @@ public abstract class User {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -30,6 +37,7 @@ public abstract class User {
     @Column(nullable = false)
     private UserRole role;
 
+    @JsonIgnore
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

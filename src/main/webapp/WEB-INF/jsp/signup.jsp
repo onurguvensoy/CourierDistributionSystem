@@ -37,7 +37,7 @@
                 <div class="error-message text-center">${error}</div>
             </c:if>
             
-            <form:form action="/auth/signup" method="post" modelAttribute="signupForm">
+            <form:form action="api/auth/signup" method="POST" modelAttribute="signupForm">
                 <div class="mb-3">
                     <label for="username" class="form-label">Username</label>
                     <form:input path="username" class="form-control" required="true"/>

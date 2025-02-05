@@ -1,47 +1,59 @@
 package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-@Getter
-@Setter
 @Entity
 @Table(name = "notifications")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "customer_id")
-    private Customer customer;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admin_id")
+    private Admin admin;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "courier_id")
     private Courier courier;
 
-    @ManyToOne
-    @JoinColumn(name = "delivery_package_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "package_id")
     private DeliveryPackage deliveryPackage;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private NotificationType type;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(nullable = false)
     private String message;
 
-    private boolean isRead = false;
+    @Column(nullable = false)
+    private LocalDateTime timestamp;
 
-    private LocalDateTime createdAt;
-
-    private String actionUrl;
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean read = false;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
+        }
     }
 
     public enum NotificationType {

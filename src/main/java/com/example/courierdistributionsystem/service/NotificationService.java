@@ -2,13 +2,20 @@ package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.model.*;
 import com.example.courierdistributionsystem.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.List;
+
 @Service
 public class NotificationService {
+    private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
 
     @Autowired
     private NotificationRepository notificationRepository;
@@ -19,118 +26,175 @@ public class NotificationService {
     @Autowired
     private CourierRepository courierRepository;
 
-
-    public Page<Notification> getUserNotifications(String username, Pageable pageable) {
-        Customer customer = customerRepository.findByUsername(username)
-                .orElse(null);
-        if (customer != null) {
-            return notificationRepository.findByCustomerOrderByCreatedAtDesc(customer, pageable);
-        }
-
-        Courier courier = courierRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        return notificationRepository.findByCourierOrderByCreatedAtDesc(courier, pageable);
-    }
+    @Autowired
+    private WebSocketService webSocketService;
 
     public List<Notification> getUnreadNotifications(String username) {
-        Customer customer = customerRepository.findByUsername(username)
-                .orElse(null);
+        logger.debug("Getting unread notifications for user: {}", username);
+        Customer customer = customerRepository.findByUsername(username).orElse(null);
         if (customer != null) {
-            return notificationRepository.findByCustomerAndIsReadFalseOrderByCreatedAtDesc(customer);
+            return notificationRepository.findByCustomerAndReadFalseOrderByTimestampDesc(customer);
         }
 
         Courier courier = courierRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        return notificationRepository.findByCourierAndIsReadFalseOrderByCreatedAtDesc(courier);
+                .orElseThrow(() -> {
+                    logger.warn("User not found with username: {}", username);
+                    return new IllegalArgumentException("User not found");
+                });
+        return notificationRepository.findByCourierAndReadFalseOrderByTimestampDesc(courier);
     }
 
+    public Page<Notification> getUserNotifications(String username, Pageable pageable) {
+        logger.debug("Getting notifications for user: {}", username);
+        Customer customer = customerRepository.findByUsername(username).orElse(null);
+        if (customer != null) {
+            return notificationRepository.findByCustomerOrderByTimestampDesc(customer, pageable);
+        }
+
+        Courier courier = courierRepository.findByUsername(username)
+                .orElseThrow(() -> {
+                    logger.warn("User not found with username: {}", username);
+                    return new IllegalArgumentException("User not found");
+                });
+        return notificationRepository.findByCourierOrderByTimestampDesc(courier, pageable);
+    }
+
+    public List<Notification> getNotificationsForCustomer(Customer customer) {
+        return notificationRepository.findByCustomerOrderByTimestampDesc(customer);
+    }
+
+    public List<Notification> getNotificationsForCourier(Courier courier) {
+        return notificationRepository.findByCourierOrderByTimestampDesc(courier);
+    }
+
+    public List<Notification> getUnreadNotificationsForCustomer(Customer customer) {
+        return notificationRepository.findByCustomerAndReadFalseOrderByTimestampDesc(customer);
+    }
+
+    public List<Notification> getUnreadNotificationsForCourier(Courier courier) {
+        return notificationRepository.findByCourierAndReadFalseOrderByTimestampDesc(courier);
+    }
+
+    @Transactional
     public void markAsRead(Long notificationId, String username) {
-        Customer customer = customerRepository.findByUsername(username)
-                .orElse(null);
+        logger.debug("Marking notification {} as read for user: {}", notificationId, username);
+        Customer customer = customerRepository.findByUsername(username).orElse(null);
         Courier courier = null;
         if (customer == null) {
             courier = courierRepository.findByUsername(username)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                    .orElseThrow(() -> {
+                        logger.warn("User not found with username: {}", username);
+                        return new IllegalArgumentException("User not found");
+                    });
         }
 
         Notification notification = notificationRepository.findById(notificationId)
-            .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
-        
+                .orElseThrow(() -> {
+                    logger.warn("Notification not found with ID: {}", notificationId);
+                    return new IllegalArgumentException("Notification not found");
+                });
+
         if ((customer != null && !notification.belongsToUser(customer)) ||
             (courier != null && !notification.belongsToUser(courier))) {
+            logger.warn("Notification {} does not belong to user: {}", notificationId, username);
             throw new IllegalArgumentException("Notification does not belong to this user");
         }
 
         notification.setRead(true);
         notificationRepository.save(notification);
+        logger.info("Notification {} marked as read for user: {}", notificationId, username);
     }
 
+    @Transactional
     public void markAllAsRead(String username) {
-        Customer customer = customerRepository.findByUsername(username)
-                .orElse(null);
+        logger.debug("Marking all notifications as read for user: {}", username);
+        Customer customer = customerRepository.findByUsername(username).orElse(null);
         if (customer != null) {
-            List<Notification> unreadNotifications = notificationRepository.findByCustomerAndIsReadFalseOrderByCreatedAtDesc(customer);
+            List<Notification> unreadNotifications = getUnreadNotificationsForCustomer(customer);
             unreadNotifications.forEach(notification -> notification.setRead(true));
             notificationRepository.saveAll(unreadNotifications);
+            logger.info("All notifications marked as read for customer: {}", username);
         } else {
             Courier courier = courierRepository.findByUsername(username)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            List<Notification> unreadNotifications = notificationRepository.findByCourierAndIsReadFalseOrderByCreatedAtDesc(courier);
+                    .orElseThrow(() -> {
+                        logger.warn("User not found with username: {}", username);
+                        return new IllegalArgumentException("User not found");
+                    });
+            List<Notification> unreadNotifications = getUnreadNotificationsForCourier(courier);
             unreadNotifications.forEach(notification -> notification.setRead(true));
             notificationRepository.saveAll(unreadNotifications);
+            logger.info("All notifications marked as read for courier: {}", username);
         }
     }
 
-    public void createDeliveryStatusNotification(DeliveryPackage deliveryPackage) {
-        Notification customerNotification = new Notification();
-        customerNotification.setUser(deliveryPackage.getCustomer());
-        customerNotification.setDeliveryPackage(deliveryPackage);
-        customerNotification.setType(Notification.NotificationType.STATUS_CHANGE);
-        customerNotification.setMessage("Your delivery status has been updated to: " + deliveryPackage.getStatus());
+    @Transactional
+    public void createDeliveryStatusNotification(DeliveryPackage deliveryPackage, String status) {
+        // Notify customer
+        Notification customerNotification = Notification.builder()
+                .customer(deliveryPackage.getCustomer())
+                .deliveryPackage(deliveryPackage)
+                .type(Notification.NotificationType.STATUS_CHANGE)
+                .message("Your delivery status has been updated to: " + status)
+                .timestamp(LocalDateTime.now())
+                .build();
         notificationRepository.save(customerNotification);
+        webSocketService.sendToUser(deliveryPackage.getCustomer().getId().toString(), "notification", customerNotification);
 
+        // Notify courier if assigned
         if (deliveryPackage.getCourier() != null) {
-            Notification courierNotification = new Notification();
-            courierNotification.setUser(deliveryPackage.getCourier());
-            courierNotification.setDeliveryPackage(deliveryPackage);
-            courierNotification.setType(Notification.NotificationType.STATUS_CHANGE);
-            courierNotification.setMessage("Delivery status updated to: " + deliveryPackage.getStatus());
+            Notification courierNotification = Notification.builder()
+                    .courier(deliveryPackage.getCourier())
+                    .deliveryPackage(deliveryPackage)
+                    .type(Notification.NotificationType.STATUS_CHANGE)
+                    .message("Delivery status updated to: " + status)
+                    .timestamp(LocalDateTime.now())
+                    .build();
             notificationRepository.save(courierNotification);
+            webSocketService.sendToUser(deliveryPackage.getCourier().getId().toString(), "notification", courierNotification);
         }
     }
 
+    @Transactional
     public void createDeliveryAssignmentNotification(DeliveryPackage deliveryPackage) {
-        Notification customerNotification = new Notification();
-        customerNotification.setUser(deliveryPackage.getCustomer());
-        customerNotification.setDeliveryPackage(deliveryPackage);
-        customerNotification.setType(Notification.NotificationType.DELIVERY_ALERT);
-        customerNotification.setMessage("A courier has been assigned to your delivery");
+        // Notify customer
+        Notification customerNotification = Notification.builder()
+                .customer(deliveryPackage.getCustomer())
+                .deliveryPackage(deliveryPackage)
+                .type(Notification.NotificationType.DELIVERY_ALERT)
+                .message("A courier has been assigned to your delivery")
+                .timestamp(LocalDateTime.now())
+                .build();
         notificationRepository.save(customerNotification);
+        webSocketService.sendToUser(deliveryPackage.getCustomer().getId().toString(), "notification", customerNotification);
 
-        Notification courierNotification = new Notification();
-        courierNotification.setUser(deliveryPackage.getCourier());
-        courierNotification.setDeliveryPackage(deliveryPackage);
-        courierNotification.setType(Notification.NotificationType.DELIVERY_ALERT);
-        courierNotification.setMessage("New delivery package has been assigned to you");
+        // Notify courier
+        Notification courierNotification = Notification.builder()
+                .courier(deliveryPackage.getCourier())
+                .deliveryPackage(deliveryPackage)
+                .type(Notification.NotificationType.DELIVERY_ALERT)
+                .message("New delivery assigned to you")
+                .timestamp(LocalDateTime.now())
+                .build();
         notificationRepository.save(courierNotification);
+        webSocketService.sendToUser(deliveryPackage.getCourier().getId().toString(), "notification", courierNotification);
     }
 
-    public void createSystemNotification(String username, String message) {
-        Customer customer = customerRepository.findByUsername(username)
-                .orElse(null);
-        
-        Notification notification = new Notification();
-        if (customer != null) {
-            notification.setUser(customer);
-        } else {
-            Courier courier = courierRepository.findByUsername(username)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            notification.setUser(courier);
+    @Transactional
+    public void createSystemNotification(String message, User user) {
+        Notification notification = Notification.builder()
+                .type(Notification.NotificationType.SYSTEM_MESSAGE)
+                .message(message)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        if (user instanceof Customer) {
+            notification.setUser((Customer) user);
+        } else if (user instanceof Courier) {
+            notification.setUser((Courier) user);
         }
-        
-        notification.setType(Notification.NotificationType.SYSTEM_MESSAGE);
-        notification.setMessage(message);
+
         notificationRepository.save(notification);
+        webSocketService.sendToUser(user.getId().toString(), "notification", notification);
     }
 
     // private Map<String, Object> createNotificationPayload(Notification notification) {
