@@ -86,17 +86,24 @@
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+            
             const formData = {
-                username: document.getElementById('username').value,
+                username: document.getElementById('username').value.trim(),
                 password: document.getElementById('password').value
             };
 
             fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(formData),
+                credentials: 'same-origin'
             })
             .then(response => {
                 if (!response.ok) {
@@ -104,17 +111,13 @@
                         throw new Error(data.message || 'Authentication failed');
                     });
                 }
-                // Check if response has content
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") !== -1) {
-                    return response.json().then(data => {
-                        // Successful login
-                        window.location.href = '/dashboard';
-                    });
-                } else {
-                    // Successful login without JSON response
-                    window.location.href = '/dashboard';
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.message || 'Authentication failed');
                 }
+                window.location.href = '/dashboard';
             })
             .catch(error => {
                 const alertDiv = document.createElement('div');
@@ -128,6 +131,10 @@
                 }
                 
                 document.querySelector('.card-body').insertBefore(alertDiv, document.getElementById('loginForm'));
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
             });
         });
     </script>

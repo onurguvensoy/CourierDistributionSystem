@@ -131,7 +131,7 @@
                                                     <td>${packageData.deliveryAddress}</td>
                                                     <td>${packageData.weight} kg</td>
                                                     <td>
-                                                        <form action="/courier/delivery/take" method="POST" class="delivery-form">
+                                                        <form action="/api/packages/" method="POST" class="delivery-form">
                                                             <input type="hidden" name="packageId" value="${packageData.id}"/>
                                                             <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                             <button type="submit" class="btn btn-primary btn-sm">Take Delivery</button>

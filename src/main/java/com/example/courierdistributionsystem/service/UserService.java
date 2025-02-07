@@ -123,21 +123,27 @@ public class UserService {
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public Admin saveAdmin(Admin admin) {
-        userRepository.save(admin);
+        if (admin.getPassword() == null || admin.getPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be null or empty");
+        }
         return adminRepository.save(admin);
     }
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public Customer saveCustomer(Customer customer) {
-        userRepository.save(customer);
+        if (customer.getPassword() == null || customer.getPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be null or empty");
+        }
         return customerRepository.save(customer);
     }
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public Courier saveCourier(Courier courier) {
-        userRepository.save(courier);
+        if (courier.getPassword() == null || courier.getPassword().trim().isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be null or empty");
+        }
         return courierRepository.save(courier);
     }
 

@@ -176,7 +176,7 @@
                             <div id="sendPackageAlertPlaceholder"></div>
                             <form class="mt-4" id="sendPackageForm">
                                 <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-                                <input type="hidden" id="username" value="${sessionScope.username}"/>
+                                <input type="hidden" id="username" name="username" value="${sessionScope.username}"/>
                                 
                                 <!-- Pickup Address Section -->
                                 <div class="mb-3">
@@ -214,22 +214,6 @@
                                     <small class="text-muted">Any special handling instructions or delivery notes</small>
                                 </div>
 
-                                <!-- Recipient Information -->
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label class="form-label">Recipient Name</label>
-                                            <input type="text" class="form-control" name="recipientName" id="recipientName" required>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
-                                            <label class="form-label">Recipient Phone</label>
-                                            <input type="tel" class="form-control" name="recipientPhone" id="recipientPhone" required>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div class="d-grid gap-2">
                                     <button type="submit" class="btn btn-primary">Create Delivery Request</button>
                                 </div>
@@ -240,21 +224,16 @@
                             document.getElementById('sendPackageForm').addEventListener('submit', function(e) {
                                 e.preventDefault();
                                 
-                                const username = document.getElementById('username').value;
                                 const formData = {
+                                    username: document.getElementById('username').value,
                                     pickupAddress: document.getElementById('pickupAddress').value,
                                     deliveryAddress: document.getElementById('deliveryAddress').value,
                                     weight: parseFloat(document.getElementById('weight').value),
                                     description: document.getElementById('description').value,
-                                    specialInstructions: document.getElementById('specialInstructions').value,
-                                    recipientName: document.getElementById('recipientName').value,
-                                    recipientPhone: document.getElementById('recipientPhone').value
+                                    specialInstructions: document.getElementById('specialInstructions').value
                                 };
 
-                                const url = new URL('/api/packages/create', window.location.origin);
-                                url.searchParams.append('username', username);
-
-                                fetch(url, {
+                                fetch('/api/packages/create', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',

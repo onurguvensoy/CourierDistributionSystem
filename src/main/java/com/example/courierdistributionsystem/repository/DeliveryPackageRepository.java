@@ -14,10 +14,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Repository interface for managing DeliveryPackage entities.
- * Provides methods for CRUD operations and custom queries related to delivery packages.
- */
 @Repository
 public interface DeliveryPackageRepository extends JpaRepository<DeliveryPackage, Long> {
 

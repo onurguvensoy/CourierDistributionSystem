@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Validated
@@ -150,6 +151,10 @@ public class CustomerService {
         if (request.containsKey("email")) {
             customer.setEmail(request.get("email"));
         }
+    }
+
+    public Optional<Customer> findByUsername(String username) {
+        return customerRepository.findByUsername(username);
     }
 
     private boolean isValidPhoneNumber(String phoneNumber) {

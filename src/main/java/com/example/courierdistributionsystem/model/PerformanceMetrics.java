@@ -29,7 +29,7 @@ public class PerformanceMetrics {
     @Column(nullable = false)
     private String metricType;
 
-    @Column(nullable = false)
+    @Column(name = "metric_value", nullable = false)
     private Double value;
 
     @Column

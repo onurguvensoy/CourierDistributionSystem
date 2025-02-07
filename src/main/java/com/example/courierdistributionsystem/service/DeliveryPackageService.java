@@ -455,8 +455,6 @@ public class DeliveryPackageService {
             .weight(request.getWeight())
             .description(request.getDescription())
             .specialInstructions(request.getSpecialInstructions())
-            .recipientName(request.getRecipientName())
-            .recipientPhone(request.getRecipientPhone())
             .status(DeliveryPackage.DeliveryStatus.PENDING)
             .createdAt(LocalDateTime.now())
             .build();

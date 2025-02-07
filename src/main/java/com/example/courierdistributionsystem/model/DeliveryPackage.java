@@ -50,12 +50,6 @@ public class DeliveryPackage {
     @Column
     private String specialInstructions;
 
-    @Column(nullable = false)
-    private String recipientName;
-
-    @Column(nullable = false)
-    private String recipientPhone;
-
     @Column
     private Double currentLatitude;
 
@@ -192,7 +186,7 @@ public class DeliveryPackage {
 class DeliveryStatusHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long package_id;
 
     @ManyToOne
     @JoinColumn(name = "delivery_package_id", nullable = false)

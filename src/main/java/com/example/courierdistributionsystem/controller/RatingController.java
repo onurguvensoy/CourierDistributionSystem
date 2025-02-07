@@ -16,9 +16,7 @@ public class RatingController {
     @Autowired
     private DeliveryPackageService deliveryPackageService;
 
-    /**
-     * Rate a completed delivery
-     */
+
     @PostMapping("/delivery/{packageId}")
     public ResponseEntity<?> rateDelivery(
             @PathVariable Long packageId,
@@ -60,9 +58,7 @@ public class RatingController {
         }
     }
 
-    /**
-     * Get rating for a specific delivery
-     */
+
     @GetMapping("/delivery/{packageId}")
     public ResponseEntity<?> getDeliveryRating(
             @PathVariable Long packageId,

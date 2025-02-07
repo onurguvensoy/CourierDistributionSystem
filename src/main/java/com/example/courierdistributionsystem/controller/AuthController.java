@@ -6,6 +6,7 @@ import com.example.courierdistributionsystem.exception.AuthenticationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,35 +27,51 @@ public class AuthController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private HttpServletRequest request;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest,
-                                 HttpSession session) {
+                                 HttpSession currentSession) {
         try {
-            Map<String, Object> response = authService.login(loginRequest.getUsername(), 
-                                                           loginRequest.getPassword());
-
-            if (response.containsKey("error")) {
-                return ResponseEntity.badRequest().body(response);
+            // Invalidate any existing session
+            if (currentSession != null) {
+                try {
+                    currentSession.invalidate();
+                } catch (IllegalStateException e) {
+                    logger.debug("No existing session to invalidate");
+                }
             }
+
+            Map<String, Object> loginResponse = authService.login(loginRequest.getUsername(), 
+                                                                loginRequest.getPassword());
+
+            if (!Boolean.TRUE.equals(loginResponse.get("success"))) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Authentication Error",
+                    "message", "Login failed"
+                ));
+            }
+
+            // Create new session
+            final HttpSession newSession = request.getSession(true);
+            newSession.setMaxInactiveInterval(30 * 60); // 30 minutes timeout
 
             // Store user information in session
-            session.setAttribute("username", loginRequest.getUsername());
-            session.setAttribute("role", response.get("role"));
-            session.setAttribute("userId", response.get("userId"));
-            session.setAttribute("email", response.get("email"));
-            
-            if (response.containsKey("phoneNumber")) {
-                session.setAttribute("phoneNumber", response.get("phoneNumber"));
-            }
-            if (response.containsKey("isAvailable")) {
-                session.setAttribute("isAvailable", response.get("isAvailable"));
-            }
-            if (response.containsKey("deliveryAddress")) {
-                session.setAttribute("deliveryAddress", response.get("deliveryAddress"));
-            }
+            loginResponse.forEach((key, value) -> {
+                if (value != null) {
+                    newSession.setAttribute(key, value);
+                }
+            });
 
-            return ResponseEntity.ok(response);
+            // Remove sensitive information before sending response
+            loginResponse.remove("password");
+            
+            logger.info("New session created successfully for user: {}", loginResponse.get("username"));
+            return ResponseEntity.ok(loginResponse);
+            
         } catch (AuthenticationException e) {
+            logger.warn("Authentication failed: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Authentication Error",
                 "message", e.getMessage()
@@ -98,21 +115,34 @@ public class AuthController {
             String username = (String) session.getAttribute("username");
             if (username != null) {
                 logger.info("Logging out user: {}", username);
+                
+                // Clear all session attributes
+                session.removeAttribute("username");
+                session.removeAttribute("role");
+                session.removeAttribute("userId");
+                session.removeAttribute("email");
+                session.removeAttribute("phoneNumber");
+                session.removeAttribute("isAvailable");
+                session.removeAttribute("deliveryAddress");
+                
+                try {
+                    session.invalidate();
+                    logger.info("Session invalidated successfully for user: {}", username);
+                } catch (IllegalStateException e) {
+                    logger.debug("Session was already invalidated");
+                }
+            } else {
+                logger.debug("No active session found for logout request");
             }
             
-            authService.logoutUser();
-            
             return ResponseEntity.ok().body(Map.of(
+                "status", "success",
                 "message", "Logged out successfully"
             ));
-        } catch (AuthenticationException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "Authentication Error",
-                "message", e.getMessage()
-            ));
         } catch (Exception e) {
-            logger.error("Unexpected error during logout: {}", e.getMessage(), e);
+            logger.error("Error during logout: {}", e.getMessage(), e);
             return ResponseEntity.ok().body(Map.of(
+                "status", "success",
                 "message", "Logged out successfully"
             ));
         }
