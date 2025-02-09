@@ -24,9 +24,6 @@ public class Customer extends User {
     
     @Column(nullable = false)
     private String phoneNumber;
-    
-    @Column(nullable = false)
-    private String deliveryAddress;
 
     @JsonIgnore
     @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
@@ -36,12 +33,12 @@ public class Customer extends User {
     @JsonIgnore
     @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
     @Builder.Default
-    private List<Rating> ratings = new ArrayList<>();
+    private List<Notification> notifications = new ArrayList<>();
 
     @JsonIgnore
     @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
     @Builder.Default
-    private List<Notification> notifications = new ArrayList<>();
+    private List<Rating> ratings = new ArrayList<>();
 
     @PrePersist
     @Override

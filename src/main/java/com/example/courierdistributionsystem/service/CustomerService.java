@@ -44,7 +44,6 @@ public class CustomerService {
             String email = customerRequest.get("email");
             String password = customerRequest.get("password");
             String phoneNumber = customerRequest.get("phoneNumber");
-            String deliveryAddress = customerRequest.get("deliveryAddress");
 
             if (customerRepository.findByUsername(username).isPresent()) {
                 logger.warn("Username already exists: {}", username);
@@ -62,7 +61,6 @@ public class CustomerService {
                 .password(password)
                 .role(User.UserRole.CUSTOMER)
                 .phoneNumber(phoneNumber)
-                .deliveryAddress(deliveryAddress)
                 .build();
 
             Customer savedCustomer = customerRepository.save(customer);
@@ -103,7 +101,7 @@ public class CustomerService {
             throw new CustomerException("Customer request cannot be empty");
         }
 
-        String[] requiredFields = {"username", "email", "password", "phoneNumber", "deliveryAddress"};
+        String[] requiredFields = {"username", "email", "password", "phoneNumber"};
         for (String field : requiredFields) {
             if (!request.containsKey(field) || request.get(field) == null || request.get(field).trim().isEmpty()) {
                 logger.warn("Missing required field: {}", field);
@@ -144,9 +142,6 @@ public class CustomerService {
     private void updateCustomerFields(Customer customer, Map<String, String> request) {
         if (request.containsKey("phoneNumber")) {
             customer.setPhoneNumber(request.get("phoneNumber"));
-        }
-        if (request.containsKey("deliveryAddress")) {
-            customer.setDeliveryAddress(request.get("deliveryAddress"));
         }
         if (request.containsKey("email")) {
             customer.setEmail(request.get("email"));

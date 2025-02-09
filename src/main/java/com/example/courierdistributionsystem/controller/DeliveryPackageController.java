@@ -8,6 +8,8 @@ import com.example.courierdistributionsystem.service.CustomerService;
 import com.example.courierdistributionsystem.service.DeliveryPackageService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/packages")
 public class DeliveryPackageController {
+    private static final Logger logger = LoggerFactory.getLogger(DeliveryPackageController.class);
 
     @Autowired
     private DeliveryPackageService deliveryPackageService;
@@ -27,13 +30,15 @@ public class DeliveryPackageController {
     private CustomerService customerService;
 
     @PostMapping("/create")
-    public ResponseEntity<Map<String, Object>> createPackage(@Valid @RequestBody CreatePackageRequest request) {
+    public ResponseEntity<Map<String, Object>> createPackage(@Valid @RequestBody CreatePackageRequest request, HttpSession session) {
         try {
-            if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
-                throw new IllegalArgumentException("Username is required");
+            // Get username from session
+            String username = (String) session.getAttribute("username");
+            if (username == null || username.trim().isEmpty()) {
+                throw new IllegalArgumentException("User not authenticated");
             }
 
-            Optional<Customer> customer = customerService.findByUsername(request.getUsername());
+            Optional<Customer> customer = customerService.findByUsername(username);
             if (customer.isEmpty()) {
                 throw new IllegalArgumentException("Customer not found");
             }
@@ -43,10 +48,13 @@ public class DeliveryPackageController {
             Map<String, Object> response = new HashMap<>();
             response.put("status", "success");
             response.put("message", "Package created successfully");
-            response.put("data", newPackage);
+            response.put("package", newPackage);
+            response.put("packageId", newPackage.getPackage_id());
 
+            logger.info("Package created successfully with ID: {}", newPackage.getPackage_id());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            logger.error("Failed to create package: {}", e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("status", "error");
             response.put("message", e.getMessage());
@@ -55,19 +63,16 @@ public class DeliveryPackageController {
     }
 
     @GetMapping("/{id}/track")
-    public ResponseEntity<Map<String, Object>> trackPackage(
-            @PathVariable Long id,
-            @RequestParam String username) {
+    public ResponseEntity<?> trackPackage(@PathVariable Long id, @RequestParam String username) {
+        Map<String, Object> response = new HashMap<>();
         try {
+            logger.info("Tracking package {} for user {}", id, username);
             Map<String, Object> trackingInfo = deliveryPackageService.trackDeliveryPackage(id, username);
-            
-            Map<String, Object> response = new HashMap<>();
             response.put("status", "success");
             response.put("data", trackingInfo);
-            
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            Map<String, Object> response = new HashMap<>();
+            logger.error("Failed to track package: {}", e.getMessage());
             response.put("status", "error");
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
@@ -160,15 +165,18 @@ public class DeliveryPackageController {
         }
     }
 
-    @PostMapping("/assign")
-    public ResponseEntity<?> takeDeliveryPackage(@PathVariable Long id, @RequestParam String username) {
+    @PostMapping("/{id}/assign")
+    public ResponseEntity<?> assignPackage(@PathVariable Long id, @RequestParam String username) {
         Map<String, Object> response = new HashMap<>();
         try {
+            logger.info("Assigning package {} to courier {}", id, username);
             DeliveryPackage assignedPackage = deliveryPackageService.takeDeliveryPackage(id, username);
             response.put("status", "success");
+            response.put("message", "Package assigned successfully");
             response.put("data", assignedPackage);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            logger.error("Failed to assign package: {}", e.getMessage());
             response.put("status", "error");
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
@@ -176,17 +184,21 @@ public class DeliveryPackageController {
     }
 
     @PostMapping("/{id}/status")
-    public ResponseEntity<?> updateDeliveryStatus(
+    public ResponseEntity<?> updateStatus(
             @PathVariable Long id,
             @RequestParam String username,
-            @RequestParam DeliveryPackage.DeliveryStatus status) {
+            @RequestParam String status) {
         Map<String, Object> response = new HashMap<>();
         try {
-            DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryStatus(id, username, status);
+            logger.info("Updating package {} status to {} by courier {}", id, status, username);
+            DeliveryPackage.DeliveryStatus newStatus = DeliveryPackage.DeliveryStatus.valueOf(status.toUpperCase());
+            DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryStatus(id, username, newStatus);
             response.put("status", "success");
+            response.put("message", "Package status updated successfully");
             response.put("data", updatedPackage);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            logger.error("Failed to update package status: {}", e.getMessage());
             response.put("status", "error");
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
@@ -215,14 +227,17 @@ public class DeliveryPackageController {
     }
 
     @PostMapping("/{id}/drop")
-    public ResponseEntity<?> dropDeliveryPackage(@PathVariable Long id, @RequestParam String username) {
+    public ResponseEntity<?> dropPackage(@PathVariable Long id, @RequestParam String username) {
         Map<String, Object> response = new HashMap<>();
         try {
+            logger.info("Dropping package {} by courier {}", id, username);
             DeliveryPackage droppedPackage = deliveryPackageService.dropDeliveryPackage(id, username);
             response.put("status", "success");
+            response.put("message", "Package dropped successfully");
             response.put("data", droppedPackage);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            logger.error("Failed to drop package: {}", e.getMessage());
             response.put("status", "error");
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);

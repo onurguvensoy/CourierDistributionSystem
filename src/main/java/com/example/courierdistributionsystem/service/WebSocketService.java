@@ -80,7 +80,7 @@ public class WebSocketService {
     public void sendPackageUpdate(String username, DeliveryPackage deliveryPackage) {
         Map<String, Object> message = new HashMap<>();
         message.put("type", "PACKAGE_UPDATE");
-        message.put("packageId", deliveryPackage.getId());
+        message.put("packageId", deliveryPackage.getPackage_id());
         message.put("status", deliveryPackage.getStatus());
         message.put("currentLocation", deliveryPackage.getCurrentLocation());
         

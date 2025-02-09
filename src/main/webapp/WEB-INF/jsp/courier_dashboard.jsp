@@ -131,9 +131,11 @@
                                                     <td>${packageData.deliveryAddress}</td>
                                                     <td>${packageData.weight} kg</td>
                                                     <td>
-                                                        <form action="/api/packages/" method="POST" class="delivery-form">
-                                                            <input type="hidden" name="packageId" value="${packageData.id}"/>
+                                                        <form action="/api/packages/${packageData.id}/assign" method="POST" class="delivery-form">
+                                                            <input type="hidden" name="username" value="${user.username}"/>
+                                                            <input type="hidden" name="courierId" value="${user.id}"/>
                                                             <input type="hidden" name="_csrf" value="${_csrf.token}" />
+                                                            <input type="hidden" name="packageId" value="${packageData.id}" />
                                                             <button type="submit" class="btn btn-primary btn-sm">Take Delivery</button>
                                                         </form>
                                                     </td>
@@ -176,40 +178,40 @@
                                                     <td>
                                                         <c:choose>
                                                             <c:when test="${packageData.status eq 'ASSIGNED'}">
-                                                                <form action="/courier/delivery/update-status" method="POST" class="delivery-form d-inline">
-                                                                    <input type="hidden" name="packageId" value="${packageData.id}"/>
+                                                                <form action="/api/packages/${packageData.id}/status" method="POST" class="delivery-form d-inline">
+                                                                    <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="status" value="PICKED_UP"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                                     <button type="submit" class="btn btn-info btn-sm">Mark as Picked Up</button>
                                                                 </form>
-                                                                <form action="/courier/delivery/drop" method="POST" class="delivery-form d-inline">
-                                                                    <input type="hidden" name="packageId" value="${packageData.id}"/>
+                                                                <form action="/api/packages/${packageData.id}/drop" method="POST" class="delivery-form d-inline">
+                                                                    <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                                     <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
                                                                 </form>
                                                             </c:when>
                                                             <c:when test="${packageData.status eq 'PICKED_UP'}">
-                                                                <form action="/courier/delivery/update-status" method="POST" class="delivery-form d-inline">
-                                                                    <input type="hidden" name="packageId" value="${packageData.id}"/>
+                                                                <form action="/api/packages/${packageData.id}/status" method="POST" class="delivery-form d-inline">
+                                                                    <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="status" value="IN_TRANSIT"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                                     <button type="submit" class="btn btn-warning btn-sm">Start Delivery</button>
                                                                 </form>
-                                                                <form action="/courier/delivery/drop" method="POST" class="delivery-form d-inline">
-                                                                    <input type="hidden" name="packageId" value="${packageData.id}"/>
+                                                                <form action="/api/packages/${packageData.id}/drop" method="POST" class="delivery-form d-inline">
+                                                                    <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                                     <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
                                                                 </form>
                                                             </c:when>
                                                             <c:when test="${packageData.status eq 'IN_TRANSIT'}">
-                                                                <form action="/courier/delivery/update-status" method="POST" class="delivery-form d-inline">
-                                                                    <input type="hidden" name="packageId" value="${packageData.id}"/>
+                                                                <form action="/api/packages/${packageData.id}/status" method="POST" class="delivery-form d-inline">
+                                                                    <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="status" value="DELIVERED"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                                     <button type="submit" class="btn btn-success btn-sm">Mark as Delivered</button>
                                                                 </form>
-                                                                <form action="/courier/delivery/drop" method="POST" class="delivery-form d-inline">
-                                                                    <input type="hidden" name="packageId" value="${packageData.id}"/>
+                                                                <form action="/api/packages/${packageData.id}/drop" method="POST" class="delivery-form d-inline">
+                                                                    <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                                     <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
                                                                 </form>
@@ -291,8 +293,8 @@
             // Add markers for available packages
             const availablePackages = Array.from(document.querySelectorAll('#availablePackagesTable tr'));
             availablePackages.forEach(packageRow => {
-                const pickupAddress = packageRow.querySelector('td:nth-child(3)').textContent;
-                const deliveryAddress = packageRow.querySelector('td:nth-child(4)').textContent;
+                const pickupAddress = packageRow.querySelector('td:nth-child(4)').textContent;
+                const deliveryAddress = packageRow.querySelector('td:nth-child(5)').textContent;
                 
                 // Add pickup location marker
                 geocodeAndAddMarker(pickupAddress, 'pickup');
@@ -320,8 +322,21 @@
         }
 
         // Add CSRF token to AJAX requests
-        const token = document.querySelector("meta[name='_csrf']").getAttribute("content");
-        const header = document.querySelector("meta[name='_csrf_header']").getAttribute("content");
+        const csrfMeta = document.querySelector("meta[name='_csrf']");
+        const csrfHeaderMeta = document.querySelector("meta[name='_csrf_header']");
+        
+        if (!csrfMeta || !csrfHeaderMeta) {
+            console.error('CSRF meta tags not found');
+            return;
+        }
+        
+        const token = csrfMeta.getAttribute("content");
+        const header = csrfHeaderMeta.getAttribute("content");
+        
+        if (!token || !header) {
+            console.error('CSRF token or header is missing');
+            return;
+        }
 
         // Add event listeners to forms
         document.addEventListener('DOMContentLoaded', function() {
@@ -329,24 +344,43 @@
             forms.forEach(form => {
                 form.addEventListener('submit', function(e) {
                     e.preventDefault();
+                    
                     const formData = new FormData(form);
+                    const data = {};
+                    formData.forEach((value, key) => {
+                        data[key] = value;
+                    });
+
+                    // Create headers object properly
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+                    headers[header] = token;  // Add CSRF header safely
+
                     fetch(form.action, {
                         method: 'POST',
-                        headers: {
-                            [header]: token
-                        },
-                        body: new URLSearchParams(formData)
+                        headers: headers,
+                        body: JSON.stringify(data),
+                        credentials: 'same-origin'
                     })
                     .then(response => {
-                        if (response.ok) {
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(text || 'Network response was not ok');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
                             window.location.reload();
                         } else {
-                            throw new Error('Network response was not ok');
+                            throw new Error(data.message || 'Failed to process request');
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('An error occurred. Please try again.');
+                        alert('An error occurred: ' + error.message);
                     });
                 });
             });
@@ -360,7 +394,8 @@
             fetch('/api/auth/logout', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    [header]: token
                 }
             })
             .then(response => {

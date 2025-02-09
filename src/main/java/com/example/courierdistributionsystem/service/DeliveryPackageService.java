@@ -12,7 +12,8 @@ import com.example.courierdistributionsystem.repository.CustomerRepository;
 import com.example.courierdistributionsystem.repository.CourierRepository;
 import com.example.courierdistributionsystem.repository.DeliveryReportRepository;
 import com.example.courierdistributionsystem.repository.RatingRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,65 +24,68 @@ import java.util.HashMap;
 
 @Service
 public class DeliveryPackageService {
+    private static final Logger logger = LoggerFactory.getLogger(DeliveryPackageService.class);
 
-    @Autowired
-    private DeliveryPackageRepository deliveryPackageRepository;
+    private final DeliveryPackageRepository deliveryPackageRepository;
+    private final CustomerRepository customerRepository;
+    private final CourierRepository courierRepository;
+    private final DeliveryReportRepository deliveryReportRepository;
+    private final RatingRepository ratingRepository;
+    private final WebSocketService webSocketService;
+    private final UserService userService;
 
-    @Autowired
-    private CustomerRepository customerRepository;
-
-    @Autowired
-    private CourierRepository courierRepository;
-
-    @Autowired
-    private DeliveryReportRepository deliveryReportRepository;
-
-    @Autowired
-    private RatingRepository ratingRepository;
-
-    @Autowired
-    private WebSocketService webSocketService;
-
-    @Autowired
-    private UserService userService;
+    public DeliveryPackageService(
+            DeliveryPackageRepository deliveryPackageRepository,
+            CustomerRepository customerRepository,
+            CourierRepository courierRepository,
+            DeliveryReportRepository deliveryReportRepository,
+            RatingRepository ratingRepository,
+            WebSocketService webSocketService,
+            UserService userService) {
+        this.deliveryPackageRepository = deliveryPackageRepository;
+        this.customerRepository = customerRepository;
+        this.courierRepository = courierRepository;
+        this.deliveryReportRepository = deliveryReportRepository;
+        this.ratingRepository = ratingRepository;
+        this.webSocketService = webSocketService;
+        this.userService = userService;
+    }
 
     public List<DeliveryPackage> getAllDeliveryPackages() {
+        logger.debug("Fetching all delivery packages");
         return deliveryPackageRepository.findAll();
     }
 
     public DeliveryPackage getDeliveryPackageById(Long id) {
+        logger.debug("Fetching delivery package with id: {}", id);
         return deliveryPackageRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Delivery package not found with id: " + id));
+            .orElseThrow(() -> {
+                logger.error("Delivery package not found with id: {}", id);
+                return new IllegalArgumentException("Delivery package not found with id: " + id);
+            });
     }
 
+    @Transactional
     public DeliveryPackage createDeliveryPackage(Map<String, String> deliveryRequest) {
-        String username = deliveryRequest.get("username");
-        String pickupAddress = deliveryRequest.get("pickupAddress");
-        String deliveryAddress = deliveryRequest.get("deliveryAddress");
-        String description = deliveryRequest.get("description");
-        String weightStr = deliveryRequest.get("weight");
-        String specialInstructions = deliveryRequest.get("specialInstructions");
+        logger.info("Creating new delivery package");
+        
+        // Extract and validate required fields
+        String username = validateRequiredField(deliveryRequest, "username", "Username");
+        String pickupAddress = validateRequiredField(deliveryRequest, "pickupAddress", "Pickup address");
+        String deliveryAddress = validateRequiredField(deliveryRequest, "deliveryAddress", "Delivery address");
+        String description = validateRequiredField(deliveryRequest, "description", "Description");
+        String weightStr = validateRequiredField(deliveryRequest, "weight", "Weight");
+        String specialInstructions = deliveryRequest.getOrDefault("specialInstructions", "");
 
-        // Validate required fields
-        if (username == null || pickupAddress == null || deliveryAddress == null || 
-            description == null || weightStr == null) {
-            throw new IllegalArgumentException("Missing required fields");
-        }
-
-
+        // Find customer
         Customer customer = customerRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+            .orElseThrow(() -> {
+                logger.error("Customer not found with username: {}", username);
+                return new IllegalArgumentException("Customer not found");
+            });
 
         // Parse and validate weight
-        double weight;
-        try {
-            weight = Double.parseDouble(weightStr);
-            if (weight <= 0) {
-                throw new IllegalArgumentException("Weight must be greater than 0");
-            }
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid weight format");
-        }
+        double weight = parseWeight(weightStr);
 
         // Create delivery package
         DeliveryPackage newPackage = DeliveryPackage.builder()
@@ -89,19 +93,44 @@ public class DeliveryPackageService {
             .pickupAddress(pickupAddress)
             .deliveryAddress(deliveryAddress)
             .description(description)
-            .specialInstructions(specialInstructions != null ? specialInstructions : "")
+            .specialInstructions(specialInstructions)
             .weight(weight)
             .status(DeliveryPackage.DeliveryStatus.PENDING)
             .createdAt(LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
             .build();
 
         // Save package
         DeliveryPackage savedPackage = deliveryPackageRepository.save(newPackage);
+        logger.info("Successfully created delivery package with id: {}", savedPackage.getPackage_id());
 
         // Notify through WebSocket
         webSocketService.notifyNewDeliveryAvailable(savedPackage);
 
         return savedPackage;
+    }
+
+    private String validateRequiredField(Map<String, String> request, String field, String fieldName) {
+        String value = request.get(field);
+        if (value == null || value.trim().isEmpty()) {
+            logger.error("Missing required field: {}", fieldName);
+            throw new IllegalArgumentException("Missing required field: " + fieldName);
+        }
+        return value.trim();
+    }
+
+    private double parseWeight(String weightStr) {
+        try {
+            double weight = Double.parseDouble(weightStr);
+            if (weight <= 0) {
+                logger.error("Invalid weight value: {}. Weight must be greater than 0", weightStr);
+                throw new IllegalArgumentException("Weight must be greater than 0");
+            }
+            return weight;
+        } catch (NumberFormatException e) {
+            logger.error("Invalid weight format: {}", weightStr);
+            throw new IllegalArgumentException("Invalid weight format");
+        }
     }
 
     public DeliveryPackage updateDeliveryPackage(Long id, Map<String, String> deliveryRequest) {
@@ -166,12 +195,18 @@ public class DeliveryPackageService {
     }
 
     public Map<String, Object> trackDeliveryPackage(Long id, String username) {
+        logger.info("Tracking package {} for user {}", id, username);
+        
         DeliveryPackage deliveryPackage = getDeliveryPackageById(id);
         Customer customer = customerRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+            .orElseThrow(() -> {
+                logger.error("Customer not found with username: {}", username);
+                return new IllegalArgumentException("Customer not found");
+            });
 
         if (!deliveryPackage.getCustomer().equals(customer)) {
-            throw new IllegalArgumentException("Delivery package does not belong to this customer");
+            logger.warn("Unauthorized tracking attempt for package {} by user {}", id, username);
+            throw new IllegalArgumentException("Unauthorized to track this package");
         }
 
         Map<String, Object> trackingInfo = new HashMap<>();
@@ -183,13 +218,16 @@ public class DeliveryPackageService {
             Courier courier = deliveryPackage.getCourier();
             trackingInfo.put("courierName", courier.getUsername());
             trackingInfo.put("courierPhone", courier.getPhoneNumber());
-            trackingInfo.put("currentLocation", Map.of(
-                "latitude", courier.getCurrentLatitude(),
-                "longitude", courier.getCurrentLongitude(),
-                "zone", courier.getCurrentZone()
-            ));
+            if (courier.getCurrentLatitude() != null && courier.getCurrentLongitude() != null) {
+                trackingInfo.put("currentLocation", Map.of(
+                    "latitude", courier.getCurrentLatitude(),
+                    "longitude", courier.getCurrentLongitude(),
+                    "zone", courier.getCurrentZone()
+                ));
+            }
         }
 
+        logger.debug("Retrieved tracking info for package {}", id);
         return trackingInfo;
     }
 
@@ -209,15 +247,24 @@ public class DeliveryPackageService {
 
     @Transactional
     public DeliveryPackage updateDeliveryStatus(Long packageId, String username, DeliveryPackage.DeliveryStatus status) {
+        logger.info("Updating delivery status for package {} to {} by courier {}", packageId, status, username);
+        
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
         
         // Validate courier
         if (!deliveryPackage.getCourier().getUsername().equals(username)) {
+            logger.warn("Unauthorized status update attempt for package {} by courier {}", packageId, username);
             throw new IllegalArgumentException("Unauthorized to update this package");
         }
 
+        // Validate status transition
+        validateStatusTransition(deliveryPackage.getStatus(), status);
+
         deliveryPackage.setStatus(status);
+        updateStatusTimestamp(deliveryPackage, status);
+        
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        logger.info("Successfully updated package {} status to {}", packageId, status);
 
         // Send WebSocket notification to customer
         webSocketService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
@@ -230,19 +277,62 @@ public class DeliveryPackageService {
         return updatedPackage;
     }
 
+    private void validateStatusTransition(DeliveryPackage.DeliveryStatus currentStatus, DeliveryPackage.DeliveryStatus newStatus) {
+        boolean isValid = switch (currentStatus) {
+            case PENDING -> newStatus == DeliveryPackage.DeliveryStatus.ASSIGNED;
+            case ASSIGNED -> newStatus == DeliveryPackage.DeliveryStatus.PICKED_UP;
+            case PICKED_UP -> newStatus == DeliveryPackage.DeliveryStatus.IN_TRANSIT;
+            case IN_TRANSIT -> newStatus == DeliveryPackage.DeliveryStatus.DELIVERED;
+            default -> false;
+        };
+
+        if (!isValid) {
+            logger.warn("Invalid status transition from {} to {}", currentStatus, newStatus);
+            throw new IllegalStateException("Invalid status transition from " + currentStatus + " to " + newStatus);
+        }
+    }
+
+    private void updateStatusTimestamp(DeliveryPackage deliveryPackage, DeliveryPackage.DeliveryStatus status) {
+        LocalDateTime now = LocalDateTime.now();
+        switch (status) {
+            case ASSIGNED -> deliveryPackage.setAssignedAt(now);
+            case PICKED_UP -> deliveryPackage.setPickedUpAt(now);
+            case DELIVERED -> deliveryPackage.setDeliveredAt(now);
+            case CANCELLED -> deliveryPackage.setCancelledAt(now);
+        }
+        deliveryPackage.setUpdatedAt(now);
+    }
+
     @Transactional
     public DeliveryPackage updateDeliveryLocation(Long packageId, String username, Double latitude, Double longitude, String location) {
+        logger.info("Updating location for package {} by courier {}", packageId, username);
+        
+        if (latitude == null || longitude == null) {
+            logger.error("Missing latitude or longitude for location update");
+            throw new IllegalArgumentException("Latitude and longitude are required");
+        }
+
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
         
         // Validate courier
         if (!deliveryPackage.getCourier().getUsername().equals(username)) {
+            logger.warn("Unauthorized location update attempt for package {} by courier {}", packageId, username);
             throw new IllegalArgumentException("Unauthorized to update this package");
+        }
+
+        if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED ||
+            deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.CANCELLED) {
+            logger.warn("Cannot update location for package {} with status {}", packageId, deliveryPackage.getStatus());
+            throw new IllegalStateException("Cannot update location for " + deliveryPackage.getStatus() + " package");
         }
 
         deliveryPackage.setCurrentLatitude(latitude);
         deliveryPackage.setCurrentLongitude(longitude);
         deliveryPackage.setCurrentLocation(location);
+        deliveryPackage.setUpdatedAt(LocalDateTime.now());
+        
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        logger.info("Successfully updated location for package {}", packageId);
 
         // Send WebSocket notifications
         String customerUsername = deliveryPackage.getCustomer().getUsername();
@@ -254,20 +344,35 @@ public class DeliveryPackageService {
 
     @Transactional
     public DeliveryPackage takeDeliveryPackage(Long packageId, String username) {
+        logger.info("Attempting to assign package {} to courier {}", packageId, username);
+        
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
         
         if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
-            throw new IllegalStateException("Package is not available for pickup");
+            logger.warn("Package {} is not available for assignment. Current status: {}", packageId, deliveryPackage.getStatus());
+            throw new IllegalStateException("Package is not available for assignment");
         }
 
-        User courier = userService.findByUsername(username);
-        if (courier == null || courier.getRole() != User.UserRole.COURIER) {
-            throw new IllegalArgumentException("Invalid courier");
+        Courier courier = courierRepository.findByUsername(username)
+            .orElseThrow(() -> {
+                logger.error("Courier not found with username: {}", username);
+                return new IllegalArgumentException("Courier not found");
+            });
+
+        if (!courier.isAvailable()) {
+            logger.warn("Courier {} is not available for new assignments", username);
+            throw new IllegalStateException("Courier is not available for new assignments");
         }
 
-        deliveryPackage.setCourier((Courier) courier);
-        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PICKED_UP);
+        deliveryPackage.setCourier(courier);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
+        deliveryPackage.setAssignedAt(LocalDateTime.now());
+        
+        courier.setAvailable(false);
+        courierRepository.save(courier);
+
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        logger.info("Successfully assigned package {} to courier {}", packageId, username);
 
         // Send WebSocket notification to customer
         webSocketService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
@@ -277,15 +382,30 @@ public class DeliveryPackageService {
 
     @Transactional
     public DeliveryPackage dropDeliveryPackage(Long packageId, String username) {
+        logger.info("Attempting to drop package {} by courier {}", packageId, username);
+        
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
         
         if (!deliveryPackage.getCourier().getUsername().equals(username)) {
+            logger.warn("Unauthorized drop attempt for package {} by courier {}", packageId, username);
             throw new IllegalArgumentException("Unauthorized to drop this package");
         }
 
+        if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED) {
+            logger.warn("Cannot drop delivered package {}", packageId);
+            throw new IllegalStateException("Cannot drop a delivered package");
+        }
+
+        Courier courier = deliveryPackage.getCourier();
+        courier.setAvailable(true);
+        courierRepository.save(courier);
+
         deliveryPackage.setCourier(null);
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        deliveryPackage.setUpdatedAt(LocalDateTime.now());
+        
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        logger.info("Successfully dropped package {}", packageId);
 
         // Send WebSocket notification to customer
         webSocketService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);

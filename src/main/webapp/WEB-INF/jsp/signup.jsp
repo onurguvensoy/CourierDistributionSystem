@@ -55,12 +55,12 @@
                                             </div>
                                         </div>
                                         <div class="form-floating mb-3">
-                                            <select class="form-select" id="roleType" name="roleType" required>
+                                            <select class="form-select" id="role" name="role" required>
                                                 <option value="">Select role</option>
                                                 <option value="CUSTOMER">Customer</option>
                                                 <option value="COURIER">Courier</option>
                                             </select>
-                                            <label for="roleType">Role</label>
+                                            <label for="role">Role</label>
                                             <div class="invalid-feedback">
                                                 Please select a role.
                                             </div>
@@ -73,13 +73,6 @@
                                             </div>
                                         </div>
                                         <div id="customerFields" style="display: none;">
-                                            <div class="form-floating mb-3">
-                                                <input class="form-control" id="deliveryAddress" name="deliveryAddress" type="text" placeholder="Enter your delivery address" />
-                                                <label for="deliveryAddress">Delivery Address</label>
-                                                <div class="invalid-feedback">
-                                                    Please enter your delivery address.
-                                                </div>
-                                            </div>
                                         </div>
                                         <div id="courierFields" style="display: none;">
                                             <div class="form-floating mb-3">
@@ -124,26 +117,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/sb-admin.js"></script>
     <script>
-        document.getElementById('roleType').addEventListener('change', function() {
+        document.getElementById('role').addEventListener('change', function() {
             const customerFields = document.getElementById('customerFields');
             const courierFields = document.getElementById('courierFields');
-            const deliveryAddress = document.getElementById('deliveryAddress');
             const vehicleType = document.getElementById('vehicleType');
             
             if (this.value === 'CUSTOMER') {
                 customerFields.style.display = 'block';
                 courierFields.style.display = 'none';
-                deliveryAddress.required = true;
                 vehicleType.required = false;
             } else if (this.value === 'COURIER') {
                 customerFields.style.display = 'none';
                 courierFields.style.display = 'block';
-                deliveryAddress.required = false;
                 vehicleType.required = true;
             } else {
                 customerFields.style.display = 'none';
                 courierFields.style.display = 'none';
-                deliveryAddress.required = false;
                 vehicleType.required = false;
             }
         });
@@ -161,13 +150,12 @@
                 username: document.getElementById('username').value,
                 email: document.getElementById('email').value,
                 password: document.getElementById('password').value,
-                roleType: document.getElementById('roleType').value,
+                role: document.getElementById('role').value,
                 phoneNumber: document.getElementById('phoneNumber').value
             };
 
-            if (formData.roleType === 'CUSTOMER') {
-                formData.deliveryAddress = document.getElementById('deliveryAddress').value;
-            } else if (formData.roleType === 'COURIER') {
+            if (formData.role === 'CUSTOMER') {
+            } else if (formData.role === 'COURIER') {
                 formData.vehicleType = document.getElementById('vehicleType').value;
             }
 

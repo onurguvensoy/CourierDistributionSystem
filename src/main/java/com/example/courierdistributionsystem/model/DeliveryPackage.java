@@ -13,12 +13,12 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "delivery_packages")
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "package_id")
 public class DeliveryPackage {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long package_id;
 
     @Column(unique = true, nullable = false)
     private String trackingNumber;
@@ -170,10 +170,19 @@ public class DeliveryPackage {
     }
 
     private String generateTrackingNumber() {
-        // Generate a unique tracking number with format: CDS-TIMESTAMP-RANDOM
         return String.format("CDS-%d-%04d", 
             System.currentTimeMillis() % 1000000000, 
             (int)(Math.random() * 10000));
+    }
+
+    @JsonProperty("id")
+    public Long getId() {
+        return package_id;
+    }
+
+    @JsonProperty("id")
+    public void setId(Long id) {
+        this.package_id = id;
     }
 }
 
@@ -183,17 +192,20 @@ public class DeliveryPackage {
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "delivery_status_history")
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 class DeliveryStatusHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long package_id;
+    private Long id;
 
     @ManyToOne
     @JoinColumn(name = "delivery_package_id", nullable = false)
+    @JsonIdentityReference(alwaysAsId = true)
     private DeliveryPackage deliveryPackage;
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
+    @JsonIdentityReference(alwaysAsId = true)
     private Courier courier;
 
     @Enumerated(EnumType.STRING)

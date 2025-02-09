@@ -1,4 +1,6 @@
 package com.example.courierdistributionsystem.service;
+
+import com.example.courierdistributionsystem.exception.AuthenticationException;
 import com.example.courierdistributionsystem.model.*;
 import com.example.courierdistributionsystem.repository.*;
 import io.micrometer.core.instrument.Counter;
@@ -17,39 +19,31 @@ import org.springframework.validation.annotation.Validated;
 
 import java.util.*;
 
-/**
- * Service class for managing user-related operations.
- */
 @Service
 @Validated
 public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     
-    private static final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
-    
-    @Autowired
-    private UserRepository userRepository;
-    
-    @Autowired
-    private AdminRepository adminRepository;
-
-    @Autowired
-    private CustomerRepository customerRepository;
-
-    @Autowired
-    private CourierRepository courierRepository;
-
-    @Autowired
-    private PasswordEncoderService passwordEncoder;
-
+    private final UserRepository userRepository;
+    private final AdminRepository adminRepository;
+    private final CustomerRepository customerRepository;
+    private final CourierRepository courierRepository;
+    private final PasswordEncoderService passwordEncoder;
     private final Counter userSignupCounter;
     private final Counter userSignupFailureCounter;
     private final Timer userLookupTimer;
 
     @Autowired
     public UserService(UserRepository userRepository,
+                      AdminRepository adminRepository,
+                      CustomerRepository customerRepository,
+                      CourierRepository courierRepository,
                       PasswordEncoderService passwordEncoder,
                       MeterRegistry meterRegistry) {
         this.userRepository = userRepository;
+        this.adminRepository = adminRepository;
+        this.customerRepository = customerRepository;
+        this.courierRepository = courierRepository;
         this.passwordEncoder = passwordEncoder;
         
         this.userSignupCounter = Counter.builder("user.signup.total")
@@ -64,52 +58,68 @@ public class UserService {
                 .description("Time taken to look up users")
                 .register(meterRegistry);
     }
-    
-    /**
-     * Retrieves a user by their username.
-     *
-     * @param username the username to search for
-     * @return the found user
-     * @throws UserNotFoundException if no user is found with the given username
-     */
+
     @Transactional(readOnly = true)
     @Cacheable(value = "users", key = "#username", unless = "#result == null")
-    public User findByUsername(@NotBlank String username) {
+    public Optional<User> findByUsername(@NotBlank String username) {
+        logger.debug("Looking up user by username: {}", username);
         return userLookupTimer.record(() -> {
-            User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
-            
-            // Initialize lazy collections if needed
-            if (user instanceof com.example.courierdistributionsystem.model.Customer) {
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Customer) user).getPackages());
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Customer) user).getRatings());
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Customer) user).getNotifications());
-            } else if (user instanceof com.example.courierdistributionsystem.model.Courier) {
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Courier) user).getDeliveries());
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Courier) user).getReports());
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Courier) user).getRatings());
-            } else if (user instanceof com.example.courierdistributionsystem.model.Admin) {
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Admin) user).getReports());
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Admin) user).getNotifications());
-                Hibernate.initialize(((com.example.courierdistributionsystem.model.Admin) user).getMetrics());
+            try {
+                Optional<User> user = userRepository.findByUsername(username);
+                
+                user.ifPresent(u -> {
+                    logger.debug("Initializing lazy collections for user: {}", username);
+                    initializeLazyCollections(u);
+                });
+
+                if (user.isEmpty()) {
+                    logger.debug("User not found: {}", username);
+                }
+                
+                return user;
+            } catch (Exception e) {
+                logger.error("Error looking up user: {} - {}", username, e.getMessage(), e);
+                throw new RuntimeException("Error looking up user", e);
             }
-            
-            return user;
         });
     }
 
-    @Cacheable(value = "users", key = "#email")
-    public Optional<? extends User> findByEmail(String email) {
-        Optional<User> user = userRepository.findByEmail(email);
-        if (user.isEmpty()) {
-            return Optional.empty();
+    private void initializeLazyCollections(User user) {
+        try {
+            if (user instanceof Customer) {
+                Customer customer = (Customer) user;
+                Hibernate.initialize(customer.getPackages());
+                Hibernate.initialize(customer.getNotifications());
+                Hibernate.initialize(customer.getRatings());
+            } else if (user instanceof Courier) {
+                Hibernate.initialize(((Courier) user).getDeliveries());
+                Hibernate.initialize(((Courier) user).getRatings());
+            } else if (user instanceof Admin) {
+                Hibernate.initialize(((Admin) user).getReports());
+                Hibernate.initialize(((Admin) user).getNotifications());
+                Hibernate.initialize(((Admin) user).getMetrics());
+            }
+        } catch (Exception e) {
+            logger.warn("Error initializing lazy collections for user: {} - {}", user.getUsername(), e.getMessage());
         }
+    }
 
-        return switch (user.get().getRole()) {
-            case ADMIN -> adminRepository.findByEmail(email);
-            case CUSTOMER -> customerRepository.findByEmail(email);
-            case COURIER -> courierRepository.findByEmail(email);
-        };
+    @Cacheable(value = "users", key = "#email")
+    public Optional<User> findByEmail(String email) {
+        logger.debug("Looking up user by email: {}", email);
+        try {
+            Optional<User> user = userRepository.findByEmail(email);
+            
+            user.ifPresent(u -> {
+                logger.debug("Found user by email: {}", email);
+                initializeLazyCollections(u);
+            });
+
+            return user;
+        } catch (Exception e) {
+            logger.error("Error looking up user by email: {} - {}", email, e.getMessage(), e);
+            throw new RuntimeException("Error looking up user by email", e);
+        }
     }
 
     public boolean existsByUsername(String username) {
@@ -123,28 +133,143 @@ public class UserService {
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public Admin saveAdmin(Admin admin) {
-        if (admin.getPassword() == null || admin.getPassword().trim().isEmpty()) {
-            throw new IllegalArgumentException("Password cannot be null or empty");
+        logger.info("Saving admin user: {}", admin.getUsername());
+        try {
+            validatePassword(admin.getPassword());
+            admin.setPassword(passwordEncoder.encode(admin.getPassword()));
+            Admin savedAdmin = adminRepository.save(admin);
+            logger.info("Successfully saved admin user: {}", admin.getUsername());
+            return savedAdmin;
+        } catch (Exception e) {
+            logger.error("Error saving admin user: {} - {}", admin.getUsername(), e.getMessage(), e);
+            throw new RuntimeException("Error saving admin user", e);
         }
-        return adminRepository.save(admin);
     }
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public Customer saveCustomer(Customer customer) {
-        if (customer.getPassword() == null || customer.getPassword().trim().isEmpty()) {
-            throw new IllegalArgumentException("Password cannot be null or empty");
+        logger.info("Saving customer user: {}", customer.getUsername());
+        try {
+            validatePassword(customer.getPassword());
+            customer.setPassword(passwordEncoder.encode(customer.getPassword()));
+            Customer savedCustomer = customerRepository.save(customer);
+            logger.info("Successfully saved customer user: {}", customer.getUsername());
+            return savedCustomer;
+        } catch (Exception e) {
+            logger.error("Error saving customer user: {} - {}", customer.getUsername(), e.getMessage(), e);
+            throw new RuntimeException("Error saving customer user", e);
         }
-        return customerRepository.save(customer);
     }
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public Courier saveCourier(Courier courier) {
-        if (courier.getPassword() == null || courier.getPassword().trim().isEmpty()) {
-            throw new IllegalArgumentException("Password cannot be null or empty");
+        logger.info("Saving courier user: {}", courier.getUsername());
+        try {
+            validatePassword(courier.getPassword());
+            courier.setPassword(passwordEncoder.encode(courier.getPassword()));
+            Courier savedCourier = courierRepository.save(courier);
+            logger.info("Successfully saved courier user: {}", courier.getUsername());
+            return savedCourier;
+        } catch (Exception e) {
+            logger.error("Error saving courier user: {} - {}", courier.getUsername(), e.getMessage(), e);
+            throw new RuntimeException("Error saving courier user", e);
         }
-        return courierRepository.save(courier);
+    }
+
+    private void validatePassword(String password) {
+        if (password == null || password.trim().isEmpty()) {
+            throw new AuthenticationException.InvalidUserDataException("Password cannot be null or empty");
+        }
+        if (password.length() < 6) {
+            throw new AuthenticationException.InvalidUserDataException("Password must be at least 6 characters long");
+        }
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public Map<String, String> signup(Map<String, String> signupRequest) {
+        String username = signupRequest.get("username");
+        logger.info("Processing signup request for username: {}", username);
+        
+        try {
+            // Validate username and email uniqueness
+            if (existsByUsername(username)) {
+                logger.warn("Username already exists: {}", username);
+                throw new AuthenticationException.UserAlreadyExistsException("Username already exists");
+            }
+
+            String email = signupRequest.get("email");
+            if (existsByEmail(email)) {
+                logger.warn("Email already exists: {}", email);
+                throw new AuthenticationException.UserAlreadyExistsException("Email already exists");
+            }
+
+            // Process signup based on role
+            String role = signupRequest.get("role").toUpperCase();
+            User.UserRole userRole = User.UserRole.valueOf(role);
+            
+            User savedUser = switch (userRole) {
+                case CUSTOMER -> processCustomerSignup(signupRequest);
+                case COURIER -> processCourierSignup(signupRequest);
+                case ADMIN -> processAdminSignup(signupRequest);
+            };
+
+            userSignupCounter.increment();
+            logger.info("User registered successfully: {}", username);
+            
+            return Map.of("message", "User registered successfully");
+            
+        } catch (IllegalArgumentException e) {
+            userSignupFailureCounter.increment();
+            logger.error("Invalid role specified for user: {} - {}", username, e.getMessage());
+            throw new AuthenticationException.InvalidUserDataException("Invalid role specified");
+        } catch (Exception e) {
+            userSignupFailureCounter.increment();
+            logger.error("Error during user registration: {} - {}", username, e.getMessage(), e);
+            throw new RuntimeException("Error during user registration", e);
+        }
+    }
+
+    private Customer processCustomerSignup(Map<String, String> signupRequest) {
+        String rawPassword = signupRequest.get("password");
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+        
+        Customer customer = Customer.builder()
+                .username(signupRequest.get("username"))
+                .email(signupRequest.get("email"))
+                .password(encodedPassword)
+                .role(User.UserRole.CUSTOMER)
+                .phoneNumber(signupRequest.get("phoneNumber"))
+                .build();
+        return saveCustomer(customer);
+    }
+
+    private Courier processCourierSignup(Map<String, String> signupRequest) {
+        String rawPassword = signupRequest.get("password");
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+        
+        Courier courier = Courier.builder()
+                .username(signupRequest.get("username"))
+                .email(signupRequest.get("email"))
+                .password(encodedPassword)
+                .role(User.UserRole.COURIER)
+                .phoneNumber(signupRequest.get("phoneNumber"))
+                .vehicleType(signupRequest.get("vehicleType"))
+                .available(true)
+                .build();
+        return saveCourier(courier);
+    }
+
+    private Admin processAdminSignup(Map<String, String> signupRequest) {
+        Admin admin = Admin.builder()
+                .username(signupRequest.get("username"))
+                .email(signupRequest.get("email"))
+                .password(signupRequest.get("password"))
+                .role(User.UserRole.ADMIN)
+                .build();
+        return saveAdmin(admin);
     }
 
     public List<User> getAllUsers() {
@@ -191,7 +316,7 @@ public class UserService {
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public void deleteUser(User user) {
-        LOGGER.info("Deleting user: {} with role: {}", user.getUsername(), user.getRole());
+        logger.info("Deleting user: {} with role: {}", user.getUsername(), user.getRole());
         try {
             switch (user.getRole()) {
                 case ADMIN -> {
@@ -208,143 +333,36 @@ public class UserService {
                 }
             }
             userRepository.delete(user);
-            LOGGER.info("User deleted successfully: {}", user.getUsername());
+            logger.info("User deleted successfully: {}", user.getUsername());
         } catch (Exception e) {
-            LOGGER.error("Error deleting user: {}", e.getMessage(), e);
+            logger.error("Error deleting user: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to delete user: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Registers a new user in the system.
-     *
-     * @param signupRequest the signup request containing user details
-     * @return a map containing the result of the signup operation
-     */
-    @Transactional
-    @CacheEvict(value = "users", allEntries = true)
-    public Map<String, String> signup(Map<String, String> signupRequest) {
-        Map<String, String> response = new HashMap<>();
-        
-        try {
-            String username = signupRequest.get("username");
-            String email = signupRequest.get("email");
-            String password = signupRequest.get("password");
-            String role = signupRequest.get("role");
-
-            // Validate required fields
-            if (username == null || username.trim().isEmpty()) {
-                userSignupFailureCounter.increment();
-                response.put("error", "Username is required");
-                return response;
-            }
-            if (email == null || email.trim().isEmpty()) {
-                userSignupFailureCounter.increment();
-                response.put("error", "Email is required");
-                return response;
-            }
-            if (password == null || password.trim().isEmpty()) {
-                userSignupFailureCounter.increment();
-                response.put("error", "Password is required");
-                return response;
-            }
-            if (role == null || role.trim().isEmpty()) {
-                userSignupFailureCounter.increment();
-                response.put("error", "Role is required");
-                return response;
-            }
-
-            // Check if username already exists
-            if (existsByUsername(username)) {
-                userSignupFailureCounter.increment();
-                response.put("error", "Username already exists");
-                return response;
-            }
-
-            // Check if email already exists
-            if (existsByEmail(email)) {
-                userSignupFailureCounter.increment();
-                response.put("error", "Email already exists");
-                return response;
-            }
-
-            String encodedPassword = passwordEncoder.encode(password);
-            User.UserRole userRole = User.UserRole.valueOf(role.toUpperCase());
-            
-            switch (userRole) {
-                case CUSTOMER -> {
-                    Customer customer = Customer.builder()
-                            .username(username)
-                            .email(email)
-                            .password(encodedPassword)
-                            .role(userRole)
-                            .phoneNumber(signupRequest.get("phoneNumber"))
-                            .deliveryAddress(signupRequest.get("deliveryAddress"))
-                            .build();
-                    saveCustomer(customer);
-                }
-                case COURIER -> {
-                    Courier courier = Courier.builder()
-                            .username(username)
-                            .email(email)
-                            .password(encodedPassword)
-                            .role(userRole)
-                            .phoneNumber(signupRequest.get("phoneNumber"))
-                            .vehicleType(signupRequest.get("vehicleType"))
-                            .available(true)
-                            .build();
-                    saveCourier(courier);
-                }
-                case ADMIN -> {
-                    Admin admin = Admin.builder()
-                            .username(username)
-                            .email(email)
-                            .password(encodedPassword)
-                            .role(userRole)
-                            .build();
-                    saveAdmin(admin);
-                }
-                default -> {
-                    userSignupFailureCounter.increment();
-                    throw new IllegalArgumentException("Invalid role: " + role);
-                }
-            }
-
-            userSignupCounter.increment();
-            response.put("message", "User registered successfully");
-            return response;
-            
-        } catch (IllegalArgumentException e) {
-            userSignupFailureCounter.increment();
-            LOGGER.error("Invalid role specified: {}", e.getMessage());
-            response.put("error", "Invalid role specified");
-            return response;
-        } catch (Exception e) {
-            userSignupFailureCounter.increment();
-            LOGGER.error("Error during user registration: {}", e.getMessage());
-            response.put("error", "An unexpected error occurred");
-            return response;
-        }
-    }
-    
-    /**
-     * Custom exception for user not found scenarios.
-     */
-    public static class UserNotFoundException extends RuntimeException {
-        public UserNotFoundException(String message) {
-            super(message);
         }
     }
 
     @Transactional
     @CacheEvict(value = "users", allEntries = true)
     public void deleteByUsername(String username) {
-        LOGGER.info("Attempting to delete user by username: {}", username);
-        User user = findByUsername(username);
-        if (user == null) {
-            LOGGER.warn("User not found for deletion: {}", username);
-            throw new UserNotFoundException("User not found: " + username);
+        logger.info("Attempting to delete user: {}", username);
+        try {
+            Optional<User> userOpt = findByUsername(username);
+            if (userOpt.isEmpty()) {
+                logger.warn("User not found for deletion: {}", username);
+                throw new UserNotFoundException("User not found: " + username);
+            }
+
+            User user = userOpt.get();
+            deleteUser(user);
+            logger.info("User deleted successfully: {}", username);
+        } catch (Exception e) {
+            logger.error("Error deleting user: {} - {}", username, e.getMessage(), e);
+            throw new RuntimeException("Error deleting user", e);
         }
-        deleteUser(user);
+    }
+
+    public static class UserNotFoundException extends RuntimeException {
+        public UserNotFoundException(String message) {
+            super(message);
+        }
     }
 } 

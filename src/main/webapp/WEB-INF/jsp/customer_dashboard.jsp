@@ -7,6 +7,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Customer Dashboard - Courier Distribution System</title>
+    <meta name="_csrf" content="${_csrf.token}"/>
+    <meta name="_csrf_header" content="${_csrf.headerName}"/>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/common.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
@@ -221,57 +223,90 @@
                         </div>
 
                         <script>
-                            document.getElementById('sendPackageForm').addEventListener('submit', function(e) {
-                                e.preventDefault();
-                                
-                                const formData = {
-                                    username: document.getElementById('username').value,
-                                    pickupAddress: document.getElementById('pickupAddress').value,
-                                    deliveryAddress: document.getElementById('deliveryAddress').value,
-                                    weight: parseFloat(document.getElementById('weight').value),
-                                    description: document.getElementById('description').value,
-                                    specialInstructions: document.getElementById('specialInstructions').value
-                                };
+                            // Wait for DOM to be fully loaded
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const form = document.getElementById('sendPackageForm');
+                                if (!form) {
+                                    console.error('Send package form not found');
+                                    return;
+                                }
 
-                                fetch('/api/packages/create', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        [document.querySelector('meta[name="_csrf_header"]').content]: document.querySelector('meta[name="_csrf"]').content
-                                    },
-                                    body: JSON.stringify(formData)
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.status === 'success') {
-                                        showAlert('success', 'Package delivery request created successfully!', 'sendPackageAlertPlaceholder');
-                                        document.getElementById('sendPackageForm').reset();
-                                        // Refresh the active packages list
-                                        setTimeout(() => window.location.reload(), 2000);
-                                    } else {
-                                        showAlert('danger', data.message || 'Failed to create package delivery request', 'sendPackageAlertPlaceholder');
+                                form.addEventListener('submit', function(e) {
+                                    e.preventDefault();
+                                    
+                                    const formData = {
+                                        pickupAddress: document.getElementById('pickupAddress')?.value || '',
+                                        deliveryAddress: document.getElementById('deliveryAddress')?.value || '',
+                                        weight: parseFloat(document.getElementById('weight')?.value || '0'),
+                                        description: document.getElementById('description')?.value || '',
+                                        specialInstructions: document.getElementById('specialInstructions')?.value || ''
+                                    };
+
+                                    // Get CSRF token from meta tags or form
+                                    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || 
+                                                    document.querySelector('input[name="_csrf"]')?.value;
+                                    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 
+                                                     'X-CSRF-TOKEN';
+
+                                    const headers = {
+                                        'Content-Type': 'application/json'
+                                    };
+                                    
+                                    if (csrfToken) {
+                                        headers[csrfHeader] = csrfToken;
                                     }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    showAlert('danger', 'An error occurred while creating the package delivery request', 'sendPackageAlertPlaceholder');
+
+                                    fetch('/api/packages/create', {
+                                        method: 'POST',
+                                        headers: headers,
+                                        body: JSON.stringify(formData),
+                                        credentials: 'include'
+                                    })
+                                    .then(response => {
+                                        if (!response.ok) {
+                                            return response.json().then(data => {
+                                                throw new Error(data.message || 'Failed to create package');
+                                            });
+                                        }
+                                        return response.json();
+                                    })
+                                    .then(data => {
+                                        const alertPlaceholder = document.getElementById('sendPackageAlertPlaceholder');
+                                        if (alertPlaceholder) {
+                                            showAlert('success', 'Package delivery request created successfully!', 'sendPackageAlertPlaceholder');
+                                            form.reset();
+                                            // Refresh the active packages list
+                                            setTimeout(() => window.location.reload(), 2000);
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error creating package:', error);
+                                        const alertPlaceholder = document.getElementById('sendPackageAlertPlaceholder');
+                                        if (alertPlaceholder) {
+                                            showAlert('danger', error.message || 'Failed to create package. Please try again.', 'sendPackageAlertPlaceholder');
+                                        }
+                                    });
                                 });
                             });
 
+                            // Helper function to show alerts
                             function showAlert(type, message, containerId) {
                                 const alertPlaceholder = document.getElementById(containerId);
-                                if (alertPlaceholder) {
-                                    const wrapper = document.createElement('div');
-                                    wrapper.innerHTML = [
-                                        `<div class="alert alert-${type} alert-dismissible fade show" role="alert">`,
-                                        `   <div>${message}</div>`,
-                                        '   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>',
-                                        '</div>'
-                                    ].join('');
-                                    
-                                    alertPlaceholder.innerHTML = '';
-                                    alertPlaceholder.append(wrapper);
+                                if (!alertPlaceholder) {
+                                    console.error(`Alert container ${containerId} not found`);
+                                    return;
                                 }
+
+                                const wrapper = document.createElement('div');
+                                wrapper.innerHTML = [
+                                    `<div class="alert alert-${type} alert-dismissible fade show" role="alert">`,
+                                    `   <div>${message}</div>`,
+                                    '   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>',
+                                    '</div>'
+                                ].join('');
+                                
+                                alertPlaceholder.innerHTML = '';
+                                alertPlaceholder.append(wrapper);
                             }
                         </script>
 
@@ -281,10 +316,10 @@
                             <div class="row mt-4" id="activePackagesContainer">
                                 <c:forEach items="${activePackages}" var="pkg">
                                     <div class="col-md-6 mb-4">
-                                        <div class="card h-100" data-package-id="${pkg.id}">
+                                        <div class="card h-100" data-package-id="${pkg.package_id}">
                                             <div class="card-body">
                                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                                    <h5 class="card-title mb-0">Package #<c:out value="${pkg.id}"/></h5>
+                                                    <h5 class="card-title mb-0">Package #<c:out value="${pkg.package_id}"/></h5>
                                                     <span class="package-status status-${fn:toLowerCase(pkg.status)}"><c:out value="${pkg.status}"/></span>
                                                 </div>
                                                 <p class="card-text">
@@ -308,7 +343,7 @@
                                                 </c:if>
                                             </div>
                                             <div class="card-footer bg-transparent">
-                                                <button class="btn btn-primary btn-sm track-package-btn" data-package-id="${pkg.id}">
+                                                <button class="btn btn-primary btn-sm track-package-btn" data-package-id="${pkg.package_id}">
                                                     Track on Map
                                                 </button>
                                             </div>
@@ -383,14 +418,15 @@
     <script src="/webjars/stomp-websocket/stomp.min.js"></script>
     <script>
         // Global variables
-        var stompClient = null;
-        var userId = "${user.id}";
-        var map = null;
-        var sendPackageMap = null;
-        var geocoder = null;
-        var markers = new Map();
-        var isConnecting = false;
-        var reconnectTimeout = null;
+        let stompClient = null;
+        const userId = "${user.id}";
+        const username = "${sessionScope.username}";
+        let map = null;
+        let sendPackageMap = null;
+        let geocoder = null;
+        let markers = new Map();
+        let isConnecting = false;
+        let reconnectTimeout = null;
         let packageMarkers = {};
 
         function connect() {
@@ -421,23 +457,22 @@
                     stompClient.subscribe('/topic/customer/' + userId + '/package-updates', function(message) {
                         try {
                             var data = JSON.parse(message.body);
-                            if (data.type === 'NEW_PACKAGE' || data.type === 'STATUS_UPDATE') {
-                                var deliveryPackage = {
-                                    id: data.id,
-                                    pickupAddress: data.pickupAddress,
-                                    deliveryAddress: data.deliveryAddress,
-                                    status: data.status,
-                                    courierUsername: data.courierUsername
-                                };
-                                updatePackageInTable(deliveryPackage);
-                                // Update map markers if map is initialized
-                                if (map && geocoder) {
-                                    addPackageToMap(deliveryPackage);
-                                }
-                            }
+                            handlePackageUpdate(data);
                         } catch (error) {
                             console.error('Error processing message:', error);
                         }
+                    });
+
+                    // Subscribe to location updates
+                    stompClient.subscribe('/user/' + username + '/queue/location-updates', function(message) {
+                        const update = JSON.parse(message.body);
+                        updatePackageLocation(update);
+                    });
+
+                    // Subscribe to rating prompts
+                    stompClient.subscribe('/user/' + username + '/queue/rating-prompts', function(message) {
+                        const prompt = JSON.parse(message.body);
+                        showRatingModal(prompt.packageId);
                     });
                 },
                 function(error) {
@@ -676,45 +711,23 @@
                 })
                 .catch(error => console.error('Error fetching package location:', error));
         }
-    </script>
-
-    <!-- WebSocket Connection Script -->
-    <script>
-        let stompClient = null;
-        const username = "${sessionScope.username}";
-
-        function connectWebSocket() {
-            const socket = new SockJS('/ws');
-            stompClient = Stomp.over(socket);
-            
-            stompClient.connect({}, function(frame) {
-                console.log('Connected to WebSocket');
-                
-                // Subscribe to package updates
-                stompClient.subscribe('/user/' + username + '/queue/package-updates', function(message) {
-                    const update = JSON.parse(message.body);
-                    handlePackageUpdate(update);
-                });
-
-                // Subscribe to location updates
-                stompClient.subscribe('/user/' + username + '/queue/location-updates', function(message) {
-                    const update = JSON.parse(message.body);
-                    updatePackageLocation(update);
-                });
-
-                // Subscribe to rating prompts
-                stompClient.subscribe('/user/' + username + '/queue/rating-prompts', function(message) {
-                    const prompt = JSON.parse(message.body);
-                    showRatingModal(prompt.packageId);
-                });
-            }, function(error) {
-                console.error('WebSocket connection error:', error);
-                // Attempt to reconnect after 5 seconds
-                setTimeout(connectWebSocket, 5000);
-            });
-        }
 
         function handlePackageUpdate(update) {
+            if (update.type === 'NEW_PACKAGE' || update.type === 'STATUS_UPDATE') {
+                const deliveryPackage = {
+                    id: update.id,
+                    pickupAddress: update.pickupAddress,
+                    deliveryAddress: update.deliveryAddress,
+                    status: update.status,
+                    courierUsername: update.courierUsername
+                };
+                updatePackageInTable(deliveryPackage);
+                // Update map markers if map is initialized
+                if (map && geocoder) {
+                    addPackageToMap(deliveryPackage);
+                }
+            }
+
             const packageCard = document.querySelector(`[data-package-id="${update.packageId}"]`);
             if (packageCard) {
                 // Update status
@@ -748,8 +761,8 @@
                 }
 
                 // Update map marker if map is visible
-                if (window.packageMarkers && window.packageMarkers[update.packageId]) {
-                    const marker = window.packageMarkers[update.packageId];
+                if (packageMarkers && packageMarkers[update.packageId]) {
+                    const marker = packageMarkers[update.packageId];
                     marker.setPosition({
                         lat: update.latitude,
                         lng: update.longitude
@@ -779,8 +792,13 @@
         }
 
         function submitRating(packageId, rating, comment = '') {
-            const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
-            const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+
+            if (!csrfHeader || !csrfToken) {
+                console.error('CSRF tokens not found');
+                return;
+            }
 
             fetch(`/api/ratings/delivery/${packageId}?username=${username}`, {
                 method: 'POST',
@@ -813,7 +831,22 @@
 
         // Initialize WebSocket connection when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            connectWebSocket();
+            connect();
+
+            // Initialize event listeners for package tracking and rating buttons
+            document.querySelectorAll('.track-package-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const packageId = this.dataset.packageId;
+                    showPackageOnMap(packageId);
+                });
+            });
+
+            document.querySelectorAll('.rate-package-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const packageId = this.dataset.packageId;
+                    showRatingModal(packageId);
+                });
+            });
         });
     </script>
 
@@ -842,33 +875,51 @@
 
     <script>
         // Star rating functionality
-        document.querySelectorAll('.star-rating .star').forEach(star => {
-            star.addEventListener('mouseover', function() {
-                const rating = this.dataset.rating;
-                document.querySelectorAll('.star-rating .star').forEach(s => {
-                    s.classList.toggle('active', s.dataset.rating <= rating);
-                });
-            });
+        document.addEventListener('DOMContentLoaded', function() {
+            const stars = document.querySelectorAll('.star-rating .star');
+            if (!stars) return;
 
-            star.addEventListener('mouseout', function() {
-                const selectedRating = document.querySelector('.star-rating').dataset.selectedRating;
-                document.querySelectorAll('.star-rating .star').forEach(s => {
-                    s.classList.toggle('active', s.dataset.rating <= (selectedRating || 0));
+            stars.forEach(star => {
+                star.addEventListener('mouseover', function() {
+                    const rating = this.dataset.rating;
+                    const currentStars = document.querySelectorAll('.star-rating .star');
+                    if (currentStars) {
+                        currentStars.forEach(s => {
+                            s.classList.toggle('active', s.dataset.rating <= rating);
+                        });
+                    }
                 });
-            });
 
-            star.addEventListener('click', function() {
-                const rating = this.dataset.rating;
-                document.querySelector('.star-rating').dataset.selectedRating = rating;
+                star.addEventListener('mouseout', function() {
+                    const starRating = document.querySelector('.star-rating');
+                    if (!starRating) return;
+                    
+                    const selectedRating = starRating.dataset.selectedRating;
+                    const currentStars = document.querySelectorAll('.star-rating .star');
+                    if (currentStars) {
+                        currentStars.forEach(s => {
+                            s.classList.toggle('active', s.dataset.rating <= (selectedRating || 0));
+                        });
+                    }
+                });
+
+                star.addEventListener('click', function() {
+                    const rating = this.dataset.rating;
+                    const starRating = document.querySelector('.star-rating');
+                    if (starRating) {
+                        starRating.dataset.selectedRating = rating;
+                    }
+                });
             });
         });
 
         function submitRatingFromModal() {
-            const packageId = document.getElementById('ratingPackageId').value;
-            const rating = document.querySelector('.star-rating').dataset.selectedRating;
-            const comment = document.getElementById('ratingComment').value;
+            const packageId = document.getElementById('ratingPackageId')?.value;
+            const starRating = document.querySelector('.star-rating');
+            const rating = starRating?.dataset?.selectedRating;
+            const comment = document.getElementById('ratingComment')?.value || '';
 
-            if (!rating) {
+            if (!packageId || !rating) {
                 showAlert('danger', 'Please select a rating');
                 return;
             }
@@ -879,27 +930,6 @@
 
     <script async defer
         src="https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&callback=initMap">
-    </script>
-
-    <script>
-        // Add event listeners for package tracking and rating buttons
-        document.addEventListener('DOMContentLoaded', function() {
-            // Track package buttons
-            document.querySelectorAll('.track-package-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const packageId = this.dataset.packageId;
-                    showPackageOnMap(packageId);
-                });
-            });
-
-            // Rate package buttons
-            document.querySelectorAll('.rate-package-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const packageId = this.dataset.packageId;
-                    showRatingModal(packageId);
-                });
-            });
-        });
     </script>
 
     <script>

@@ -44,7 +44,7 @@ public class Courier extends User {
 
     @Column(name = "average_rating")
     @Builder.Default
-    private Double averageRating = 0.0;
+    private Double averageRating = 1.0;
 
     @JsonIgnore
     @OneToMany(mappedBy = "courier", cascade = CascadeType.ALL, orphanRemoval = true)

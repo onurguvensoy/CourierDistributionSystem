@@ -91,33 +91,75 @@
             submitButton.disabled = true;
             submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
             
-            const formData = {
-                username: document.getElementById('username').value.trim(),
-                password: document.getElementById('password').value
-            };
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            // Client-side validation
+            if (!username || !password) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-danger';
+                alertDiv.role = 'alert';
+                alertDiv.textContent = 'Please enter both username and password.';
+                
+                const existingAlert = document.querySelector('.alert');
+                if (existingAlert) {
+                    existingAlert.remove();
+                }
+                
+                document.querySelector('.card-body').insertBefore(alertDiv, document.getElementById('loginForm'));
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+                return;
+            }
 
             fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
                 },
-                body: JSON.stringify(formData),
-                credentials: 'same-origin'
+                body: JSON.stringify({
+                    username: username.trim(),
+                    password: password
+                }),
+                credentials: 'include',
+                mode: 'cors'
             })
             .then(response => {
                 if (!response.ok) {
                     return response.json().then(data => {
+                        console.error('Login failed:', data);
                         throw new Error(data.message || 'Authentication failed');
                     });
                 }
                 return response.json();
             })
             .then(data => {
-                if (data.error) {
-                    throw new Error(data.message || 'Authentication failed');
+                // Clear any existing alerts
+                const existingAlert = document.querySelector('.alert');
+                if (existingAlert) {
+                    existingAlert.remove();
                 }
-                window.location.href = '/dashboard';
+
+                // Show success message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success';
+                alertDiv.role = 'alert';
+                alertDiv.textContent = 'Login successful! Redirecting...';
+                document.querySelector('.card-body').insertBefore(alertDiv, document.getElementById('loginForm'));
+
+                // Redirect to dashboard based on role
+                setTimeout(() => {
+                    if (data.role === 'ADMIN') {
+                        window.location.href = '/admin/dashboard';
+                    } else if (data.role === 'COURIER') {
+                        window.location.href = '/courier/dashboard';
+                    } else {
+                        window.location.href = '/customer/dashboard';
+                    }
+                }, 1000);
             })
             .catch(error => {
                 const alertDiv = document.createElement('div');
