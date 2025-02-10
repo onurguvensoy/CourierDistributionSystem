@@ -26,6 +26,12 @@
         <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
         <!-- Navbar-->
         <ul class="navbar-nav ms-auto me-3">
+            <li class="nav-item me-3">
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" id="availabilityToggle" ${user.available ? 'checked' : ''}>
+                    <label class="form-check-label text-light" for="availabilityToggle">Available for Deliveries</label>
+                </div>
+            </li>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-user fa-fw"></i> ${user.username}
@@ -245,11 +251,373 @@
     <script src="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/umd/simple-datatables.min.js"></script>
     <script src="/js/sb-admin.js"></script>
     <script>
+        // Global variables
         let map;
         let markers = new Map();
         let geocoder;
         let directionsService;
         let directionsRenderer;
+        let csrfToken;
+        let csrfHeader;
+
+        // Initialize CSRF tokens
+        function initializeCsrf() {
+            const csrfMeta = document.querySelector("meta[name='_csrf']");
+            const csrfHeaderMeta = document.querySelector("meta[name='_csrf_header']");
+            
+            if (!csrfMeta || !csrfHeaderMeta) {
+                console.error('CSRF meta tags not found');
+                return false;
+            }
+            
+            csrfToken = csrfMeta.getAttribute("content");
+            csrfHeader = csrfHeaderMeta.getAttribute("content");
+            
+            if (!csrfToken || !csrfHeader) {
+                console.error('CSRF token or header is missing');
+                return false;
+            }
+            return true;
+        }
+
+        // Create headers with CSRF
+        function createHeaders() {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            headers[csrfHeader] = csrfToken;
+            return headers;
+        }
+
+        // Toast notification function
+        function showToast(title, message, type = 'success') {
+            const toastHtml = `
+                <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+                    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header bg-${type} text-white">
+                            <strong class="me-auto">${title}</strong>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing toast if any
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+            
+            // Add new toast
+            document.body.insertAdjacentHTML('beforeend', toastHtml);
+            
+            // Initialize and show the toast
+            const toastElement = document.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastElement, {
+                delay: 3000
+            });
+            toast.show();
+        }
+
+        // Handle availability toggle
+        function handleAvailabilityToggle(event) {
+            const isAvailable = event.target.checked;
+            const courierId = '${user.id}'; // Get courier ID from the server-side as string
+
+            fetch(`/api/courier/${courierId}/availability?available=${isAvailable}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    [csrfHeader]: csrfToken
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Failed to update availability');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    const statusText = isAvailable ? 'available' : 'unavailable';
+                    showToast('Status Updated', `You are now ${statusText} for deliveries`);
+                    
+                    // Update UI elements based on availability
+                    const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
+                    takeDeliveryButtons.forEach(button => {
+                        button.disabled = !isAvailable;
+                        if (!isAvailable) {
+                            button.textContent = 'Not Available';
+                        } else {
+                            button.textContent = 'Take Delivery';
+                        }
+                    });
+                } else {
+                    throw new Error(data.message || 'Failed to update availability');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                event.target.checked = !isAvailable; // Revert the toggle
+                showToast('Error', error.message, 'danger');
+            });
+        }
+
+        // Initialize all event listeners
+        function initializeEventListeners() {
+            // Availability toggle
+            const availabilityToggle = document.getElementById('availabilityToggle');
+            if (availabilityToggle) {
+                availabilityToggle.addEventListener('change', handleAvailabilityToggle);
+                
+                // Set initial state of Take Delivery buttons
+                const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
+                takeDeliveryButtons.forEach(button => {
+                    button.disabled = !availabilityToggle.checked;
+                    if (!availabilityToggle.checked) {
+                        button.textContent = 'Not Available';
+                    }
+                });
+            }
+
+            // Delivery forms
+            const forms = document.querySelectorAll('.delivery-form');
+            forms.forEach(form => {
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault(); // Prevent form submission
+                    e.stopPropagation(); // Stop event bubbling
+                    
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.textContent;
+                    
+                    if (submitButton) {
+                        submitButton.disabled = true; // Disable button during submission
+                        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+                    }
+                    
+                    try {
+                        const formData = new FormData(form);
+                        const data = {};
+                        formData.forEach((value, key) => {
+                            if (key !== '_csrf') {
+                                data[key] = value;
+                            }
+                        });
+
+                        const response = await fetch(form.action, {
+                            method: 'POST',
+                            headers: createHeaders(),
+                            body: JSON.stringify(data),
+                            credentials: 'same-origin'
+                        });
+
+                        let result;
+                        const contentType = response.headers.get("content-type");
+                        if (contentType && contentType.includes("application/json")) {
+                            result = await response.json();
+                        } else {
+                            const text = await response.text();
+                            throw new Error(text || 'Server error occurred');
+                        }
+
+                        if (!response.ok) {
+                            throw new Error(result.message || 'Operation failed');
+                        }
+
+                        if (result.status === 'success') {
+                            let message = 'Operation completed successfully';
+                            
+                            // Custom messages based on action type
+                            if (form.action.includes('/assign')) {
+                                message = 'Package assigned successfully. You can now start the delivery.';
+                            } else if (form.action.includes('/status')) {
+                                const status = formData.get('status');
+                                switch(status) {
+                                    case 'PICKED_UP':
+                                        message = 'Package marked as picked up. You can now start the delivery.';
+                                        break;
+                                    case 'IN_TRANSIT':
+                                        message = 'Delivery started. Drive safely!';
+                                        break;
+                                    case 'DELIVERED':
+                                        message = 'Package marked as delivered. Great job!';
+                                        break;
+                                }
+                            } else if (form.action.includes('/drop')) {
+                                message = 'Package dropped successfully. It is now available for other couriers.';
+                            }
+                            
+                            showToast('Success', message);
+                            
+                            // Update UI without page reload
+                            const row = form.closest('tr');
+                            if (form.action.includes('/assign')) {
+                                row.remove(); // Remove from available packages
+                                // First update the active deliveries tab content
+                                fetch('/api/packages/active?username=${user.username}', {
+                                    method: 'GET',
+                                    headers: createHeaders(),
+                                    credentials: 'same-origin'
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.status === 'success') {
+                                        // Switch to active deliveries tab
+                                        const activeDeliveriesTab = document.querySelector('a[href="#active-deliveries"]');
+                                        const tabInstance = new bootstrap.Tab(activeDeliveriesTab);
+                                        tabInstance.show();
+                                        
+                                        // Refresh the page to show updated active deliveries
+                                        setTimeout(() => {
+                                            window.location.reload();
+                                        }, 500);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching active deliveries:', error);
+                                    showToast('Error', 'Failed to update active deliveries', 'danger');
+                                });
+                            } else if (form.action.includes('/drop')) {
+                                row.remove(); // Remove from active deliveries
+                            } else if (form.action.includes('/status')) {
+                                if (formData.get('status') === 'DELIVERED') {
+                                    row.remove(); // Remove delivered packages
+                                    
+                                    // Update courier availability to true when package is delivered
+                                    const courierId = '${user.id}';
+                                    fetch(`/api/courier/${courierId}/availability?available=true`, {
+                                        method: 'POST',
+                                        headers: createHeaders(),
+                                        credentials: 'same-origin'
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.status === 'success') {
+                                            // Update the availability toggle
+                                            const availabilityToggle = document.getElementById('availabilityToggle');
+                                            if (availabilityToggle) {
+                                                availabilityToggle.checked = true;
+                                            }
+                                            showToast('Status Updated', 'You are now available for new deliveries');
+                                            
+                                            // Enable all take delivery buttons
+                                            const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
+                                            takeDeliveryButtons.forEach(button => {
+                                                button.disabled = false;
+                                                button.textContent = 'Take Delivery';
+                                            });
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error updating availability:', error);
+                                        showToast('Error', 'Failed to update availability status', 'danger');
+                                    });
+                                }
+                            }
+                            
+                            // Update counts in overview
+                            const activeDeliveriesCount = document.querySelector('#overview .col-xl-6:first-child .display-4');
+                            const availablePackagesCount = document.querySelector('#overview .col-xl-6:last-child .display-4');
+                            
+                            if (activeDeliveriesCount && availablePackagesCount) {
+                                if (form.action.includes('/assign')) {
+                                    activeDeliveriesCount.textContent = parseInt(activeDeliveriesCount.textContent) + 1;
+                                    availablePackagesCount.textContent = parseInt(availablePackagesCount.textContent) - 1;
+                                } else if (form.action.includes('/drop')) {
+                                    activeDeliveriesCount.textContent = parseInt(activeDeliveriesCount.textContent) - 1;
+                                    availablePackagesCount.textContent = parseInt(availablePackagesCount.textContent) + 1;
+                                } else if (form.action.includes('/status') && formData.get('status') === 'DELIVERED') {
+                                    activeDeliveriesCount.textContent = parseInt(activeDeliveriesCount.textContent) - 1;
+                                }
+
+                                // Check if there are no more active deliveries
+                                if (parseInt(activeDeliveriesCount.textContent) === 0) {
+                                    // Update courier availability to true
+                                    const courierId = '${user.id}';
+                                    fetch(`/api/courier/${courierId}/availability?available=true`, {
+                                        method: 'POST',
+                                        headers: createHeaders(),
+                                        credentials: 'same-origin'
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.status === 'success') {
+                                            // Update the availability toggle
+                                            const availabilityToggle = document.getElementById('availabilityToggle');
+                                            if (availabilityToggle) {
+                                                availabilityToggle.checked = true;
+                                            }
+                                            showToast('Status Updated', 'You are now available for new deliveries');
+                                            
+                                            // Enable all take delivery buttons
+                                            const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
+                                            takeDeliveryButtons.forEach(button => {
+                                                button.disabled = false;
+                                                button.textContent = 'Take Delivery';
+                                            });
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error updating availability:', error);
+                                    });
+                                }
+                            }
+                            
+                            // Refresh the map if on available packages tab
+                            if (document.querySelector('#available-packages').classList.contains('active')) {
+                                initMap();
+                            }
+                        } else {
+                            throw new Error(result.message || 'Operation failed');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast('Error', error.message, 'danger');
+                    } finally {
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.textContent = originalButtonText;
+                        }
+                    }
+
+                    return false; // Prevent form submission
+                });
+            });
+
+            // Logout form
+            const logoutForm = document.getElementById('logoutForm');
+            if (logoutForm) {
+                logoutForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: createHeaders()
+                    })
+                    .then(response => {
+                        window.location.href = '/auth/login';
+                    })
+                    .catch(error => {
+                        console.error('Logout failed:', error);
+                        window.location.href = '/auth/login';
+                    });
+                });
+            }
+        }
+
+        // Initialize everything when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (initializeCsrf()) {
+                initializeEventListeners();
+                initMap();
+            }
+        });
 
         function initMap() {
             const defaultLocation = { lat: 41.0082, lng: 28.9784 }; // Istanbul coordinates
@@ -320,92 +688,6 @@
                 }
             });
         }
-
-        // Add CSRF token to AJAX requests
-        const csrfMeta = document.querySelector("meta[name='_csrf']");
-        const csrfHeaderMeta = document.querySelector("meta[name='_csrf_header']");
-        
-        if (!csrfMeta || !csrfHeaderMeta) {
-            console.error('CSRF meta tags not found');
-            return;
-        }
-        
-        const token = csrfMeta.getAttribute("content");
-        const header = csrfHeaderMeta.getAttribute("content");
-        
-        if (!token || !header) {
-            console.error('CSRF token or header is missing');
-            return;
-        }
-
-        // Add event listeners to forms
-        document.addEventListener('DOMContentLoaded', function() {
-            const forms = document.querySelectorAll('.delivery-form');
-            forms.forEach(form => {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData(form);
-                    const data = {};
-                    formData.forEach((value, key) => {
-                        data[key] = value;
-                    });
-
-                    // Create headers object properly
-                    const headers = {
-                        'Content-Type': 'application/json'
-                    };
-                    headers[header] = token;  // Add CSRF header safely
-
-                    fetch(form.action, {
-                        method: 'POST',
-                        headers: headers,
-                        body: JSON.stringify(data),
-                        credentials: 'same-origin'
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.text().then(text => {
-                                throw new Error(text || 'Network response was not ok');
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.status === 'success') {
-                            window.location.reload();
-                        } else {
-                            throw new Error(data.message || 'Failed to process request');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred: ' + error.message);
-                    });
-                });
-            });
-
-            initMap();
-        });
-
-        document.getElementById('logoutForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            fetch('/api/auth/logout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    [header]: token
-                }
-            })
-            .then(response => {
-                window.location.href = '/auth/login';
-            })
-            .catch(error => {
-                console.error('Logout failed:', error);
-                window.location.href = '/auth/login';
-            });
-        });
     </script>
 </body>
 </html>

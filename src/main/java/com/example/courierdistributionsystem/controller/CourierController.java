@@ -39,7 +39,7 @@ public class CourierController {
         try {
             logger.debug("Fetching courier profile for ID: {}", id);
             
-            // First check if user exists and is a courier
+    
             Optional<User> user = userService.getUserById(id);
             if (user.isEmpty()) {
                 logger.warn("No user found with ID: {}", id);
@@ -51,7 +51,6 @@ public class CourierController {
                 throw new CourierException("User is not a courier");
             }
 
-            // Then get the courier details
             Optional<Courier> courier = userService.getCourierById(id);
             if (courier.isEmpty()) {
                 logger.warn("Courier details not found for ID: {}", id);
@@ -76,11 +75,6 @@ public class CourierController {
         }
     }
 
-    @GetMapping
-    public ResponseEntity<?> getCourierProfileByParam(@RequestParam(required = true) @NotNull Long id) {
-        logger.info("Received request to get courier profile with query parameter ID: {}", id);
-        return getCourierProfile(id);
-    }
 
     @GetMapping("/available")
     public ResponseEntity<?> getAvailableCouriers() {
@@ -153,6 +147,34 @@ public class CourierController {
             logger.error("Unexpected error updating courier location: {}", e.getMessage(), e);
             response.put("status", "error");
             response.put("message", "Failed to update courier location: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PostMapping("/{id}/availability")
+    public ResponseEntity<?> updateAvailability(@PathVariable @NotNull Long id, @RequestParam boolean available) {
+        logger.info("Received request to update courier availability. ID: {}, Available: {}", id, available);
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Map<String, String> updateRequest = new HashMap<>();
+            updateRequest.put("available", String.valueOf(available));
+            
+            Courier updatedCourier = courierService.updateCourierProfile(id, updateRequest);
+            
+            response.put("status", "success");
+            response.put("message", "Availability updated successfully");
+            response.put("data", updatedCourier);
+            logger.info("Successfully updated courier availability for ID: {}", id);
+            return ResponseEntity.ok(response);
+        } catch (CourierException e) {
+            logger.warn("Failed to update courier availability: {}", e.getMessage());
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            logger.error("Unexpected error updating courier availability: {}", e.getMessage(), e);
+            response.put("status", "error");
+            response.put("message", "Failed to update courier availability: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }
     }

@@ -6,7 +6,6 @@ import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.model.DeliveryReport;
 import com.example.courierdistributionsystem.model.Rating;
-import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
 import com.example.courierdistributionsystem.repository.CustomerRepository;
 import com.example.courierdistributionsystem.repository.CourierRepository;

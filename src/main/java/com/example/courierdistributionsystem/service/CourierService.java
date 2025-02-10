@@ -13,7 +13,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+
 
 @Service
 @Validated
@@ -26,8 +26,6 @@ public class CourierService {
     @Autowired
     private WebSocketService webSocketService;
 
-    @Autowired
-    private UserService userService;
 
     public Courier getCourierById(Long id) {
         logger.debug("Fetching courier with ID: {}", id);

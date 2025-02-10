@@ -1,6 +1,4 @@
 package com.example.courierdistributionsystem.service;
-
-import com.example.courierdistributionsystem.dto.LoginRequest;
 import com.example.courierdistributionsystem.dto.SignupRequest;
 import com.example.courierdistributionsystem.exception.AuthenticationException;
 import com.example.courierdistributionsystem.model.*;
