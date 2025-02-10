@@ -1,208 +1,320 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="description" content="Sign Up Page" />
-    <meta name="author" content="" />
-    <title>Sign Up - Courier Distribution System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="/css/sb-admin.css" rel="stylesheet" />
-    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
-</head>
-<body class="bg-primary">
-    <div id="layoutAuthentication">
-        <div id="layoutAuthentication_content">
-            <main>
-                <div class="container">
-                    <div class="row justify-content-center">
-                        <div class="col-lg-7">
-                            <div class="card shadow-lg border-0 rounded-lg mt-5">
-                                <div class="card-header">
-                                    <h3 class="text-center font-weight-light my-4">Create Account</h3>
-                                </div>
-                                <div class="card-body">
-                                    <form id="signupForm" class="needs-validation" novalidate>
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <div class="form-floating mb-3">
-                                                    <input class="form-control" id="username" name="username" type="text" placeholder="Enter your username" required pattern="^[a-zA-Z0-9_]{3,20}$" />
-                                                    <label for="username">Username</label>
-                                                    <div class="invalid-feedback">
-                                                        Username must be between 3 and 20 characters and can only contain letters, numbers, and underscores.
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="form-floating mb-3">
-                                                    <input class="form-control" id="email" name="email" type="email" placeholder="name@example.com" required />
-                                                    <label for="email">Email address</label>
-                                                    <div class="invalid-feedback">
-                                                        Please enter a valid email address.
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="form-floating mb-3">
-                                            <input class="form-control" id="password" name="password" type="password" placeholder="Create a password" required minlength="6" />
-                                            <label for="password">Password</label>
-                                            <div class="invalid-feedback">
-                                                Password must be at least 6 characters long.
-                                            </div>
-                                        </div>
-                                        <div class="form-floating mb-3">
-                                            <select class="form-select" id="role" name="role" required>
-                                                <option value="">Select role</option>
-                                                <option value="CUSTOMER">Customer</option>
-                                                <option value="COURIER">Courier</option>
-                                            </select>
-                                            <label for="role">Role</label>
-                                            <div class="invalid-feedback">
-                                                Please select a role.
-                                            </div>
-                                        </div>
-                                        <div class="form-floating mb-3">
-                                            <input class="form-control" id="phoneNumber" name="phoneNumber" type="tel" placeholder="Enter your phone number" required pattern="^\+?[1-9]\d{1,14}$" />
-                                            <label for="phoneNumber">Phone Number</label>
-                                            <div class="invalid-feedback">
-                                                Please enter a valid phone number.
-                                            </div>
-                                        </div>
-                                        <div id="customerFields" style="display: none;">
-                                        </div>
-                                        <div id="courierFields" style="display: none;">
-                                            <div class="form-floating mb-3">
-                                                <select class="form-select" id="vehicleType" name="vehicleType">
-                                                    <option value="">Select vehicle type</option>
-                                                    <option value="CAR">Car</option>
-                                                    <option value="MOTORCYCLE">Motorcycle</option>
-                                                    <option value="BICYCLE">Bicycle</option>
-                                                </select>
-                                                <label for="vehicleType">Vehicle Type</label>
-                                                <div class="invalid-feedback">
-                                                    Please select a vehicle type.
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="mt-4 mb-0">
-                                            <div class="d-grid">
-                                                <button class="btn btn-primary btn-block" type="submit">Create Account</button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                </div>
-                                <div class="card-footer text-center py-3">
-                                    <div class="small"><a href="/auth/login">Have an account? Go to login</a></div>
+<c:set var="pageTitle" value="Register" />
+
+<%@ include file="common/header.jsp" %>
+
+<!-- Custom styles for signup page -->
+<style>
+    .bg-register-image {
+        background: url('https://source.unsplash.com/Mv9hjnEUHR4/600x800');
+        background-position: center;
+        background-size: cover;
+    }
+    .form-control-user {
+        color: #6e707e !important;
+        background-color: #fff !important;
+        border: 1px solid #d1d3e2;
+    }
+    .form-control-user::placeholder {
+        color: #858796;
+        opacity: 1;
+    }
+    .form-control-user:focus {
+        border-color: #4e73df;
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+    }
+    .alert {
+        margin-bottom: 1rem;
+    }
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+    }
+    select.form-control-user {
+        height: calc(1.5em + 0.75rem + 2px);
+        padding: 0.375rem 0.75rem;
+    }
+    .brand-wrapper {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .brand-icon {
+        font-size: 3.5rem;
+        color: #4e73df;
+        margin-bottom: 1rem;
+    }
+    .brand-text {
+        font-size: 1.5rem;
+        color: #5a5c69;
+        font-weight: 700;
+    }
+    .input-group-text {
+        border-top-left-radius: 2rem;
+        border-bottom-left-radius: 2rem;
+    }
+    .input-group .form-control-user {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+</style>
+
+<div class="container">
+    <!-- Toast Container -->
+    <div class="toast-container"></div>
+
+    <div class="card o-hidden border-0 shadow-lg my-5">
+        <div class="card-body p-0">
+            <!-- Nested Row within Card Body -->
+            <div class="row">
+                <div class="col-lg-5 d-none d-lg-block bg-register-image"></div>
+                <div class="col-lg-7">
+                    <div class="p-5">
+                        <div class="brand-wrapper">
+                            <div class="brand-icon">
+                                <i class="fas fa-truck fa-flip-horizontal"></i>
+                            </div>
+                            <div class="brand-text">
+                                Courier Distribution System
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <h1 class="h4 text-gray-900 mb-4">Create an Account!</h1>
+                        </div>
+                        <div id="alertPlaceholder"></div>
+                        <form id="signupForm" class="user">
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-user"></i>
+                                        </span>
+                                    </div>
+                                    <input type="text" class="form-control form-control-user" id="username" 
+                                        name="username" placeholder="Username" required>
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-envelope"></i>
+                                        </span>
+                                    </div>
+                                    <input type="email" class="form-control form-control-user" id="email" 
+                                        name="email" placeholder="Email Address" required>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <div class="col-sm-6 mb-3 mb-sm-0">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-lock"></i>
+                                            </span>
+                                        </div>
+                                        <input type="password" class="form-control form-control-user" id="password" 
+                                            name="password" placeholder="Password" required>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text">
+                                                <i class="fas fa-lock"></i>
+                                            </span>
+                                        </div>
+                                        <input type="password" class="form-control form-control-user" id="confirmPassword" 
+                                            name="confirmPassword" placeholder="Confirm Password" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-phone"></i>
+                                        </span>
+                                    </div>
+                                    <input type="tel" class="form-control form-control-user" id="phoneNumber" 
+                                        name="phoneNumber" placeholder="Phone Number" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-user-tag"></i>
+                                        </span>
+                                    </div>
+                                    <select class="form-control form-control-user" id="role" name="role" required>
+                                        <option value="">Select Role</option>
+                                        <option value="CUSTOMER">Customer</option>
+                                        <option value="COURIER">Courier</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" id="vehicleTypeGroup" style="display: none;">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-truck"></i>
+                                        </span>
+                                    </div>
+                                    <select class="form-control form-control-user" id="vehicleType" name="vehicleType">
+                                        <option value="">Select Vehicle Type</option>
+                                        <option value="MOTORCYCLE">Motorcycle</option>
+                                        <option value="CAR">Car</option>
+                                        <option value="VAN">Van</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}" />
+                            <button type="submit" class="btn btn-primary btn-user btn-block">
+                                <i class="fas fa-user-plus mr-2"></i> Register Account
+                            </button>
+                        </form>
+                        <hr>
+                        <div class="text-center">
+                            <a class="small" href="/auth/login">
+                                <i class="fas fa-sign-in-alt mr-1"></i> Already have an account? Login!
+                            </a>
                         </div>
                     </div>
                 </div>
-            </main>
-        </div>
-        <div id="layoutAuthentication_footer">
-            <footer class="py-4 bg-light mt-auto">
-                <div class="container-fluid px-4">
-                    <div class="d-flex align-items-center justify-content-between small">
-                        <div class="text-muted">Copyright &copy; Courier Distribution System 2024</div>
-                    </div>
-                </div>
-            </footer>
+            </div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/sb-admin.js"></script>
-    <script>
-        document.getElementById('role').addEventListener('change', function() {
-            const customerFields = document.getElementById('customerFields');
-            const courierFields = document.getElementById('courierFields');
-            const vehicleType = document.getElementById('vehicleType');
-            
-            if (this.value === 'CUSTOMER') {
-                customerFields.style.display = 'block';
-                courierFields.style.display = 'none';
-                vehicleType.required = false;
-            } else if (this.value === 'COURIER') {
-                customerFields.style.display = 'none';
-                courierFields.style.display = 'block';
-                vehicleType.required = true;
-            } else {
-                customerFields.style.display = 'none';
-                courierFields.style.display = 'none';
-                vehicleType.required = false;
-            }
-        });
+</div>
 
-        document.getElementById('signupForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            if (!this.checkValidity()) {
-                e.stopPropagation();
-                this.classList.add('was-validated');
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize toastr options
+    toastr.options = {
+        "closeButton": true,
+        "debug": false,
+        "newestOnTop": true,
+        "progressBar": true,
+        "positionClass": "toast-top-right",
+        "preventDuplicates": false,
+        "showDuration": "300",
+        "hideDuration": "1000",
+        "timeOut": "5000",
+        "extendedTimeOut": "1000",
+        "showEasing": "swing",
+        "hideEasing": "linear",
+        "showMethod": "fadeIn",
+        "hideMethod": "fadeOut"
+    };
+
+    const signupForm = document.getElementById('signupForm');
+    const roleSelect = document.getElementById('role');
+    const vehicleTypeGroup = document.getElementById('vehicleTypeGroup');
+
+    if (!signupForm || !roleSelect || !vehicleTypeGroup) {
+        console.error('Required elements not found!');
+        return;
+    }
+
+    roleSelect.addEventListener('change', function() {
+        if (this.value === 'COURIER') {
+            vehicleTypeGroup.style.display = 'block';
+            document.getElementById('vehicleType').required = true;
+        } else {
+            vehicleTypeGroup.style.display = 'none';
+            document.getElementById('vehicleType').required = false;
+        }
+    });
+
+    signupForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitButton = this.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+        // Get form values
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        const phoneNumber = document.getElementById('phoneNumber').value.trim();
+        const role = roleSelect.value;
+
+        // Validation
+        if (!username || !email || !password || !confirmPassword || !phoneNumber || !role) {
+            toastr.error('Please fill in all required fields.');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            toastr.error('Passwords do not match.');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            return;
+        }
+
+        // Prepare form data
+        const formData = {
+            username: username,
+            email: email,
+            password: password,
+            phoneNumber: phoneNumber,
+            role: role
+        };
+
+        // Add vehicle type if courier
+        if (role === 'COURIER') {
+            const vehicleType = document.getElementById('vehicleType').value;
+            if (!vehicleType) {
+                toastr.error('Please select a vehicle type.');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
                 return;
             }
+            formData.vehicleType = vehicleType;
+        }
 
-            const formData = {
-                username: document.getElementById('username').value,
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value,
-                role: document.getElementById('role').value,
-                phoneNumber: document.getElementById('phoneNumber').value
-            };
-
-            if (formData.role === 'CUSTOMER') {
-            } else if (formData.role === 'COURIER') {
-                formData.vehicleType = document.getElementById('vehicleType').value;
-            }
-
-            fetch('/api/auth/signup', {
+        try {
+            const response = await fetch('/api/auth/signup', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_csrf"]')?.value || ''
                 },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    throw new Error(data.message || 'Registration failed');
-                }
-                // Show success message
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-success';
-                alertDiv.role = 'alert';
-                alertDiv.textContent = 'Registration successful! Redirecting to login page...';
-                
-                const existingAlert = document.querySelector('.alert');
-                if (existingAlert) {
-                    existingAlert.remove();
-                }
-                
-                document.querySelector('.card-body').insertBefore(alertDiv, document.getElementById('signupForm'));
-                
-                // Redirect after a short delay
-                setTimeout(() => {
-                    window.location.href = '/auth/login';
-                }, 2000);
-            })
-            .catch(error => {
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-danger';
-                alertDiv.role = 'alert';
-                alertDiv.textContent = error.message || 'Registration failed. Please try again.';
-                
-                const existingAlert = document.querySelector('.alert');
-                if (existingAlert) {
-                    existingAlert.remove();
-                }
-                
-                document.querySelector('.card-body').insertBefore(alertDiv, document.getElementById('signupForm'));
+                body: JSON.stringify(formData),
+                credentials: 'include'
             });
-        });
-    </script>
-</body>
-</html> 
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Registration failed');
+            }
+
+            if (data.error) {
+                throw new Error(data.message || 'Registration failed');
+            }
+            
+            toastr.success('Registration successful! Redirecting to login page...');
+            
+            setTimeout(() => {
+                window.location.href = '/auth/login';
+            }, 2000);
+        } catch (error) {
+            console.error('Registration error:', error);
+            toastr.error(error.message || 'Registration failed. Please try again.');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+        }
+    });
+});
+</script>
+
+<%@ include file="common/footer.jsp" %> 

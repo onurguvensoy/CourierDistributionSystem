@@ -1,121 +1,77 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="description" content="Courier Dashboard" />
-    <meta name="author" content="" />
-    <meta name="_csrf" content="${_csrf.token}"/>
-    <meta name="_csrf_header" content="${_csrf.headerName}"/>
-    <title>Courier Dashboard - Courier Distribution System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.min.css" rel="stylesheet" />
-    <link href="/css/sb-admin.css" rel="stylesheet" />
-    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places"></script>
-</head>
-<body class="sb-nav-fixed">
-    <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
-        <!-- Navbar Brand-->
-        <a class="navbar-brand ps-3" href="#">Courier System</a>
-        <!-- Sidebar Toggle-->
-        <button class="btn btn-link btn-sm order-1 order-lg-0 me-4 me-lg-0" id="sidebarToggle" href="#!"><i class="fas fa-bars"></i></button>
-        <!-- Navbar-->
-        <ul class="navbar-nav ms-auto me-3">
-            <li class="nav-item me-3">
-                <div class="form-check form-switch mt-2">
+<c:set var="pageTitle" value="Courier Dashboard" />
+
+<%@ include file="common/header.jsp" %>
+<%@ include file="common/sidebar.jsp" %>
+<%@ include file="common/topbar.jsp" %>
+
+<!-- Begin Page Content -->
+<div class="container-fluid">
+
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Courier Dashboard</h1>
+        <div class="d-none d-sm-inline-block">
+            <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="availabilityToggle" ${user.available ? 'checked' : ''}>
-                    <label class="form-check-label text-light" for="availabilityToggle">Available for Deliveries</label>
+                <label class="form-check-label text-gray-800" for="availabilityToggle">Available for Deliveries</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Active Deliveries Card -->
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Active Deliveries</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="activeDeliveriesCount">${activeDeliveries.size()}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-truck fa-2x text-gray-300"></i>
                 </div>
-            </li>
-            <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-user fa-fw"></i> ${user.username}
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                    <li>
-                        <form id="logoutForm" action="/api/auth/logout" method="POST" style="margin: 0;">
-                            <button type="submit" class="dropdown-item">Logout</button>
-                        </form>
-                    </li>
-                </ul>
-            </li>
-        </ul>
-    </nav>
-    <div id="layoutSidenav">
-        <div id="layoutSidenav_nav">
-            <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
-                <div class="sb-sidenav-menu">
-                    <div class="nav">
-                        <div class="sb-sidenav-menu-heading">Core</div>
-                        <a class="nav-link active" href="#overview" data-bs-toggle="pill">
-                            <div class="sb-nav-link-icon"><i class="fas fa-tachometer-alt"></i></div>
-                            Overview
-                        </a>
-                        <a class="nav-link" href="#available-packages" data-bs-toggle="pill">
-                            <div class="sb-nav-link-icon"><i class="fas fa-box"></i></div>
-                            Available Packages
-                        </a>
-                        <a class="nav-link" href="#active-deliveries" data-bs-toggle="pill">
-                            <div class="sb-nav-link-icon"><i class="fas fa-truck"></i></div>
-                            Active Deliveries
-                        </a>
                     </div>
                 </div>
-                <div class="sb-sidenav-footer">
-                    <div class="small">Logged in as:</div>
-                    ${user.username}
                 </div>
-            </nav>
         </div>
-        <div id="layoutSidenav_content">
-            <main>
-                <div class="container-fluid px-4">
-                    <h1 class="mt-4">Courier Dashboard</h1>
-                    <ol class="breadcrumb mb-4">
-                        <li class="breadcrumb-item active">Dashboard</li>
-                    </ol>
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="overview">
-                            <div class="row">
-                                <div class="col-xl-6">
-                                    <div class="card mb-4">
-                                        <div class="card-header">
-                                            <i class="fas fa-chart-bar me-1"></i>
-                                            Active Deliveries
-                                        </div>
+
+        <!-- Available Packages Card -->
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
                                         <div class="card-body">
-                                            <h1 class="display-4 text-center">${activeDeliveries.size()}</h1>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Available Packages</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">${availablePackages.size()}</div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="col-xl-6">
-                                    <div class="card mb-4">
-                                        <div class="card-header">
-                                            <i class="fas fa-chart-pie me-1"></i>
-                                            Available Packages
+                        <div class="col-auto">
+                            <i class="fas fa-box fa-2x text-gray-300"></i>
                                         </div>
-                                        <div class="card-body">
-                                            <h1 class="display-4 text-center">${availablePackages.size()}</h1>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="available-packages">
-                            <div class="card mb-4">
-                                <div class="card-header">
-                                    <i class="fas fa-table me-1"></i>
-                                    Available Packages
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Available Packages Table -->
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Available Packages</h6>
                                 </div>
                                 <div class="card-body">
                                     <div id="map" class="mb-4" style="height: 400px;"></div>
-                                    <table id="availablePackagesTable" class="table table-striped">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="availablePackagesTable" width="100%" cellspacing="0">
                                         <thead>
                                             <tr>
                                                 <th>ID</th>
@@ -131,7 +87,7 @@
                                             <c:forEach items="${availablePackages}" var="packageData">
                                                 <tr>
                                                     <td>${packageData.id}</td>
-                                                    <td><span class="badge bg-secondary">${packageData.trackingNumber}</span></td>
+                                        <td><span class="badge badge-secondary">${packageData.trackingNumber}</span></td>
                                                     <td>${packageData.customer.username}</td>
                                                     <td>${packageData.pickupAddress}</td>
                                                     <td>${packageData.deliveryAddress}</td>
@@ -142,25 +98,32 @@
                                                             <input type="hidden" name="courierId" value="${user.id}"/>
                                                             <input type="hidden" name="_csrf" value="${_csrf.token}" />
                                                             <input type="hidden" name="packageId" value="${packageData.id}" />
-                                                            <button type="submit" class="btn btn-primary btn-sm">Take Delivery</button>
+                                                <button type="submit" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-truck fa-sm"></i> Take Delivery
+                                                </button>
                                                         </form>
                                                     </td>
                                                 </tr>
                                             </c:forEach>
                                         </tbody>
                                     </table>
+                    </div>
+                </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="active-deliveries">
-                            <div class="card mb-4">
-                                <div class="card-header">
-                                    <i class="fas fa-table me-1"></i>
-                                    Active Deliveries
+    <!-- Content Row -->
+    <div class="row">
+        <!-- Active Deliveries Table -->
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Active Deliveries</h6>
                                 </div>
                                 <div class="card-body">
-                                    <table id="activeDeliveriesTable" class="table table-striped">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="activeDeliveriesTable" width="100%" cellspacing="0">
                                         <thead>
                                             <tr>
                                                 <th>ID</th>
@@ -176,11 +139,16 @@
                                             <c:forEach items="${activeDeliveries}" var="packageData">
                                                 <tr>
                                                     <td>${packageData.id}</td>
-                                                    <td><span class="badge bg-secondary">${packageData.trackingNumber}</span></td>
+                                        <td><span class="badge badge-secondary">${packageData.trackingNumber}</span></td>
                                                     <td>${packageData.customer.username}</td>
                                                     <td>${packageData.pickupAddress}</td>
                                                     <td>${packageData.deliveryAddress}</td>
-                                                    <td><span class="badge bg-${packageData.status eq 'DELIVERED' ? 'success' : packageData.status eq 'IN_TRANSIT' ? 'warning' : 'info'}">${packageData.status}</span></td>
+                                        <td>
+                                            <span class="badge badge-${packageData.status eq 'DELIVERED' ? 'success' : 
+                                                packageData.status eq 'IN_TRANSIT' ? 'warning' : 'info'}">
+                                                ${packageData.status}
+                                            </span>
+                                        </td>
                                                     <td>
                                                         <c:choose>
                                                             <c:when test="${packageData.status eq 'ASSIGNED'}">
@@ -188,12 +156,16 @@
                                                                     <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="status" value="PICKED_UP"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
-                                                                    <button type="submit" class="btn btn-info btn-sm">Mark as Picked Up</button>
+                                                        <button type="submit" class="btn btn-info btn-sm">
+                                                            <i class="fas fa-box fa-sm"></i> Mark as Picked Up
+                                                        </button>
                                                                 </form>
                                                                 <form action="/api/packages/${packageData.id}/drop" method="POST" class="delivery-form d-inline">
                                                                     <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
-                                                                    <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm">
+                                                            <i class="fas fa-times fa-sm"></i> Drop Delivery
+                                                        </button>
                                                                 </form>
                                                             </c:when>
                                                             <c:when test="${packageData.status eq 'PICKED_UP'}">
@@ -201,12 +173,16 @@
                                                                     <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="status" value="IN_TRANSIT"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
-                                                                    <button type="submit" class="btn btn-warning btn-sm">Start Delivery</button>
+                                                        <button type="submit" class="btn btn-warning btn-sm">
+                                                            <i class="fas fa-truck fa-sm"></i> Start Delivery
+                                                        </button>
                                                                 </form>
                                                                 <form action="/api/packages/${packageData.id}/drop" method="POST" class="delivery-form d-inline">
                                                                     <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
-                                                                    <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm">
+                                                            <i class="fas fa-times fa-sm"></i> Drop Delivery
+                                                        </button>
                                                                 </form>
                                                             </c:when>
                                                             <c:when test="${packageData.status eq 'IN_TRANSIT'}">
@@ -214,16 +190,22 @@
                                                                     <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="status" value="DELIVERED"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
-                                                                    <button type="submit" class="btn btn-success btn-sm">Mark as Delivered</button>
+                                                        <button type="submit" class="btn btn-success btn-sm">
+                                                            <i class="fas fa-check fa-sm"></i> Mark as Delivered
+                                                        </button>
                                                                 </form>
                                                                 <form action="/api/packages/${packageData.id}/drop" method="POST" class="delivery-form d-inline">
                                                                     <input type="hidden" name="username" value="${user.username}"/>
                                                                     <input type="hidden" name="_csrf" value="${_csrf.token}" />
-                                                                    <button type="submit" class="btn btn-danger btn-sm">Drop Delivery</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm">
+                                                            <i class="fas fa-times fa-sm"></i> Drop Delivery
+                                                        </button>
                                                                 </form>
                                                             </c:when>
                                                             <c:when test="${packageData.status eq 'DELIVERED'}">
-                                                                <span class="text-success">Delivered</span>
+                                                    <span class="text-success">
+                                                        <i class="fas fa-check-circle"></i> Delivered
+                                                    </span>
                                                             </c:when>
                                                         </c:choose>
                                                     </td>
@@ -236,458 +218,91 @@
                         </div>
                     </div>
                 </div>
-            </main>
-            <footer class="py-4 bg-light mt-auto">
-                <div class="container-fluid px-4">
-                    <div class="d-flex align-items-center justify-content-between small">
-                        <div class="text-muted">Copyright &copy; Courier Distribution System 2024</div>
-                    </div>
-                </div>
-            </footer>
-        </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/umd/simple-datatables.min.js"></script>
-    <script src="/js/sb-admin.js"></script>
-    <script>
-        // Global variables
-        let map;
-        let markers = new Map();
-        let geocoder;
-        let directionsService;
-        let directionsRenderer;
-        let csrfToken;
-        let csrfHeader;
 
-        // Initialize CSRF tokens
-        function initializeCsrf() {
-            const csrfMeta = document.querySelector("meta[name='_csrf']");
-            const csrfHeaderMeta = document.querySelector("meta[name='_csrf_header']");
-            
-            if (!csrfMeta || !csrfHeaderMeta) {
-                console.error('CSRF meta tags not found');
-                return false;
-            }
-            
-            csrfToken = csrfMeta.getAttribute("content");
-            csrfHeader = csrfHeaderMeta.getAttribute("content");
-            
-            if (!csrfToken || !csrfHeader) {
-                console.error('CSRF token or header is missing');
-                return false;
-            }
-            return true;
-        }
-
-        // Create headers with CSRF
-        function createHeaders() {
-            const headers = {
-                'Content-Type': 'application/json'
-            };
-            headers[csrfHeader] = csrfToken;
-            return headers;
-        }
-
-        // Toast notification function
-        function showToast(title, message, type = 'success') {
-            const toastHtml = `
-                <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-                    <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                        <div class="toast-header bg-${type} text-white">
-                            <strong class="me-auto">${title}</strong>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
                         </div>
-                        <div class="toast-body">
-                            ${message}
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Remove existing toast if any
-            const existingToast = document.querySelector('.toast');
-            if (existingToast) {
-                existingToast.remove();
-            }
-            
-            // Add new toast
-            document.body.insertAdjacentHTML('beforeend', toastHtml);
-            
-            // Initialize and show the toast
-            const toastElement = document.querySelector('.toast');
-            const toast = new bootstrap.Toast(toastElement, {
-                delay: 3000
-            });
-            toast.show();
-        }
+<!-- End of Main Content -->
 
-        // Handle availability toggle
-        function handleAvailabilityToggle(event) {
-            const isAvailable = event.target.checked;
-            const courierId = '${user.id}'; // Get courier ID from the server-side as string
-
-            fetch(`/api/courier/${courierId}/availability?available=${isAvailable}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    [csrfHeader]: csrfToken
-                },
-                credentials: 'same-origin'
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        throw new Error(text || 'Failed to update availability');
-                    });
+<script>
+    $(document).ready(function() {
+        // Initialize DataTables with Bootstrap styling
+        $('#availablePackagesTable').DataTable({
+            "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                   '<"row"<"col-sm-12"tr>>' +
+                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "language": {
+                "lengthMenu": "_MENU_ records per page",
+                "zeroRecords": "No packages available",
+                "info": "Showing page _PAGE_ of _PAGES_",
+                "infoEmpty": "No packages available",
+                "infoFiltered": "(filtered from _MAX_ total records)",
+                "search": "Search:",
+                "paginate": {
+                    "first": "First",
+                    "last": "Last",
+                    "next": "Next",
+                    "previous": "Previous"
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    const statusText = isAvailable ? 'available' : 'unavailable';
-                    showToast('Status Updated', `You are now ${statusText} for deliveries`);
-                    
-                    // Update UI elements based on availability
-                    const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
-                    takeDeliveryButtons.forEach(button => {
-                        button.disabled = !isAvailable;
-                        if (!isAvailable) {
-                            button.textContent = 'Not Available';
-                        } else {
-                            button.textContent = 'Take Delivery';
-                        }
-                    });
-                } else {
-                    throw new Error(data.message || 'Failed to update availability');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                event.target.checked = !isAvailable; // Revert the toggle
-                showToast('Error', error.message, 'danger');
-            });
-        }
-
-        // Initialize all event listeners
-        function initializeEventListeners() {
-            // Availability toggle
-            const availabilityToggle = document.getElementById('availabilityToggle');
-            if (availabilityToggle) {
-                availabilityToggle.addEventListener('change', handleAvailabilityToggle);
-                
-                // Set initial state of Take Delivery buttons
-                const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
-                takeDeliveryButtons.forEach(button => {
-                    button.disabled = !availabilityToggle.checked;
-                    if (!availabilityToggle.checked) {
-                        button.textContent = 'Not Available';
-                    }
-                });
-            }
-
-            // Delivery forms
-            const forms = document.querySelectorAll('.delivery-form');
-            forms.forEach(form => {
-                form.addEventListener('submit', async function(e) {
-                    e.preventDefault(); // Prevent form submission
-                    e.stopPropagation(); // Stop event bubbling
-                    
-                    const submitButton = form.querySelector('button[type="submit"]');
-                    const originalButtonText = submitButton.textContent;
-                    
-                    if (submitButton) {
-                        submitButton.disabled = true; // Disable button during submission
-                        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-                    }
-                    
-                    try {
-                        const formData = new FormData(form);
-                        const data = {};
-                        formData.forEach((value, key) => {
-                            if (key !== '_csrf') {
-                                data[key] = value;
-                            }
-                        });
-
-                        const response = await fetch(form.action, {
-                            method: 'POST',
-                            headers: createHeaders(),
-                            body: JSON.stringify(data),
-                            credentials: 'same-origin'
-                        });
-
-                        let result;
-                        const contentType = response.headers.get("content-type");
-                        if (contentType && contentType.includes("application/json")) {
-                            result = await response.json();
-                        } else {
-                            const text = await response.text();
-                            throw new Error(text || 'Server error occurred');
-                        }
-
-                        if (!response.ok) {
-                            throw new Error(result.message || 'Operation failed');
-                        }
-
-                        if (result.status === 'success') {
-                            let message = 'Operation completed successfully';
-                            
-                            // Custom messages based on action type
-                            if (form.action.includes('/assign')) {
-                                message = 'Package assigned successfully. You can now start the delivery.';
-                            } else if (form.action.includes('/status')) {
-                                const status = formData.get('status');
-                                switch(status) {
-                                    case 'PICKED_UP':
-                                        message = 'Package marked as picked up. You can now start the delivery.';
-                                        break;
-                                    case 'IN_TRANSIT':
-                                        message = 'Delivery started. Drive safely!';
-                                        break;
-                                    case 'DELIVERED':
-                                        message = 'Package marked as delivered. Great job!';
-                                        break;
-                                }
-                            } else if (form.action.includes('/drop')) {
-                                message = 'Package dropped successfully. It is now available for other couriers.';
-                            }
-                            
-                            showToast('Success', message);
-                            
-                            // Update UI without page reload
-                            const row = form.closest('tr');
-                            if (form.action.includes('/assign')) {
-                                row.remove(); // Remove from available packages
-                                // First update the active deliveries tab content
-                                fetch('/api/packages/active?username=${user.username}', {
-                                    method: 'GET',
-                                    headers: createHeaders(),
-                                    credentials: 'same-origin'
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.status === 'success') {
-                                        // Switch to active deliveries tab
-                                        const activeDeliveriesTab = document.querySelector('a[href="#active-deliveries"]');
-                                        const tabInstance = new bootstrap.Tab(activeDeliveriesTab);
-                                        tabInstance.show();
-                                        
-                                        // Refresh the page to show updated active deliveries
-                                        setTimeout(() => {
-                                            window.location.reload();
-                                        }, 500);
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error fetching active deliveries:', error);
-                                    showToast('Error', 'Failed to update active deliveries', 'danger');
-                                });
-                            } else if (form.action.includes('/drop')) {
-                                row.remove(); // Remove from active deliveries
-                            } else if (form.action.includes('/status')) {
-                                if (formData.get('status') === 'DELIVERED') {
-                                    row.remove(); // Remove delivered packages
-                                    
-                                    // Update courier availability to true when package is delivered
-                                    const courierId = '${user.id}';
-                                    fetch(`/api/courier/${courierId}/availability?available=true`, {
-                                        method: 'POST',
-                                        headers: createHeaders(),
-                                        credentials: 'same-origin'
-                                    })
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        if (data.status === 'success') {
-                                            // Update the availability toggle
-                                            const availabilityToggle = document.getElementById('availabilityToggle');
-                                            if (availabilityToggle) {
-                                                availabilityToggle.checked = true;
-                                            }
-                                            showToast('Status Updated', 'You are now available for new deliveries');
-                                            
-                                            // Enable all take delivery buttons
-                                            const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
-                                            takeDeliveryButtons.forEach(button => {
-                                                button.disabled = false;
-                                                button.textContent = 'Take Delivery';
-                                            });
-                                        }
-                                    })
-                                    .catch(error => {
-                                        console.error('Error updating availability:', error);
-                                        showToast('Error', 'Failed to update availability status', 'danger');
-                                    });
-                                }
-                            }
-                            
-                            // Update counts in overview
-                            const activeDeliveriesCount = document.querySelector('#overview .col-xl-6:first-child .display-4');
-                            const availablePackagesCount = document.querySelector('#overview .col-xl-6:last-child .display-4');
-                            
-                            if (activeDeliveriesCount && availablePackagesCount) {
-                                if (form.action.includes('/assign')) {
-                                    activeDeliveriesCount.textContent = parseInt(activeDeliveriesCount.textContent) + 1;
-                                    availablePackagesCount.textContent = parseInt(availablePackagesCount.textContent) - 1;
-                                } else if (form.action.includes('/drop')) {
-                                    activeDeliveriesCount.textContent = parseInt(activeDeliveriesCount.textContent) - 1;
-                                    availablePackagesCount.textContent = parseInt(availablePackagesCount.textContent) + 1;
-                                } else if (form.action.includes('/status') && formData.get('status') === 'DELIVERED') {
-                                    activeDeliveriesCount.textContent = parseInt(activeDeliveriesCount.textContent) - 1;
-                                }
-
-                                // Check if there are no more active deliveries
-                                if (parseInt(activeDeliveriesCount.textContent) === 0) {
-                                    // Update courier availability to true
-                                    const courierId = '${user.id}';
-                                    fetch(`/api/courier/${courierId}/availability?available=true`, {
-                                        method: 'POST',
-                                        headers: createHeaders(),
-                                        credentials: 'same-origin'
-                                    })
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        if (data.status === 'success') {
-                                            // Update the availability toggle
-                                            const availabilityToggle = document.getElementById('availabilityToggle');
-                                            if (availabilityToggle) {
-                                                availabilityToggle.checked = true;
-                                            }
-                                            showToast('Status Updated', 'You are now available for new deliveries');
-                                            
-                                            // Enable all take delivery buttons
-                                            const takeDeliveryButtons = document.querySelectorAll('.delivery-form button[type="submit"]');
-                                            takeDeliveryButtons.forEach(button => {
-                                                button.disabled = false;
-                                                button.textContent = 'Take Delivery';
-                                            });
-                                        }
-                                    })
-                                    .catch(error => {
-                                        console.error('Error updating availability:', error);
-                                    });
-                                }
-                            }
-                            
-                            // Refresh the map if on available packages tab
-                            if (document.querySelector('#available-packages').classList.contains('active')) {
-                                initMap();
-                            }
-                        } else {
-                            throw new Error(result.message || 'Operation failed');
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        showToast('Error', error.message, 'danger');
-                    } finally {
-                        if (submitButton) {
-                            submitButton.disabled = false;
-                            submitButton.textContent = originalButtonText;
-                        }
-                    }
-
-                    return false; // Prevent form submission
-                });
-            });
-
-            // Logout form
-            const logoutForm = document.getElementById('logoutForm');
-            if (logoutForm) {
-                logoutForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    fetch('/api/auth/logout', {
-                        method: 'POST',
-                        headers: createHeaders()
-                    })
-                    .then(response => {
-                        window.location.href = '/auth/login';
-                    })
-                    .catch(error => {
-                        console.error('Logout failed:', error);
-                        window.location.href = '/auth/login';
-                    });
-                });
-            }
-        }
-
-        // Initialize everything when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            if (initializeCsrf()) {
-                initializeEventListeners();
-                initMap();
             }
         });
 
-        function initMap() {
-            const defaultLocation = { lat: 41.0082, lng: 28.9784 }; // Istanbul coordinates
-            
-            map = new google.maps.Map(document.getElementById('map'), {
-                center: defaultLocation,
-                zoom: 12
-            });
-
-            geocoder = new google.maps.Geocoder();
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer();
-            directionsRenderer.setMap(map);
-
-            // Get user's location
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const pos = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude
-                        };
-                        map.setCenter(pos);
-                        // Add user marker
-                        new google.maps.Marker({
-                            position: pos,
-                            map: map,
-                            title: 'Your Location',
-                            icon: {
-                                url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                            }
-                        });
-                    },
-                    () => {
-                        console.log('Error: The Geolocation service failed.');
-                        map.setCenter(defaultLocation);
-                    }
-                );
+        $('#activeDeliveriesTable').DataTable({
+            "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                   '<"row"<"col-sm-12"tr>>' +
+                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "language": {
+                "lengthMenu": "_MENU_ records per page",
+                "zeroRecords": "No active deliveries",
+                "info": "Showing page _PAGE_ of _PAGES_",
+                "infoEmpty": "No active deliveries",
+                "infoFiltered": "(filtered from _MAX_ total records)",
+                "search": "Search:",
+                "paginate": {
+                    "first": "First",
+                    "last": "Last",
+                    "next": "Next",
+                    "previous": "Previous"
+                }
             }
+        });
 
-            // Add markers for available packages
-            const availablePackages = Array.from(document.querySelectorAll('#availablePackagesTable tr'));
-            availablePackages.forEach(packageRow => {
-                const pickupAddress = packageRow.querySelector('td:nth-child(4)').textContent;
-                const deliveryAddress = packageRow.querySelector('td:nth-child(5)').textContent;
-                
-                // Add pickup location marker
-                geocodeAndAddMarker(pickupAddress, 'pickup');
-                // Add delivery location marker
-                geocodeAndAddMarker(deliveryAddress, 'delivery');
-            });
-        }
+        // Initialize map
+        initMap();
 
-        function geocodeAndAddMarker(address, type) {
-            geocoder.geocode({ address: address }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const position = results[0].geometry.location;
-                    new google.maps.Marker({
-                        map: map,
-                        position: position,
-                        title: type === 'pickup' ? 'Pickup Location' : 'Delivery Location',
-                        icon: {
-                            url: type === 'pickup' ? 
-                                'http://maps.google.com/mapfiles/ms/icons/green-dot.png' : 
-                                'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
-                        }
-                    });
+        // Handle availability toggle
+        $('#availabilityToggle').change(function(event) {
+            handleAvailabilityToggle(event);
+        });
+
+        // Handle delivery forms
+        $('.delivery-form').submit(function(e) {
+            e.preventDefault();
+            const form = $(this);
+            const submitButton = form.find('button[type="submit"]');
+            const originalButtonText = submitButton.html();
+            
+            submitButton.prop('disabled', true)
+                       .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...');
+
+            $.ajax({
+                url: form.attr('action'),
+                type: 'POST',
+                data: form.serialize(),
+                success: function(response) {
+                    if (response.status === 'success') {
+                        toastr.success(response.message || 'Operation completed successfully');
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        toastr.error(response.message || 'Operation failed');
+                        submitButton.prop('disabled', false).html(originalButtonText);
+                    }
+                },
+                error: function(xhr) {
+                    toastr.error(xhr.responseJSON?.message || 'Operation failed');
+                    submitButton.prop('disabled', false).html(originalButtonText);
                 }
             });
-        }
+        });
+    });
     </script>
-</body>
-</html>
+
+<%@ include file="common/footer.jsp" %>

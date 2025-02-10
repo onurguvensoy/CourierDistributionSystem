@@ -49,36 +49,15 @@ public class ViewController {
     }
 
     @GetMapping("/auth/login")
-    public String showLoginForm(Model model, HttpSession session, RedirectAttributes redirectAttributes) {
-        String username = (String) session.getAttribute("username");
-        if (username != null) {
-            try {
-                return viewService.getDashboardRedirect(username);
-            } catch (Exception e) {
-                logger.error("Error redirecting from login: {}", e.getMessage());
-                session.invalidate();
-            }
-        }
-        
+    public String showLoginForm(Model model, HttpSession session) {
         return "login";
     }
 
     @GetMapping("/auth/signup")
-    public String showSignupForm(Model model, HttpSession session, RedirectAttributes redirectAttributes) {
-        String username = (String) session.getAttribute("username");
-        if (username != null) {
-            try {
-                return viewService.getDashboardRedirect(username);
-            } catch (Exception e) {
-                logger.error("Error redirecting from signup: {}", e.getMessage());
-                session.invalidate();
-            }
-        }
-        
+    public String showSignupForm(Model model, HttpSession session) {
         if (!model.containsAttribute("signupForm")) {
             model.addAttribute("signupForm", new SignupForm());
         }
-   
         return "signup";
     }
 
