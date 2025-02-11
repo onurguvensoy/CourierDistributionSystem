@@ -210,7 +210,7 @@ public class UserService {
             String role = signupRequest.get("role").toUpperCase();
             User.UserRole userRole = User.UserRole.valueOf(role);
             
-            User savedUser = switch (userRole) {
+            switch (userRole) {
                 case CUSTOMER -> processCustomerSignup(signupRequest);
                 case COURIER -> processCourierSignup(signupRequest);
                 case ADMIN -> processAdminSignup(signupRequest);
@@ -358,6 +358,28 @@ public class UserService {
             logger.error("Error deleting user: {} - {}", username, e.getMessage(), e);
             throw new RuntimeException("Error deleting user", e);
         }
+    }
+
+    @Transactional
+    public User editUser(Long id, Map<String, String> updates) {
+        User user = getUserById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found with ID: " + id));
+
+        if (updates.containsKey("email")) {
+            user.setEmail(updates.get("email"));
+        }
+        if (updates.containsKey("phoneNumber")) {
+            if (user instanceof Customer) {
+                ((Customer) user).setPhoneNumber(updates.get("phoneNumber"));
+            } else if (user instanceof Courier) {
+                ((Courier) user).setPhoneNumber(updates.get("phoneNumber"));
+            }
+        }
+        if (updates.containsKey("password")) {
+            user.setPassword(passwordEncoder.encode(updates.get("password")));
+        }
+
+        return userRepository.save(user);
     }
 
     public static class UserNotFoundException extends RuntimeException {

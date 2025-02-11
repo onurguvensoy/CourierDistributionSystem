@@ -30,8 +30,7 @@ public class DeliveryPackageService {
     private final CourierRepository courierRepository;
     private final DeliveryReportRepository deliveryReportRepository;
     private final RatingRepository ratingRepository;
-    private final WebSocketService webSocketService;
-    private final UserService userService;
+    private final WebSocketNotificationService notificationService;
 
     public DeliveryPackageService(
             DeliveryPackageRepository deliveryPackageRepository,
@@ -39,15 +38,13 @@ public class DeliveryPackageService {
             CourierRepository courierRepository,
             DeliveryReportRepository deliveryReportRepository,
             RatingRepository ratingRepository,
-            WebSocketService webSocketService,
-            UserService userService) {
+            WebSocketNotificationService notificationService) {
         this.deliveryPackageRepository = deliveryPackageRepository;
         this.customerRepository = customerRepository;
         this.courierRepository = courierRepository;
         this.deliveryReportRepository = deliveryReportRepository;
         this.ratingRepository = ratingRepository;
-        this.webSocketService = webSocketService;
-        this.userService = userService;
+        this.notificationService = notificationService;
     }
 
     public List<DeliveryPackage> getAllDeliveryPackages() {
@@ -104,7 +101,7 @@ public class DeliveryPackageService {
         logger.info("Successfully created delivery package with id: {}", savedPackage.getPackage_id());
 
         // Notify through WebSocket
-        webSocketService.notifyNewDeliveryAvailable(savedPackage);
+        notificationService.notifyNewDeliveryAvailable(savedPackage);
 
         return savedPackage;
     }
@@ -156,7 +153,7 @@ public class DeliveryPackageService {
         }
 
         DeliveryPackage updatedDelivery = deliveryPackageRepository.save(existingDelivery);
-        webSocketService.notifyDeliveryStatusUpdate(updatedDelivery);
+        notificationService.notifyDeliveryStatusUpdate(updatedDelivery);
         return updatedDelivery;
     }
 
@@ -183,7 +180,7 @@ public class DeliveryPackageService {
         }
 
         DeliveryPackage cancelledDelivery = deliveryPackageRepository.save(deliveryPackage);
-        webSocketService.notifyDeliveryStatusUpdate(cancelledDelivery);
+        notificationService.notifyDeliveryStatusUpdate(cancelledDelivery);
     }
 
     public List<DeliveryPackage> getCustomerDeliveryPackages(String username) {
@@ -266,11 +263,11 @@ public class DeliveryPackageService {
         logger.info("Successfully updated package {} status to {}", packageId, status);
 
         // Send WebSocket notification to customer
-        webSocketService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
+        notificationService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
 
         // If delivered, send rating prompt
         if (status == DeliveryPackage.DeliveryStatus.DELIVERED) {
-            webSocketService.sendRatingPrompt(deliveryPackage.getCustomer().getUsername(), packageId);
+            notificationService.sendRatingPrompt(deliveryPackage.getCustomer().getUsername(), packageId);
         }
 
         return updatedPackage;
@@ -294,8 +291,10 @@ public class DeliveryPackageService {
     private void updateStatusTimestamp(DeliveryPackage deliveryPackage, DeliveryPackage.DeliveryStatus status) {
         LocalDateTime now = LocalDateTime.now();
         switch (status) {
+            case PENDING -> {}  // No timestamp to set
             case ASSIGNED -> deliveryPackage.setAssignedAt(now);
             case PICKED_UP -> deliveryPackage.setPickedUpAt(now);
+            case IN_TRANSIT -> {}  // No timestamp to set
             case DELIVERED -> deliveryPackage.setDeliveredAt(now);
             case CANCELLED -> deliveryPackage.setCancelledAt(now);
         }
@@ -335,8 +334,8 @@ public class DeliveryPackageService {
 
         // Send WebSocket notifications
         String customerUsername = deliveryPackage.getCustomer().getUsername();
-        webSocketService.sendLocationUpdate(customerUsername, packageId, location, latitude, longitude);
-        webSocketService.sendPackageUpdate(customerUsername, updatedPackage);
+        notificationService.sendLocationUpdate(customerUsername, packageId, location, latitude, longitude);
+        notificationService.sendPackageUpdate(customerUsername, updatedPackage);
 
         return updatedPackage;
     }
@@ -374,7 +373,7 @@ public class DeliveryPackageService {
         logger.info("Successfully assigned package {} to courier {}", packageId, username);
 
         // Send WebSocket notification to customer
-        webSocketService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
+        notificationService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
 
         return updatedPackage;
     }
@@ -407,7 +406,7 @@ public class DeliveryPackageService {
         logger.info("Successfully dropped package {}", packageId);
 
         // Send WebSocket notification to customer
-        webSocketService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
+        notificationService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
 
         return updatedPackage;
     }
@@ -579,7 +578,7 @@ public class DeliveryPackageService {
             .build();
 
         DeliveryPackage savedPackage = deliveryPackageRepository.save(newPackage);
-        webSocketService.notifyNewDeliveryAvailable(savedPackage);
+        notificationService.notifyNewDeliveryAvailable(savedPackage);
         
         return savedPackage;
     }

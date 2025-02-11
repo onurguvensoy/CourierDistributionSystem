@@ -20,4 +20,5 @@ public interface DeliveryReportRepository extends JpaRepository<DeliveryReport, 
     Optional<DeliveryReport> findFirstByDeliveryPackageOrderByDeliveryTimeDesc(DeliveryPackage deliveryPackage);
     List<DeliveryReport> findByCustomerConfirmationTrue();
     List<DeliveryReport> findByDeliveryRatingGreaterThanEqual(Integer rating);
+    List<DeliveryReport> findByCourier_Username(String username);
 } 

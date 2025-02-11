@@ -6,12 +6,16 @@ import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.DeliveryReport;
 import com.example.courierdistributionsystem.service.CustomerService;
 import com.example.courierdistributionsystem.service.DeliveryPackageService;
+import com.example.courierdistributionsystem.service.WebSocketNotificationService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +33,21 @@ public class DeliveryPackageController {
     @Autowired
     private CustomerService customerService;
 
+    @Autowired
+    private WebSocketNotificationService notificationService;
+
+    private String getUsername(SimpMessageHeaderAccessor headerAccessor) {
+        Map<String, Object> attributes = headerAccessor.getSessionAttributes();
+        if (attributes == null) {
+            throw new IllegalStateException("No session attributes found");
+        }
+        String username = (String) attributes.get("username");
+        if (username == null) {
+            throw new IllegalStateException("No username found in session");
+        }
+        return username;
+    }
+
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createPackage(@Valid @RequestBody CreatePackageRequest request, HttpSession session) {
         try {
@@ -38,12 +57,20 @@ public class DeliveryPackageController {
                 throw new IllegalArgumentException("User not authenticated");
             }
 
+            // Validate that the username in the request matches the session username
+            if (!username.equals(request.getUsername())) {
+                throw new IllegalArgumentException("Username mismatch");
+            }
+
             Optional<Customer> customer = customerService.findByUsername(username);
             if (customer.isEmpty()) {
                 throw new IllegalArgumentException("Customer not found");
             }
 
             DeliveryPackage newPackage = deliveryPackageService.createPackage(request, customer.get());
+
+            // Notify through WebSocket about new package
+            notificationService.notifyNewPackage(newPackage);
 
             Map<String, Object> response = new HashMap<>();
             response.put("status", "success");
@@ -62,20 +89,144 @@ public class DeliveryPackageController {
         }
     }
 
-    @GetMapping("/{id}/track")
-    public ResponseEntity<?> trackPackage(@PathVariable Long id, @RequestParam String username) {
-        Map<String, Object> response = new HashMap<>();
+    @MessageMapping("/package/track")
+    public void trackPackage(@Payload Map<String, Object> trackingRequest, SimpMessageHeaderAccessor headerAccessor) {
         try {
-            logger.info("Tracking package {} for user {}", id, username);
-            Map<String, Object> trackingInfo = deliveryPackageService.trackDeliveryPackage(id, username);
-            response.put("status", "success");
-            response.put("data", trackingInfo);
-            return ResponseEntity.ok(response);
+            String username = getUsername(headerAccessor);
+            Long packageId = Long.valueOf(trackingRequest.get("packageId").toString());
+            
+            Map<String, Object> trackingInfo = deliveryPackageService.trackDeliveryPackage(packageId, username);
+            notificationService.sendTrackingUpdate(username, trackingInfo);
         } catch (Exception e) {
             logger.error("Failed to track package: {}", e.getMessage());
-            response.put("status", "error");
-            response.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
+            try {
+                String username = getUsername(headerAccessor);
+                notificationService.sendErrorMessage(username, "Failed to track package: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Could not send error message: {}", ex.getMessage());
+            }
+        }
+    }
+
+    @MessageMapping("/package/status/update")
+    public void updatePackageStatus(
+            @Payload Map<String, Object> statusUpdate,
+            SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            String username = getUsername(headerAccessor);
+            Long packageId = Long.valueOf(statusUpdate.get("packageId").toString());
+            String status = (String) statusUpdate.get("status");
+            
+            DeliveryPackage.DeliveryStatus newStatus = DeliveryPackage.DeliveryStatus.valueOf(status.toUpperCase());
+            DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryStatus(packageId, username, newStatus);
+            
+            notificationService.notifyPackageStatusUpdate(updatedPackage);
+        } catch (Exception e) {
+            logger.error("Failed to update package status: {}", e.getMessage());
+            try {
+                String username = getUsername(headerAccessor);
+                notificationService.sendErrorMessage(username, "Failed to update status: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Could not send error message: {}", ex.getMessage());
+            }
+        }
+    }
+
+    @MessageMapping("/package/location/update")
+    public void updatePackageLocation(
+            @Payload Map<String, Object> locationUpdate,
+            SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            String username = getUsername(headerAccessor);
+            Long packageId = Long.valueOf(locationUpdate.get("packageId").toString());
+            Double latitude = Double.valueOf(locationUpdate.get("latitude").toString());
+            Double longitude = Double.valueOf(locationUpdate.get("longitude").toString());
+            String location = (String) locationUpdate.get("location");
+
+            DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryLocation(
+                packageId, username, latitude, longitude, location);
+            
+            notificationService.notifyPackageLocationUpdate(updatedPackage);
+        } catch (Exception e) {
+            logger.error("Failed to update package location: {}", e.getMessage());
+            try {
+                String username = getUsername(headerAccessor);
+                notificationService.sendErrorMessage(username, "Failed to update location: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Could not send error message: {}", ex.getMessage());
+            }
+        }
+    }
+
+    @MessageMapping("/package/take")
+    public void takePackage(@Payload Map<String, Object> request, SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            String username = getUsername(headerAccessor);
+            Long packageId = Long.valueOf(request.get("packageId").toString());
+            
+            DeliveryPackage assignedPackage = deliveryPackageService.takeDeliveryPackage(packageId, username);
+            notificationService.notifyPackageAssignment(assignedPackage);
+        } catch (Exception e) {
+            logger.error("Failed to take package: {}", e.getMessage());
+            try {
+                String username = getUsername(headerAccessor);
+                notificationService.sendErrorMessage(username, "Failed to take package: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Could not send error message: {}", ex.getMessage());
+            }
+        }
+    }
+
+    @MessageMapping("/package/drop")
+    public void dropPackage(@Payload Map<String, Object> request, SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            String username = getUsername(headerAccessor);
+            Long packageId = Long.valueOf(request.get("packageId").toString());
+            
+            DeliveryPackage droppedPackage = deliveryPackageService.dropDeliveryPackage(packageId, username);
+            notificationService.notifyPackageDrop(droppedPackage);
+        } catch (Exception e) {
+            logger.error("Failed to drop package: {}", e.getMessage());
+            try {
+                String username = getUsername(headerAccessor);
+                notificationService.sendErrorMessage(username, "Failed to drop package: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Could not send error message: {}", ex.getMessage());
+            }
+        }
+    }
+
+    @MessageMapping("/packages/available")
+    public void getAvailablePackages(SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            String username = getUsername(headerAccessor);
+            List<DeliveryPackage> packages = deliveryPackageService.getAvailableDeliveryPackages();
+            notificationService.sendAvailablePackages(username, packages);
+        } catch (Exception e) {
+            logger.error("Failed to get available packages: {}", e.getMessage());
+            try {
+                String username = getUsername(headerAccessor);
+                notificationService.sendErrorMessage(username, "Failed to get available packages: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Could not send error message: {}", ex.getMessage());
+            }
+        }
+    }
+
+    @MessageMapping("/packages/active")
+    public void getActivePackages(SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            String username = getUsername(headerAccessor);
+            List<DeliveryPackage> packages = deliveryPackageService.getCourierActiveDeliveryPackages(username);
+            notificationService.sendActivePackages(username, packages);
+        } catch (Exception e) {
+            logger.error("Failed to get active packages: {}", e.getMessage());
+            try {
+                String username = getUsername(headerAccessor);
+                notificationService.sendErrorMessage(username, "Failed to get active packages: " + e.getMessage());
+            } catch (Exception ex) {
+                logger.error("Could not send error message: {}", ex.getMessage());
+            }
         }
     }
 

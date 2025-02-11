@@ -5,6 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -14,25 +17,21 @@ import java.util.Objects;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "admin_id")
-    private Admin admin;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "courier_id")
-    private Courier courier;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id")
-    private Customer customer;
+    @JoinColumn(name = "user_id")
+    @JsonIgnoreProperties({"notifications", "packages", "deliveries", "ratings", "reports", "metrics"})
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "package_id")
+    @JsonIgnoreProperties({"notifications", "customer", "courier", "ratings"})
     private DeliveryPackage deliveryPackage;
 
     @Enumerated(EnumType.STRING)
@@ -63,26 +62,16 @@ public class Notification {
         SYSTEM_MESSAGE
     }
 
-    public void setUser(Customer customer) {
-        this.customer = customer;
-        this.courier = null;
+    public void setUser(User user) {
+        this.user = user;
     }
 
-    public void setUser(Courier courier) {
-        this.courier = courier;
-        this.customer = null;
+    public User getUser() {
+        return this.user;
     }
 
-    public Object getUser() {
-        return customer != null ? customer : courier;
-    }
-
-    public boolean belongsToUser(Customer customer) {
-        return this.customer != null && this.customer.equals(customer);
-    }
-
-    public boolean belongsToUser(Courier courier) {
-        return this.courier != null && this.courier.equals(courier);
+    public boolean belongsToUser(User user) {
+        return this.user != null && Objects.equals(this.user.getId(), user.getId());
     }
 
     @Override

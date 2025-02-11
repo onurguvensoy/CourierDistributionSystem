@@ -2,12 +2,7 @@ package com.example.courierdistributionsystem.controller;
 
 import com.example.courierdistributionsystem.exception.DeliveryReportException;
 import com.example.courierdistributionsystem.model.DeliveryReport;
-import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.model.Courier;
-import com.example.courierdistributionsystem.repository.DeliveryReportRepository;
-import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
-import com.example.courierdistributionsystem.repository.CourierRepository;
-import jakarta.validation.Valid;
+import com.example.courierdistributionsystem.service.DeliveryReportService;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,19 +24,13 @@ public class DeliveryReportController {
     private static final Logger logger = LoggerFactory.getLogger(DeliveryReportController.class);
 
     @Autowired
-    private DeliveryReportRepository deliveryReportRepository;
-
-    @Autowired
-    private DeliveryPackageRepository packageRepository;
-
-    @Autowired
-    private CourierRepository courierRepository;
+    private DeliveryReportService deliveryReportService;
 
     @GetMapping
     public ResponseEntity<?> getAllDeliveryReports() {
         logger.debug("Fetching all delivery reports");
         try {
-            List<DeliveryReport> reports = deliveryReportRepository.findAll();
+            List<DeliveryReport> reports = deliveryReportService.getAllReports();
             logger.info("Successfully retrieved {} delivery reports", reports.size());
             return ResponseEntity.ok(Map.of(
                 "status", "success",
@@ -60,23 +49,11 @@ public class DeliveryReportController {
     public ResponseEntity<?> getCourierDeliveryReports(@RequestParam @NotNull String username) {
         logger.debug("Fetching delivery reports for courier: {}", username);
         try {
-            Courier courier = courierRepository.findByUsername(username)
-                    .orElseThrow(() -> {
-                        logger.warn("Courier not found with username: {}", username);
-                        return new DeliveryReportException("Courier not found");
-                    });
-
-            List<DeliveryReport> reports = deliveryReportRepository.findByCourier(courier);
+            List<DeliveryReport> reports = deliveryReportService.getReportsByCourier(username);
             logger.info("Successfully retrieved {} delivery reports for courier: {}", reports.size(), username);
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "data", reports
-            ));
-        } catch (DeliveryReportException e) {
-            logger.warn("Failed to fetch courier delivery reports: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
-                "message", e.getMessage()
             ));
         } catch (Exception e) {
             logger.error("Failed to fetch courier delivery reports: {}", e.getMessage(), e);
@@ -87,52 +64,30 @@ public class DeliveryReportController {
         }
     }
 
-    @PostMapping("/package/{packageId}")
-    public ResponseEntity<?> createDeliveryReport(
+    @PostMapping("/generate/{packageId}")
+    public ResponseEntity<?> generateReport(
             @PathVariable @NotNull Long packageId,
-            @Valid @RequestBody DeliveryReport report,
             @RequestParam @NotNull String username) {
         
-        logger.debug("Creating delivery report for package {} by courier {}", packageId, username);
+        logger.debug("Generating report for package {} by admin {}", packageId, username);
         try {
-            validateDeliveryReport(report);
-
-            Courier courier = courierRepository.findByUsername(username)
-                    .orElseThrow(() -> {
-                        logger.warn("Courier not found with username: {}", username);
-                        return new DeliveryReportException("Courier not found");
-                    });
-            
-            DeliveryPackage deliveryPackage = packageRepository.findById(packageId)
-                    .orElseThrow(() -> {
-                        logger.warn("Package not found with ID: {}", packageId);
-                        return new DeliveryReportException("Package not found");
-                    });
-
-            report.setDeliveryPackage(deliveryPackage);
-            report.setCourier(courier);
-            report.setCompletionTime(LocalDateTime.now());
-            
-            deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.DELIVERED);
-            packageRepository.save(deliveryPackage);
-
-            DeliveryReport savedReport = deliveryReportRepository.save(report);
-            logger.info("Successfully created delivery report with ID: {} for package: {}", savedReport.getId(), packageId);
+            DeliveryReport report = deliveryReportService.generateReport(packageId, username);
+            logger.info("Successfully generated report with ID: {} for package: {}", report.getId(), packageId);
             return ResponseEntity.ok(Map.of(
                 "status", "success",
-                "data", savedReport
+                "data", report
             ));
-        } catch (DeliveryReportException e) {
-            logger.warn("Failed to create delivery report: {}", e.getMessage());
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Failed to generate report: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "status", "error",
                 "message", e.getMessage()
             ));
         } catch (Exception e) {
-            logger.error("Failed to create delivery report: {}", e.getMessage(), e);
+            logger.error("Failed to generate report: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body(Map.of(
                 "status", "error",
-                "message", "Failed to create delivery report"
+                "message", "Failed to generate report"
             ));
         }
     }
@@ -141,22 +96,15 @@ public class DeliveryReportController {
     public ResponseEntity<?> getDeliveryReportById(@PathVariable @NotNull Long id) {
         logger.debug("Fetching delivery report with ID: {}", id);
         try {
-            DeliveryReport report = deliveryReportRepository.findById(id)
-                    .orElseThrow(() -> {
-                        logger.warn("Delivery report not found with ID: {}", id);
-                        return new DeliveryReportException("Delivery report not found");
-                    });
-            logger.info("Successfully retrieved delivery report with ID: {}", id);
-            return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "data", report
-            ));
-        } catch (DeliveryReportException e) {
-            logger.warn("Failed to fetch delivery report: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
-                "message", e.getMessage()
-            ));
+            return deliveryReportService.getReportById(id)
+                .map(report -> ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "data", report
+                )))
+                .orElse(ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", "Delivery report not found"
+                )));
         } catch (Exception e) {
             logger.error("Failed to fetch delivery report: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body(Map.of(
@@ -170,19 +118,13 @@ public class DeliveryReportController {
     public ResponseEntity<?> getDeliveryReportsByPackage(@PathVariable @NotNull Long packageId) {
         logger.debug("Fetching delivery reports for package: {}", packageId);
         try {
-            DeliveryPackage deliveryPackage = packageRepository.findById(packageId)
-                    .orElseThrow(() -> {
-                        logger.warn("Package not found with ID: {}", packageId);
-                        return new DeliveryReportException("Package not found");
-                    });
-
-            List<DeliveryReport> reports = deliveryReportRepository.findByDeliveryPackage(deliveryPackage);
+            List<DeliveryReport> reports = deliveryReportService.getReportsByPackage(packageId);
             logger.info("Successfully retrieved {} delivery reports for package: {}", reports.size(), packageId);
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "data", reports
             ));
-        } catch (DeliveryReportException e) {
+        } catch (IllegalArgumentException e) {
             logger.warn("Failed to fetch package delivery reports: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "status", "error",
@@ -197,64 +139,15 @@ public class DeliveryReportController {
         }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateDeliveryReport(
-            @PathVariable @NotNull Long id,
-            @Valid @RequestBody DeliveryReport reportDetails) {
-        
-        logger.debug("Updating delivery report with ID: {}", id);
-        try {
-            validateDeliveryReport(reportDetails);
-
-            DeliveryReport report = deliveryReportRepository.findById(id)
-                    .orElseThrow(() -> {
-                        logger.warn("Delivery report not found with ID: {}", id);
-                        return new DeliveryReportException("Delivery report not found");
-                    });
-
-            updateReportFields(report, reportDetails);
-            DeliveryReport updatedReport = deliveryReportRepository.save(report);
-            logger.info("Successfully updated delivery report with ID: {}", id);
-            return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "data", updatedReport
-            ));
-        } catch (DeliveryReportException e) {
-            logger.warn("Failed to update delivery report: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to update delivery report: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of(
-                "status", "error",
-                "message", "Failed to update delivery report"
-            ));
-        }
-    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteDeliveryReport(@PathVariable @NotNull Long id) {
         logger.debug("Deleting delivery report with ID: {}", id);
         try {
-            DeliveryReport report = deliveryReportRepository.findById(id)
-                    .orElseThrow(() -> {
-                        logger.warn("Delivery report not found with ID: {}", id);
-                        return new DeliveryReportException("Delivery report not found");
-                    });
-
-            deliveryReportRepository.delete(report);
+            deliveryReportService.deleteReport(id);
             logger.info("Successfully deleted delivery report with ID: {}", id);
             return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "Delivery report deleted successfully"
-            ));
-        } catch (DeliveryReportException e) {
-            logger.warn("Failed to delete delivery report: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                "status", "error",
-                "message", e.getMessage()
             ));
         } catch (Exception e) {
             logger.error("Failed to delete delivery report: {}", e.getMessage(), e);

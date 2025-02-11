@@ -9,6 +9,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -18,6 +19,145 @@ public class WebSocketService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private DeliveryPackageService deliveryPackageService;
+
+    // Package creation notification
+    public void notifyNewPackage(DeliveryPackage deliveryPackage) {
+        // Notify admin about new package
+        messagingTemplate.convertAndSend("/topic/packages/new", deliveryPackage);
+        // Notify available couriers about new delivery opportunity
+        messagingTemplate.convertAndSend("/topic/packages/available", deliveryPackage);
+        logger.info("Notified about new package: {}", deliveryPackage.getPackage_id());
+    }
+
+    // Package tracking updates
+    public void sendTrackingUpdate(String username, Map<String, Object> trackingInfo) {
+        messagingTemplate.convertAndSendToUser(
+            username,
+            "/queue/package/tracking",
+            trackingInfo
+        );
+        logger.info("Sent tracking update to user: {}", username);
+    }
+
+    // Package status updates
+    public void notifyPackageStatusUpdate(DeliveryPackage updatedPackage) {
+        // Notify customer
+        messagingTemplate.convertAndSendToUser(
+            updatedPackage.getCustomer().getUsername(),
+            "/queue/package/status",
+            updatedPackage
+        );
+
+        // Notify courier if assigned
+        if (updatedPackage.getCourier() != null) {
+            messagingTemplate.convertAndSendToUser(
+                updatedPackage.getCourier().getUsername(),
+                "/queue/package/status",
+                updatedPackage
+            );
+        }
+
+        // Notify admin about status change
+        messagingTemplate.convertAndSend("/topic/packages/status", updatedPackage);
+        logger.info("Notified about package status update: {}", updatedPackage.getPackage_id());
+    }
+
+    // Package location updates
+    public void notifyPackageLocationUpdate(DeliveryPackage updatedPackage) {
+        // Send location update to customer
+        messagingTemplate.convertAndSendToUser(
+            updatedPackage.getCustomer().getUsername(),
+            "/queue/package/location",
+            updatedPackage
+        );
+        logger.info("Notified about package location update: {}", updatedPackage.getPackage_id());
+    }
+
+    // Package assignment notification
+    public void notifyPackageAssignment(DeliveryPackage assignedPackage) {
+        // Notify customer about courier assignment
+        messagingTemplate.convertAndSendToUser(
+            assignedPackage.getCustomer().getUsername(),
+            "/queue/package/assigned",
+            assignedPackage
+        );
+
+        // Notify courier about successful assignment
+        messagingTemplate.convertAndSendToUser(
+            assignedPackage.getCourier().getUsername(),
+            "/queue/package/assigned",
+            assignedPackage
+        );
+
+        // Update available packages list for all couriers
+        List<DeliveryPackage> availablePackages = getUpdatedAvailablePackages();
+        messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
+        logger.info("Notified about package assignment: {}", assignedPackage.getPackage_id());
+    }
+
+    // Package drop notification
+    public void notifyPackageDrop(DeliveryPackage droppedPackage) {
+        // Notify customer about package drop
+        messagingTemplate.convertAndSendToUser(
+            droppedPackage.getCustomer().getUsername(),
+            "/queue/package/dropped",
+            droppedPackage
+        );
+
+        // Update courier's active deliveries
+        messagingTemplate.convertAndSendToUser(
+            droppedPackage.getCourier().getUsername(),
+            "/queue/package/dropped",
+            droppedPackage
+        );
+
+        // Update available packages for all couriers
+        List<DeliveryPackage> availablePackages = getUpdatedAvailablePackages();
+        messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
+        logger.info("Notified about package drop: {}", droppedPackage.getPackage_id());
+    }
+
+    // Send available packages to courier
+    public void sendAvailablePackages(String username, List<DeliveryPackage> packages) {
+        messagingTemplate.convertAndSendToUser(
+            username,
+            "/queue/packages/available",
+            packages
+        );
+        logger.info("Sent available packages to courier: {}", username);
+    }
+
+    // Send active packages to courier
+    public void sendActivePackages(String username, List<DeliveryPackage> packages) {
+        messagingTemplate.convertAndSendToUser(
+            username,
+            "/queue/packages/active",
+            packages
+        );
+        logger.info("Sent active packages to courier: {}", username);
+    }
+
+    // Error message handling
+    public void sendErrorMessage(String username, String errorMessage) {
+        messagingTemplate.convertAndSendToUser(
+            username,
+            "/queue/errors",
+            Map.of("error", errorMessage)
+        );
+        logger.error("Sent error message to user {}: {}", username, errorMessage);
+    }
+
+    // Helper method to get updated available packages
+    private List<DeliveryPackage> getUpdatedAvailablePackages() {
+        try {
+            return deliveryPackageService.getAvailableDeliveryPackages();
+        } catch (Exception e) {
+            logger.error("Failed to get available packages: {}", e.getMessage());
+            return List.of();
+        }
+    }
 
     public void notifyNewDeliveryAvailable(DeliveryPackage deliveryPackage) {
         Map<String, Object> message = new HashMap<>();

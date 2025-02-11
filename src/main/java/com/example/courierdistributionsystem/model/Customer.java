@@ -8,8 +8,6 @@ import lombok.experimental.SuperBuilder;
 import lombok.Builder;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,18 +23,15 @@ public class Customer extends User {
     @Column(nullable = false)
     private String phoneNumber;
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DeliveryPackage> packages = new ArrayList<>();
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Notification> notifications = new ArrayList<>();
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Rating> ratings = new ArrayList<>();
 

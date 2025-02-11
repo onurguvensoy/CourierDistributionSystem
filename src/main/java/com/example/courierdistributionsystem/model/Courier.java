@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Data
@@ -49,17 +50,24 @@ public class Courier extends User {
     @JsonIgnore
     @OneToMany(mappedBy = "courier", cascade = CascadeType.ALL, orphanRemoval = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private List<DeliveryPackage> deliveries;
+    @Builder.Default
+    private List<DeliveryPackage> deliveries = new ArrayList<>();
 
     @JsonIgnore
     @OneToMany(mappedBy = "courier", cascade = CascadeType.ALL, orphanRemoval = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private List<DeliveryReport> reports;
+    @Builder.Default
+    private List<DeliveryReport> reports = new ArrayList<>();
 
     @JsonIgnore
     @OneToMany(mappedBy = "courier", cascade = CascadeType.ALL, orphanRemoval = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private List<Rating> ratings;
+    @Builder.Default
+    private List<Rating> ratings = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Notification> notifications = new ArrayList<>();
 
     public void setIsAvailable(boolean available) {
         this.available = available;

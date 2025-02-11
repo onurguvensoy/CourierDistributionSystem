@@ -2,6 +2,7 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.dto.SignupRequest;
 import com.example.courierdistributionsystem.exception.AuthenticationException;
 import com.example.courierdistributionsystem.model.*;
+import com.example.courierdistributionsystem.repository.AdminRepository;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,11 +21,13 @@ public class AuthService {
 
     private final UserService userService;
     private final PasswordEncoderService passwordEncoder;
+    private final AdminRepository adminRepository;
 
     @Autowired
-    public AuthService(UserService userService, PasswordEncoderService passwordEncoder) {
+    public AuthService(UserService userService, PasswordEncoderService passwordEncoder, AdminRepository adminRepository) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.adminRepository = adminRepository;
     }
 
     @Transactional(readOnly = true)
@@ -66,7 +69,12 @@ public class AuthService {
                     response.put("isAvailable", courier.isAvailable());
                 }
                 case ADMIN -> {
-                    // Add any admin-specific attributes if needed
+                    adminRepository.findByUsername(username)
+                            .orElseThrow(() -> {
+                                logger.error("Admin user found in users table but not in admin table: {}", username);
+                                return new AuthenticationException("Invalid admin account", "INVALID_ADMIN");
+                            });
+                    response.put("role", "ADMIN");
                 }
             }
 

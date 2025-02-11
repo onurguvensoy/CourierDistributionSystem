@@ -26,8 +26,7 @@ public class Admin extends User {
     @Builder.Default
     private List<DeliveryReport> reports = new ArrayList<>();
 
-    @OneToMany(mappedBy = "admin", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OnDelete(action = OnDeleteAction.CASCADE)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Notification> notifications = new ArrayList<>();
 
