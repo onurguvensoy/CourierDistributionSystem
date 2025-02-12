@@ -47,10 +47,7 @@ public class AuthController {
         logger.info("Login attempt for user: {}", username);
         
         try {
-            // Log the incoming request for debugging
             logger.debug("Received login request - Username: {}", username);
-            
-            // Validate login request
             if (username == null || username.trim().isEmpty() || 
                 loginRequest.getPassword() == null || loginRequest.getPassword().trim().isEmpty()) {
                 logger.warn("Invalid login request: Missing credentials");
@@ -59,8 +56,6 @@ public class AuthController {
                     "message", "Username and password are required"
                 ));
             }
-
-            // Invalidate existing session if present
             if (currentSession != null && !currentSession.isNew()) {
                 logger.debug("Invalidating existing session for user: {}", username);
                 try {
@@ -71,20 +66,14 @@ public class AuthController {
             }
 
             Map<String, Object> loginResponse = authService.login(username, loginRequest.getPassword());
-
-            // Create new session
             HttpSession newSession = request.getSession(true);
-            newSession.setMaxInactiveInterval(30 * 60); // 30 minutes timeout
-
-            // Store user information in session
+            newSession.setMaxInactiveInterval(30 * 60);
             loginResponse.forEach((key, value) -> {
                 if (value != null) {
                     newSession.setAttribute(key, value);
                     logger.debug("Setting session attribute: {} for user: {}", key, username);
                 }
             });
-
-            // Remove sensitive information before sending response
             loginResponse.remove("password");
             
             logger.info("Login successful for user: {}", username);
@@ -129,7 +118,6 @@ public class AuthController {
         logger.info("Processing signup request for username: {}", username);
         
         try {
-            // Validate signup data
             validateSignupRequest(signupRequest);
 
             Map<String, String> response = authService.signup(signupRequest);
@@ -170,7 +158,6 @@ public class AuthController {
         
         try {
             if (username != null) {
-                // Clear session attributes
                 String[] attributes = {"username", "role", "userId", "email", "phoneNumber", 
                                     "isAvailable", "deliveryAddress"};
                 
@@ -236,6 +223,18 @@ public class AuthController {
         }
         if (request.getRole() == null || request.getRole().trim().isEmpty()) {
             validationErrors.put("role", "Role is required");
+        }
+    
+        if (("CUSTOMER".equals(request.getRole()) || "COURIER".equals(request.getRole())) 
+            && (request.getPhoneNumber() == null || request.getPhoneNumber().trim().isEmpty())) {
+            validationErrors.put("phoneNumber", "Phone number is required for customers and couriers");
+        }
+        if ("COURIER".equals(request.getRole())) {
+            if (request.getVehicleType() == null || request.getVehicleType().trim().isEmpty()) {
+                validationErrors.put("vehicleType", "Vehicle type is required for couriers");
+            } else if (!request.getVehicleType().matches("^(MOTORCYCLE|CAR|VAN)$")) {
+                validationErrors.put("vehicleType", "Vehicle type must be MOTORCYCLE, CAR, or VAN");
+            }
         }
 
         if (!validationErrors.isEmpty()) {

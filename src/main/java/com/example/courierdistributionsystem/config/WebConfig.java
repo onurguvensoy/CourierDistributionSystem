@@ -10,12 +10,9 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-
 import java.util.List;
-
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-
     @Autowired
     private AuthInterceptor authInterceptor;
 

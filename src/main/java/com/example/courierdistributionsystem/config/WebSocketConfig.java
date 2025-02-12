@@ -131,14 +131,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     private void handleSend(StompHeaderAccessor accessor) {
-        // Validate send permissions if needed
+ 
         var user = accessor.getUser();
         if (user == null) {
-            // Could throw exception or handle differently
+
             return;
         }
 
-        // Add any additional headers or validations
         accessor.setNativeHeader("sender", user.getName());
     }
 
@@ -161,23 +160,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             return false;
         }
 
-        // Allow admin to subscribe to all topics
         if (destination.startsWith("/topic/admin/")) {
             return username.startsWith("admin");
         }
-        
-        // Allow users to subscribe only to their own queues
+
         if (destination.startsWith("/user/queue/")) {
             return true;
         }
-        
-        // Allow subscription to public topics
+     
         return destination.startsWith("/topic/packages") || 
                destination.startsWith("/topic/notifications");
     }
 
     @Override
-    public boolean configureMessageConverters(List<MessageConverter> messageConverters) {
+    public boolean configureMessageConverters(@NonNull List<MessageConverter> messageConverters) {
         MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
         converter.setStrictContentTypeMatch(false);
         messageConverters.add(converter);

@@ -254,16 +254,15 @@ function connectWebSocket() {
         console.log('Connected to WebSocket');
         isConnected = true;
         
-        // Subscribe to topics
+    
         stompClient.subscribe('/user/queue/packages/available', onAvailablePackagesData);
         stompClient.subscribe('/user/queue/packages/active', onActiveDeliveriesData);
         stompClient.subscribe('/user/queue/errors', onError);
         
-        // Initial data load
+  
         refreshAvailablePackages();
         refreshActiveDeliveries();
         
-        toastr.success('Connected to real-time updates');
     }, function(error) {
         console.error('WebSocket connection error:', error);
         isConnected = false;
@@ -446,7 +445,7 @@ function updatePackageStatus(packageId, status) {
 }
 
 $(document).ready(function() {
-    // Initialize DataTables
+
     availablePackagesTable = $('#availablePackagesTable').DataTable({
         pageLength: 10,
         order: [[0, 'desc']],
@@ -475,7 +474,7 @@ $(document).ready(function() {
         ]
     });
 
-    // Configure toastr
+    
     toastr.options = {
         closeButton: true,
         progressBar: true,
@@ -483,16 +482,16 @@ $(document).ready(function() {
         timeOut: 5000
     };
 
-    // Connect WebSocket
+
     connectWebSocket();
     
-    // Set up periodic refresh
+ 
     setInterval(function() {
         if (isConnected) {
             refreshAvailablePackages();
             refreshActiveDeliveries();
         }
-    }, 30000); // Refresh every 30 seconds
+    }, 30000); 
 });
 </script>
 </body>

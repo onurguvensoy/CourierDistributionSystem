@@ -29,9 +29,10 @@ public class SignupRequest {
     @NotBlank(message = "Role is required")
     private String role;
     
+    @NotBlank(message = "Phone number is required")
     @Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Invalid phone number format")
     private String phoneNumber;
     
-    @Pattern(regexp = "^(CAR|MOTORCYCLE|BICYCLE)$", message = "Vehicle type must be CAR, MOTORCYCLE, or BICYCLE")
+    @Pattern(regexp = "^(MOTORCYCLE|CAR|VAN)$", message = "Vehicle type must be MOTORCYCLE, CAR, or VAN")
     private String vehicleType;
 } 

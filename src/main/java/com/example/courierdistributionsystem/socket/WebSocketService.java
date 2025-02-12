@@ -22,19 +22,19 @@ public class WebSocketService {
     @Autowired
     private DeliveryPackageService deliveryPackageService;
 
-    // Package status update notifications
+
     public void notifyNewPackage(DeliveryPackage deliveryPackage) {
         messagingTemplate.convertAndSend("/topic/packages/new", deliveryPackage);
         messagingTemplate.convertAndSend("/topic/packages/available", deliveryPackage);
         logger.info("Notified about new package: {}", deliveryPackage.getPackage_id());
     }
 
-    // Package status update with enhanced error handling
+
     public void updatePackageStatus(String username, Long packageId, DeliveryPackage.DeliveryStatus newStatus) {
         try {
             DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryStatus(packageId, username, newStatus);
             
-            // Notify the courier about the status update
+        
             messagingTemplate.convertAndSendToUser(
                 username,
                 "/queue/package/status",
@@ -56,7 +56,6 @@ public class WebSocketService {
                 )
             );
 
-            // If delivered, update available packages
             if (newStatus == DeliveryPackage.DeliveryStatus.DELIVERED) {
                 sendAvailablePackagesUpdate();
             }
@@ -73,7 +72,7 @@ public class WebSocketService {
         try {
             DeliveryPackage takenPackage = deliveryPackageService.takeDeliveryPackage(packageId, username);
             
-            // Notify the courier
+           
             messagingTemplate.convertAndSendToUser(
                 username,
                 "/queue/package/assigned",
@@ -84,7 +83,7 @@ public class WebSocketService {
                 )
             );
 
-            // Notify the customer
+       
             messagingTemplate.convertAndSendToUser(
                 takenPackage.getCustomer().getUsername(),
                 "/queue/package/status",
@@ -96,7 +95,7 @@ public class WebSocketService {
                 )
             );
 
-            // Update available packages list
+       
             sendAvailablePackagesUpdate();
             
             logger.info("Package {} taken by courier {}", packageId, username);

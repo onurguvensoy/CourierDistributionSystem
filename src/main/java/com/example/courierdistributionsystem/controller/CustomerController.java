@@ -13,9 +13,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
+import jakarta.servlet.http.HttpSession;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
+import com.example.courierdistributionsystem.service.DeliveryPackageService;
+import com.example.courierdistributionsystem.dto.CreatePackageRequest;
+import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 
 @RestController
@@ -30,6 +34,9 @@ public class CustomerController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private DeliveryPackageService deliveryPackageService;
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getCustomerProfile(@PathVariable @NotNull Long id) {
@@ -114,6 +121,123 @@ public class CustomerController {
             response.put("status", "error");
             response.put("message", "Failed to update customer profile: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PostMapping("/packages/create")
+    public ResponseEntity<?> createPackage(@Valid @RequestBody CreatePackageRequest request, HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Customer {} attempting to create new package", username);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized attempt to create package");
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            Customer customer = customerService.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+            DeliveryPackage newPackage = deliveryPackageService.createPackage(request, customer);
+            logger.info("Customer {} successfully created package {}", username, newPackage.getPackage_id());
+            return ResponseEntity.ok(newPackage);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid package creation request from customer {}: {}", username, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error creating package for customer {}: {}", username, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @GetMapping("/packages/active")
+    public ResponseEntity<?> getActivePackages(HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Fetching active packages for customer: {}", username);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized access attempt to active packages");
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            List<DeliveryPackage> activePackages = deliveryPackageService.getCustomerActiveDeliveryPackages(username);
+            logger.info("Successfully retrieved {} active packages for customer: {}", 
+                activePackages.size(), username);
+            return ResponseEntity.ok(activePackages);
+        } catch (Exception e) {
+            logger.error("Error fetching active packages for customer {}: {}", username, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @GetMapping("/delivery-history")
+    public ResponseEntity<?> getDeliveryHistory(HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Fetching delivery history for customer: {}", username);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized access attempt to delivery history");
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            List<DeliveryPackage> deliveryHistory = deliveryPackageService.getCustomerDeliveryHistory(username);
+            logger.info("Successfully retrieved {} delivery history items for customer: {}", 
+                deliveryHistory.size(), username);
+            return ResponseEntity.ok(deliveryHistory);
+        } catch (Exception e) {
+            logger.error("Error fetching delivery history for customer {}: {}", username, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @PostMapping("/packages/{packageId}/cancel")
+    public ResponseEntity<?> cancelPackage(@PathVariable Long packageId, HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Customer {} attempting to cancel package {}", username, packageId);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized attempt to cancel package {}", packageId);
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            deliveryPackageService.cancelDeliveryPackage(packageId, username);
+            logger.info("Customer {} successfully cancelled package {}", username, packageId);
+            return ResponseEntity.ok(Map.of("message", "Package cancelled successfully"));
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid package cancellation request from customer {} for package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error cancelling package {} for customer {}: {}", 
+                packageId, username, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @GetMapping("/packages/{packageId}/track")
+    public ResponseEntity<?> trackPackage(@PathVariable Long packageId, HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Customer {} attempting to track package {}", username, packageId);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized attempt to track package {}", packageId);
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            Map<String, Object> trackingInfo = deliveryPackageService.trackDeliveryPackage(packageId, username);
+            logger.info("Customer {} successfully tracked package {}", username, packageId);
+            return ResponseEntity.ok(trackingInfo);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid package tracking request from customer {} for package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error tracking package {} for customer {}: {}", 
+                packageId, username, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 } 

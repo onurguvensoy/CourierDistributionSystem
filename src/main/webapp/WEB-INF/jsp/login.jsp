@@ -4,7 +4,7 @@
 
 <%@ include file="common/auth_header.jsp" %>
 
-<!-- Custom styles for login page -->
+
 <style>
     html, body {
         height: 100%;
@@ -66,15 +66,15 @@
 </style>
 
 <div class="container">
-    <!-- Toast Container -->
+
     <div class="toast-container"></div>
     
-    <!-- Outer Row -->
+
     <div class="row justify-content-center w-100">
         <div class="col-xl-10 col-lg-12 col-md-9">
             <div class="card o-hidden border-0 shadow-lg">
                 <div class="card-body p-0">
-                    <!-- Nested Row within Card Body -->
+                  
                     <div class="row">
                         <div class="col-lg-6 d-none d-lg-block bg-login-image"></div>
                         <div class="col-lg-6">
@@ -136,7 +136,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize toastr options
+
     toastr.options = {
         "closeButton": true,
         "debug": false,
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
 
-        // Client-side validation
+
         if (!username || !password) {
             toastr.error('Please enter both username and password.');
             submitButton.disabled = false;
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             toastr.success('Login successful! Redirecting...');
             
-            // Redirect based on role
+  
             setTimeout(() => {
                 const role = data.role;
                 let redirectUrl;

@@ -40,67 +40,35 @@ public class ViewService {
     @Autowired
     private UserRepository userRepository;
 
+    private final UserService userService;
+
+    @Autowired
+    public ViewService(UserService userService) {
+        this.userService = userService;
+        logger.info("ViewService initialized");
+    }
+
+    @Transactional(readOnly = true)
     public User getUserByUsername(String username) {
-        if (username == null) {
-            throw new RuntimeException("Username cannot be null");
-        }
-
-        Customer customer = customerRepository.findByUsername(username).orElse(null);
-        if (customer != null) {
-            return customer;
-        }
-        
-        Courier courier = courierRepository.findByUsername(username).orElse(null);
-        if (courier != null) {
-            return courier;
-        }
-        
-        Admin admin = adminRepository.findByUsername(username).orElse(null);
-        if (admin != null) {
-            return admin;
-        }
-
-        throw new RuntimeException("User not found: " + username);
+        logger.debug("Getting user by username: {}", username);
+        return userService.findByUsername(username)
+                .orElseThrow(() -> {
+                    logger.error("User not found: {}", username);
+                    return new RuntimeException("User not found: " + username);
+                });
     }
 
     public String getDashboardRedirect(String username) {
-        if (username == null) {
-            logger.error("Username is null in getDashboardRedirect");
-            return "redirect:/auth/login";
-        }
-
-        try {
-            User user = getUserByUsername(username);
-            if (user instanceof Admin) {
-                logger.debug("Redirecting admin user {} to admin dashboard", username);
-                return "redirect:/admin/dashboard";
-            } else if (user instanceof Courier) {
-                logger.debug("Redirecting courier user {} to courier dashboard", username);
-                return "redirect:/courier/dashboard";
-            } else if (user instanceof Customer) {
-                logger.debug("Redirecting customer user {} to customer dashboard", username);
-                return "redirect:/customer/dashboard";
-            } else {
-                logger.error("Unknown user type for user {}", username);
-                throw new RuntimeException("Unknown user type");
-            }
-        } catch (Exception e) {
-            logger.error("Error in getDashboardRedirect for user {}: {}", username, e.getMessage());
-            throw new RuntimeException("Error determining user role: " + e.getMessage());
-        }
+        User user = getUserByUsername(username);
+        return switch (user.getRole()) {
+            case ADMIN -> "redirect:/admin/dashboard";
+            case COURIER -> "redirect:/courier/dashboard";
+            case CUSTOMER -> "redirect:/customer/dashboard";
+        };
     }
 
     public boolean isValidRole(User user, String role) {
-        if (user == null || role == null) {
-            return false;
-        }
-
-        return switch (role.toUpperCase()) {
-            case "ADMIN" -> user instanceof Admin;
-            case "COURIER" -> user instanceof Courier;
-            case "CUSTOMER" -> user instanceof Customer;
-            default -> false;
-        };
+        return user.getRole().name().equals(role);
     }
 
     public List<DeliveryPackage> getAvailablePackages() {

@@ -18,15 +18,14 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import java.time.Duration;
 import java.util.List;
 
 import com.example.courierdistributionsystem.model.*;
 
-/**
- * Configuration class for Redis caching.
- * This configuration sets up Redis as a caching layer while using JPA for primary storage.
- */
+
 @Configuration
 @EnableCaching
 @EnableRedisRepositories(basePackages = "com.example.courierdistributionsystem.repository.redis")
@@ -40,6 +39,9 @@ public class RedisConfig {
     public ObjectMapper redisObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
         mapper.activateDefaultTyping(
             mapper.getPolymorphicTypeValidator(),
             DefaultTyping.NON_FINAL,
@@ -51,13 +53,11 @@ public class RedisConfig {
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
         Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, Object.class);
-
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
             .entryTtl(Duration.ofMillis(timeToLive))
             .disableCachingNullValues()
             .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
             .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
-
         return RedisCacheManager.builder(connectionFactory)
             .cacheDefaults(config)
             .withCacheConfiguration("users", 

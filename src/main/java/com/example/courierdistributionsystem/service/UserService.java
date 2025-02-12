@@ -37,7 +37,6 @@ public class UserService {
     private final PasswordEncoderService passwordEncoder;
     private final Counter userSignupCounter;
     private final Counter userSignupFailureCounter;
-    private final Timer userLookupTimer;
 
     @Autowired
     public UserService(UserRepository userRepository,
@@ -59,26 +58,19 @@ public class UserService {
         this.userSignupFailureCounter = Counter.builder("user.signup.failures")
                 .description("Number of failed user signups")
                 .register(meterRegistry);
-        
-        this.userLookupTimer = Timer.builder("user.lookup.time")
-                .description("Time taken to look up users")
-                .register(meterRegistry);
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "users", key = "#username", unless = "#result == null")
     public Optional<User> findByUsername(@NotBlank String username) {
         logger.debug("Looking up user by username: {}", username);
-        return userLookupTimer.record(() -> {
-            try {
-                Optional<User> user = userRepository.findByUsername(username);
-                user.ifPresent(u -> initializeLazyCollections(u));
-                return user;
-            } catch (Exception e) {
-                logger.error("Error looking up user: {} - {}", username, e.getMessage(), e);
-                throw new RuntimeException("Error looking up user", e);
-            }
-        });
+        try {
+            Optional<User> user = userRepository.findByUsername(username);
+            user.ifPresent(u -> initializeLazyCollections(u));
+            return user;
+        } catch (Exception e) {
+            logger.error("Error looking up user: {} - {}", username, e.getMessage(), e);
+            throw new RuntimeException("Error looking up user", e);
+        }
     }
 
     private void initializeLazyCollections(User user) {
@@ -96,7 +88,6 @@ public class UserService {
         }
     }
 
-    @Cacheable(value = "users", key = "#email")
     public Optional<User> findByEmail(String email) {
         logger.debug("Looking up user by email: {}", email);
         try {
@@ -175,7 +166,6 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public Map<String, String> signup(Map<String, String> signupRequest) {
         String username = signupRequest.get("username");
         logger.info("Processing signup request for username: {}", username);
@@ -250,10 +240,13 @@ public class UserService {
     }
 
     private Admin processAdminSignup(Map<String, String> signupRequest) {
+        String rawPassword = signupRequest.get("password");
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+        
         Admin admin = Admin.builder()
                 .username(signupRequest.get("username"))
                 .email(signupRequest.get("email"))
-                .password(signupRequest.get("password"))
+                .password(encodedPassword)
                 .role(User.UserRole.ADMIN)
                 .build();
         return saveAdmin(admin);
@@ -441,6 +434,10 @@ public class UserService {
         }
         
         return response;
+    }
+
+    public User updateUser(User user) {
+        return userRepository.save(user);
     }
 
     public static class UserNotFoundException extends RuntimeException {

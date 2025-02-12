@@ -6,10 +6,8 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-
 import java.util.Arrays;
 import java.util.List;
-
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
     
@@ -31,13 +29,9 @@ public class AuthInterceptor implements HandlerInterceptor {
                            @NonNull HttpServletResponse response, 
                            @NonNull Object handler) throws Exception {
         String path = request.getRequestURI();
-        
-        // Allow public paths
         if (isPublicPath(path)) {
             return true;
         }
-
-        // Check if user is authenticated
         HttpSession session = request.getSession(false);
         if (session != null && session.getAttribute("username") != null) {
             return true;

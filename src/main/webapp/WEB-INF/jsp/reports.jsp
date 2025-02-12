@@ -9,12 +9,12 @@
 <%@ include file="common/sidebar.jsp" %>
 <%@ include file="common/topbar.jsp" %>
 
-<!-- Add required libraries -->
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet">
 
-<!-- Page Heading -->
+
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Delivery Reports</h1>
     <div>
@@ -24,7 +24,7 @@
     </div>
 </div>
 
-<!-- Reports Table -->
+
 <div class="card shadow mb-4">
     <div class="card-header py-3">
         <h6 class="m-0 font-weight-bold text-primary">All Delivery Reports</h6>
@@ -75,7 +75,7 @@
     </div>
 </div>
 
-<!-- View Report Modal -->
+
 <div class="modal fade" id="viewReportModal" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">

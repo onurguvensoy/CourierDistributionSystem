@@ -1,7 +1,7 @@
-<!-- Sidebar -->
+
 <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
 
-    <!-- Sidebar - Brand -->
+
     <a class="sidebar-brand d-flex align-items-center justify-content-center" href="/">
         <div class="sidebar-brand-icon">
             <i class="fas fa-truck"></i>
@@ -14,9 +14,28 @@
 
     <!-- Nav Item - Dashboard -->
     <li class="nav-item">
-        <a class="nav-link" href="/">
-            <i class="fas fa-fw fa-home"></i>
+        <a class="nav-link" href="/dashboard">
+            <i class="fas fa-fw fa-tachometer-alt"></i>
             <span>Dashboard</span>
+        </a>
+    </li>
+
+    <!-- Divider -->
+    <hr class="sidebar-divider">
+
+    <!-- Nav Item - Profile -->
+    <li class="nav-item">
+        <a class="nav-link" href="/profile">
+            <i class="fas fa-fw fa-user"></i>
+            <span>Profile</span>
+        </a>
+    </li>
+
+    <!-- Nav Item - Settings -->
+    <li class="nav-item">
+        <a class="nav-link" href="/settings">
+            <i class="fas fa-fw fa-cog"></i>
+            <span>Settings</span>
         </a>
     </li>
 
@@ -50,7 +69,7 @@
             <!-- Nav Item - Reports -->
             <li class="nav-item">
                 <a class="nav-link" href="/admin/reports">
-                    <i class="fas fa-fw fa-chart-bar"></i>
+                    <i class="fas fa-fw fa-chart-area"></i>
                     <span>Reports</span>
                 </a>
             </li>
@@ -60,15 +79,13 @@
         <c:when test="${user.role eq 'CUSTOMER'}">
             <!-- Heading -->
             <div class="sidebar-heading">
-                Package Management
+                Packages
             </div>
-
-        
 
             <!-- Nav Item - Create Package -->
             <li class="nav-item">
                 <a class="nav-link" href="/customer/new-package">
-                    <i class="fas fa-fw fa-plus"></i>
+                    <i class="fas fa-fw fa-box"></i>
                     <span>Create Package</span>
                 </a>
             </li>
@@ -89,7 +106,6 @@
                 Deliveries
             </div>
 
-
             <!-- Nav Item - Delivery History -->
             <li class="nav-item">
                 <a class="nav-link" href="/courier/delivery-history">
@@ -107,14 +123,6 @@
     <div class="sidebar-heading">
         Account
     </div>
-
-    <!-- Nav Item - Profile -->
-    <li class="nav-item">
-        <a class="nav-link" href="/profile">
-            <i class="fas fa-fw fa-user"></i>
-            <span>Profile</span>
-        </a>
-    </li>
 
     <!-- Nav Item - Logout -->
     <li class="nav-item">

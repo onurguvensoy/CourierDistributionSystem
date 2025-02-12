@@ -133,7 +133,7 @@ public class AdminController {
         }
     }
 
-    // Package Management Endpoints
+
     @GetMapping("/packages")
     public ResponseEntity<?> getAllPackages(HttpSession session) {
         try {
@@ -175,18 +175,17 @@ public class AdminController {
         }
     }
 
-    // Dashboard Statistics
+
     @GetMapping("/stats")
     public ResponseEntity<?> getDashboardStats(HttpSession session) {
         try {
             validateAdminSession(session);
             Map<String, Object> stats = new HashMap<>();
             
-            // Get user statistics
+
             Map<String, Object> userStats = userService.getUserStats();
             stats.putAll(userStats);
             
-            // Get delivery statistics
             List<DeliveryPackage> allPackages = deliveryPackageService.getAllDeliveryPackages();
             stats.put("totalPackages", allPackages.size());
             stats.put("pendingPackages", allPackages.stream()
@@ -212,7 +211,7 @@ public class AdminController {
         return "reports";
     }
 
-    // Helper methods
+
     private void validateAdminSession(HttpSession session) {
         String username = (String) session.getAttribute("username");
         if (username == null) {

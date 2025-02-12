@@ -50,22 +50,29 @@ public class DeliveryPackageController {
 
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createPackage(@Valid @RequestBody CreatePackageRequest request, HttpSession session) {
+        logger.debug("Received request to create new package from session: {}", session.getId());
         try {
             String username = (String) session.getAttribute("username");
             if (username == null || username.trim().isEmpty()) {
+                logger.warn("Attempt to create package without authentication");
                 throw new IllegalArgumentException("User not authenticated");
             }
 
             if (!username.equals(request.getUsername())) {
+                logger.warn("Username mismatch in package creation. Session user: {}, Request user: {}", 
+                    username, request.getUsername());
                 throw new IllegalArgumentException("Username mismatch");
             }
 
             Optional<Customer> customer = customerService.findByUsername(username);
             if (customer.isEmpty()) {
+                logger.warn("Customer not found for username: {}", username);
                 throw new IllegalArgumentException("Customer not found");
             }
 
             DeliveryPackage newPackage = deliveryPackageService.createPackage(request, customer.get());
+            logger.info("Successfully created package with ID: {} for customer: {}", 
+                newPackage.getPackage_id(), username);
 
             Map<String, Object> response = new HashMap<>();
             response.put("status", "success");
@@ -77,7 +84,6 @@ public class DeliveryPackageController {
             response.put("status", newPackage.getStatus().toString());
             response.put("created_at", newPackage.getCreatedAt());
 
-            logger.info("Package created successfully with ID: {}", newPackage.getPackage_id());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Failed to create package: {}", e.getMessage(), e);
@@ -90,21 +96,33 @@ public class DeliveryPackageController {
 
     @MessageMapping("/package/track")
     public void trackPackage(@Payload Map<String, Object> trackingRequest, SimpMessageHeaderAccessor headerAccessor) {
+        String username = null;
+        Long packageId = null;
         try {
-            String username = getUsername(headerAccessor);
-            Long packageId = Long.valueOf(trackingRequest.get("packageId").toString());
+            username = getUsername(headerAccessor);
+            packageId = Long.valueOf(trackingRequest.get("packageId").toString());
+            logger.debug("Received tracking request for package: {} from user: {}", packageId, username);
+            
             deliveryPackageService.trackDeliveryPackage(packageId, username);
+            logger.info("Successfully processed tracking request for package: {} from user: {}", packageId, username);
         } catch (Exception e) {
-            logger.error("Failed to track package: {}", e.getMessage());
+            logger.error("Failed to track package: {} for user: {}. Error: {}", 
+                packageId, username, e.getMessage(), e);
         }
     }
 
     @MessageMapping("/package/status/update")
     public void updatePackageStatus(@Payload Map<String, Object> statusUpdate, SimpMessageHeaderAccessor headerAccessor) {
+        String username = null;
+        Long packageId = null;
+        String status = null;
         try {
-            String username = getUsername(headerAccessor);
-            Long packageId = Long.valueOf(statusUpdate.get("packageId").toString());
-            String status = (String) statusUpdate.get("status");
+            username = getUsername(headerAccessor);
+            packageId = Long.valueOf(statusUpdate.get("packageId").toString());
+            status = (String) statusUpdate.get("status");
+            
+            logger.debug("Received status update request for package: {} to status: {} from user: {}", 
+                packageId, status, username);
             
             DeliveryPackage.DeliveryStatus newStatus = DeliveryPackage.DeliveryStatus.valueOf(status.toUpperCase());
             DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryStatus(packageId, username, newStatus);
@@ -131,8 +149,12 @@ public class DeliveryPackageController {
                     )
                 );
             }
+            
+            logger.info("Successfully updated status for package: {} to: {} by user: {}", 
+                packageId, newStatus, username);
         } catch (Exception e) {
-            logger.error("Failed to update package status: {}", e.getMessage());
+            logger.error("Failed to update package status: {} to: {} for user: {}. Error: {}", 
+                packageId, status, username, e.getMessage(), e);
             String errorUsername = getUsername(headerAccessor);
             messagingTemplate.convertAndSendToUser(
                 errorUsername,
@@ -150,7 +172,6 @@ public class DeliveryPackageController {
             
             DeliveryPackage updatedPackage = deliveryPackageService.takeDeliveryPackage(packageId, username);
             
-            // Notify the courier about successful assignment
             messagingTemplate.convertAndSendToUser(
                 username,
                 "/queue/package/assigned",
@@ -159,8 +180,6 @@ public class DeliveryPackageController {
                     "message", "Package successfully assigned"
                 )
             );
-            
-            // Notify the customer about courier assignment
             messagingTemplate.convertAndSendToUser(
                 updatedPackage.getCustomer().getUsername(),
                 "/queue/package/status",
@@ -172,7 +191,6 @@ public class DeliveryPackageController {
                 )
             );
 
-            // Update available packages for all couriers
             messagingTemplate.convertAndSend("/topic/packages/available", 
                 deliveryPackageService.getAvailableDeliveryPackages());
                 
@@ -209,7 +227,7 @@ public class DeliveryPackageController {
         try {
             String username = getUsername(headerAccessor);
             List<DeliveryPackage> packages = deliveryPackageService.getAvailableDeliveryPackages();
-            // Send packages to the user
+    
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/available", packages);
         } catch (Exception e) {
             logger.error("Failed to get available packages: {}", e.getMessage());
@@ -221,7 +239,7 @@ public class DeliveryPackageController {
         try {
             String username = getUsername(headerAccessor);
             List<DeliveryPackage> packages = deliveryPackageService.getCourierActiveDeliveryPackages(username);
-            // Send packages to the user
+
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/active", packages);
         } catch (Exception e) {
             logger.error("Failed to get active packages: {}", e.getMessage());
@@ -286,16 +304,16 @@ public class DeliveryPackageController {
             HttpSession session) {
         Map<String, Object> response = new HashMap<>();
         try {
-            // Get username from session
+      
             String username = (String) session.getAttribute("username");
             if (username == null) {
                 throw new IllegalArgumentException("User not authenticated");
             }
 
-            // Add username to the request
+
             deliveryRequest.put("username", username);
 
-            // Validate required fields
+        
             String[] requiredFields = {"pickupAddress", "deliveryAddress", "weight", "description"};
             for (String field : requiredFields) {
                 if (!deliveryRequest.containsKey(field) || deliveryRequest.get(field).trim().isEmpty()) {
@@ -303,11 +321,11 @@ public class DeliveryPackageController {
                 }
             }
 
-            // Create package
+
             Customer customer = customerService.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
-            // Build DeliveryPackage object
+    
             DeliveryPackage newPackage = DeliveryPackage.builder()
                 .customer(customer)
                 .pickupAddress(deliveryRequest.get("pickupAddress"))
@@ -317,7 +335,7 @@ public class DeliveryPackageController {
                 .specialInstructions(deliveryRequest.getOrDefault("specialInstructions", ""))
                 .build();
 
-            // Save the package
+           
             DeliveryPackage savedPackage = deliveryPackageService.createDeliveryPackage(newPackage);
             
             response.put("status", "success");

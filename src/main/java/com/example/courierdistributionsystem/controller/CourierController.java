@@ -3,8 +3,11 @@ package com.example.courierdistributionsystem.controller;
 import com.example.courierdistributionsystem.exception.CourierException;
 import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.service.CourierService;
 import com.example.courierdistributionsystem.service.UserService;
+import com.example.courierdistributionsystem.service.DeliveryPackageService;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
@@ -25,6 +28,9 @@ import java.util.Optional;
 @Validated
 public class CourierController {
     private static final Logger logger = LoggerFactory.getLogger(CourierController.class);
+
+    @Autowired
+    private DeliveryPackageService deliveryPackageService;
 
     @Autowired
     private CourierService courierService;
@@ -176,6 +182,158 @@ public class CourierController {
             response.put("status", "error");
             response.put("message", "Failed to update courier availability: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @GetMapping("/available-packages")
+    public ResponseEntity<?> getAvailablePackages(HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Fetching available packages for courier: {}", username);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized access attempt to available packages");
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
+            logger.info("Successfully retrieved {} available packages for courier: {}", 
+                availablePackages.size(), username);
+            return ResponseEntity.ok(availablePackages);
+        } catch (Exception e) {
+            logger.error("Error fetching available packages for courier {}: {}", username, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @GetMapping("/active-deliveries")
+    public ResponseEntity<?> getActiveDeliveries(HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Fetching active deliveries for courier: {}", username);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized access attempt to active deliveries");
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            List<DeliveryPackage> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
+            logger.info("Successfully retrieved {} active deliveries for courier: {}", 
+                activeDeliveries.size(), username);
+            return ResponseEntity.ok(activeDeliveries);
+        } catch (Exception e) {
+            logger.error("Error fetching active deliveries for courier {}: {}", username, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @PostMapping("/packages/{packageId}/take")
+    public ResponseEntity<?> takeDeliveryPackage(@PathVariable Long packageId, HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Courier {} attempting to take package {}", username, packageId);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized attempt to take package {}", packageId);
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            DeliveryPackage deliveryPackage = deliveryPackageService.takeDeliveryPackage(packageId, username);
+            logger.info("Courier {} successfully took package {}", username, packageId);
+            return ResponseEntity.ok(deliveryPackage);
+        } catch (IllegalStateException e) {
+            logger.warn("Business rule violation for courier {} taking package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error processing take package request for courier {} and package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @PostMapping("/packages/{packageId}/drop")
+    public ResponseEntity<?> dropDeliveryPackage(@PathVariable Long packageId, HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Courier {} attempting to drop package {}", username, packageId);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized attempt to drop package {}", packageId);
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            DeliveryPackage deliveryPackage = deliveryPackageService.dropDeliveryPackage(packageId, username);
+            logger.info("Courier {} successfully dropped package {}", username, packageId);
+            return ResponseEntity.ok(deliveryPackage);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for courier {} dropping package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error processing drop package request for courier {} and package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @PostMapping("/packages/{packageId}/status")
+    public ResponseEntity<?> updateDeliveryStatus(
+            @PathVariable Long packageId,
+            @RequestParam DeliveryPackage.DeliveryStatus status,
+            HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Courier {} attempting to update package {} status to {}", username, packageId, status);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized attempt to update package {} status", packageId);
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryStatus(packageId, username, status);
+            logger.info("Courier {} successfully updated package {} status to {}", username, packageId, status);
+            return ResponseEntity.ok(updatedPackage);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid status update request for courier {} and package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error updating status for courier {} and package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
+
+    @PostMapping("/packages/{packageId}/location")
+    public ResponseEntity<?> updateDeliveryLocation(
+            @PathVariable Long packageId,
+            @RequestParam Double latitude,
+            @RequestParam Double longitude,
+            @RequestParam String location,
+            HttpSession session) {
+        String username = (String) session.getAttribute("username");
+        logger.debug("Courier {} updating location for package {} to [{}, {}] - {}", 
+            username, packageId, latitude, longitude, location);
+        
+        try {
+            if (username == null) {
+                logger.warn("Unauthorized attempt to update package {} location", packageId);
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
+            }
+
+            DeliveryPackage updatedPackage = deliveryPackageService
+                .updateDeliveryLocation(packageId, username, latitude, longitude, location);
+            logger.info("Courier {} successfully updated package {} location", username, packageId);
+            return ResponseEntity.ok(updatedPackage);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid location update request for courier {} and package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error updating location for courier {} and package {}: {}", 
+                username, packageId, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 }

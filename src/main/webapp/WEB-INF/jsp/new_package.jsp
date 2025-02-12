@@ -15,57 +15,41 @@
     <meta name="_csrf_header" content="${_csrf.headerName}"/>
     <title>${pageTitle} - Courier Distribution System</title>
 
-    <!-- Custom fonts for this template-->
+
     <link href="/startbootstrap-sb-admin-2-4.1.3/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
 
-    <!-- Custom styles for this template-->
+
     <link href="/startbootstrap-sb-admin-2-4.1.3/css/sb-admin-2.min.css" rel="stylesheet">
     
-    <!-- Custom styles for datatables -->
+   
     <link href="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
     
-    <!-- Toastr CSS -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css" rel="stylesheet">
 
-    <!-- Core plugin JavaScript-->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css" rel="stylesheet">
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/jquery/jquery.min.js"></script>
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/jquery-easing/jquery.easing.min.js"></script>
-
-    <!-- Custom scripts for all pages-->
     <script src="/startbootstrap-sb-admin-2-4.1.3/js/sb-admin-2.min.js"></script>
-
-    <!-- Page level plugins -->
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/jquery.dataTables.min.js"></script>
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/dataTables.bootstrap4.min.js"></script>
-
-    <!-- Toastr JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
 </head>
-
 <body id="page-top">
-
-<!-- Page Wrapper -->
 <div id="wrapper">
-    <!-- Sidebar -->
     <%@ include file="common/sidebar.jsp" %>
-
-    <!-- Content Wrapper -->
     <div id="content-wrapper" class="d-flex flex-column">
-        <!-- Main Content -->
         <div id="content">
             <!-- Topbar -->
             <%@ include file="common/topbar.jsp" %>
 
-<!-- Begin Page Content -->
+
 <div class="container-fluid">
-    <!-- Page Heading -->
+
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Create New Package</h1>
     </div>
 
-    <!-- Create Package Form -->
     <div class="row">
         <div class="col-12">
             <div class="card shadow mb-4">
@@ -146,25 +130,25 @@
         </div>
     </div>
 </div>
-            <!-- End of Page Content -->
+
         </div>
-        <!-- End of Main Content -->
+     
 
-        <!-- Footer -->
+ 
 <%@ include file="common/footer.jsp" %> 
-        <!-- End of Footer -->
-    </div>
-    <!-- End of Content Wrapper -->
-</div>
-<!-- End of Page Wrapper -->
 
-<!-- Scroll to Top Button-->
+    </div>
+
+</div>
+
+
+
 <a class="scroll-to-top rounded" href="#page-top">
     <i class="fas fa-angle-up"></i>
 </a>
 
 <script>
-// Configure toastr options
+
 toastr.options = {
     "closeButton": true,
     "debug": false,
@@ -183,7 +167,7 @@ toastr.options = {
 };
 
 $(document).ready(function() {
-    // Character count for textareas
+
     $('#description').on('input', function() {
         const length = $(this).val().length;
         $('#descriptionLength').text(`${length}/500`);
@@ -194,7 +178,7 @@ $(document).ready(function() {
         $('#instructionsLength').text(`${length}/200`);
     });
 
-    // Form submission
+ 
     $('#createPackageForm').on('submit', function(e) {
         e.preventDefault();
         
@@ -202,7 +186,7 @@ $(document).ready(function() {
         submitButton.prop('disabled', true)
                    .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...');
         
-        // Get form data
+    
         const formData = {
             username: '${user.username}',
             pickupAddress: $('#pickupAddress').val().trim(),
@@ -212,49 +196,45 @@ $(document).ready(function() {
             specialInstructions: $('#specialInstructions').val().trim() || ''
         };
 
-        // Get CSRF token
-        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
-        const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+      
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+        const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
 
-        // Create headers object
-        const headers = new Headers({
-            'Content-Type': 'application/json',
-            [csrfHeader]: csrfToken
-        });
 
-        // Send API request
-        fetch('/api/packages/create', {
-            method: 'POST',
-            headers: headers,
-            credentials: 'same-origin',
-            body: JSON.stringify(formData)
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
+        $.ajax({
+            url: '/api/packages/create',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            beforeSend: function(xhr) {
+              
+                if (csrfHeader && csrfToken && csrfHeader.trim() !== '') {
+                    xhr.setRequestHeader(csrfHeader, csrfToken);
+                }
+            },
+            success: function(data) {
+                if (data.status === 'success' || data.package_id) {
+                    toastr.success('Package created successfully!');
+                    setTimeout(() => window.location.href = '/customer/dashboard', 1500);
+                } else {
+                    toastr.error(data.message || 'Failed to create package');
+                    submitButton.prop('disabled', false)
+                               .html('<i class="fas fa-box"></i> Create Package');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
+                toastr.error(xhr.responseJSON?.message || 'Failed to create package. Please try again.');
+                submitButton.prop('disabled', false)
+                           .html('<i class="fas fa-box"></i> Create Package');
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success' || data.package_id) {
-                toastr.success('Package created successfully!');
-                setTimeout(() => window.location.href = '/customer/dashboard', 1500);
-            } else {
-                throw new Error(data.message || 'Failed to create package');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            toastr.error(error.message || 'Failed to create package. Please try again.');
-            submitButton.prop('disabled', false)
-                       .html('<i class="fas fa-box"></i> Create Package');
         });
     });
 
-    // Initialize tooltips
+
     $('[data-toggle="tooltip"]').tooltip();
 
-    // Show warning when leaving page with unsaved changes
+ 
     let formChanged = false;
     $('#createPackageForm :input').on('change input', function() {
         formChanged = true;

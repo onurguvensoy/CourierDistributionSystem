@@ -472,4 +472,9 @@ public class DeliveryPackageService {
             System.currentTimeMillis() % 1000000000, 
             (int)(Math.random() * 10000));
     }
+
+    @Transactional(readOnly = true)
+    public List<DeliveryPackage> getCompletedDeliveriesByCourier(Courier courier) {
+        return deliveryPackageRepository.findByCourierAndStatus(courier, DeliveryPackage.DeliveryStatus.DELIVERED);
+    }
 }

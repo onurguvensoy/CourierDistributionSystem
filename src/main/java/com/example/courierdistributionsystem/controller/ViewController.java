@@ -23,6 +23,7 @@ import java.util.List;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 import java.util.HashMap;
+import org.hibernate.Hibernate;
 
 @Controller
 @CrossOrigin(origins = "*", allowedHeaders = "*")
@@ -89,6 +90,7 @@ public class ViewController {
     }
 
     @GetMapping("/admin/dashboard")
+    @Transactional(readOnly = true)
     public String adminDashboard(HttpSession session, Model model, RedirectAttributes redirectAttributes) {
         String username = (String) session.getAttribute("username");
         if (username == null) {
@@ -102,30 +104,52 @@ public class ViewController {
                 return viewService.getDashboardRedirect(username);
             }
 
-            // Get all users
+          
+            Admin admin = (Admin) user;
+            Hibernate.initialize(admin.getReports());
+
+  
             List<User> allUsers = userService.getAllUsers();
+            for (User u : allUsers) {
+                if (u instanceof Customer) {
+                    Hibernate.initialize(((Customer) u).getPackages());
+                } else if (u instanceof Courier) {
+                    Hibernate.initialize(((Courier) u).getDeliveries());
+                } else if (u instanceof Admin) {
+                    Hibernate.initialize(((Admin) u).getReports());
+                }
+            }
             
-            // Get all packages
+           
             List<DeliveryPackage> allPackages = deliveryPackageService.getAllDeliveryPackages();
+            for (DeliveryPackage pkg : allPackages) {
+                Hibernate.initialize(pkg.getStatusHistory());
+                if (pkg.getCourier() != null) {
+                    Hibernate.initialize(pkg.getCourier().getDeliveries());
+                }
+                if (pkg.getCustomer() != null) {
+                    Hibernate.initialize(pkg.getCustomer().getPackages());
+                }
+            }
             
-            // Get active couriers (available)
+    
             long activeCouriers = allUsers.stream()
                     .filter(u -> u.getRole() == User.UserRole.COURIER)
                     .filter(u -> ((Courier) u).isAvailable())
                     .count();
             
-            // Get pending packages
+     
             long pendingPackages = allPackages.stream()
                     .filter(p -> p.getStatus() == DeliveryPackage.DeliveryStatus.PENDING)
                     .count();
             
-            // Get total deliveries
+
             long totalDeliveries = allPackages.stream()
                     .filter(p -> p.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED)
                     .count();
 
-            // Add data to model
-            model.addAttribute("user", user);
+         
+            model.addAttribute("user", admin);
             model.addAttribute("users", allUsers);
             model.addAttribute("packages", allPackages);
             model.addAttribute("totalUsers", allUsers.size());
@@ -229,13 +253,13 @@ public class ViewController {
         try {
             String username = (String) session.getAttribute("username");
             if (username == null) {
+                redirectAttributes.addFlashAttribute("error", "Please login to continue.");
                 return "redirect:/auth/login";
             }
 
             User user = userService.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             model.addAttribute("user", user);
-            
             logger.info("Settings page successfully loaded for user: {}", username);
             return "settings";
         } catch (Exception e) {
@@ -321,9 +345,37 @@ public class ViewController {
             Map<String, Object> dashboardStats = viewService.getCustomerDashboardStats(user);
             model.addAttribute("user", user);
             model.addAttribute("completedPackages", dashboardStats.get("completedPackages"));
+            model.addAttribute("role", "CUSTOMER");
             return "delivery_history";
         } catch (RuntimeException e) {
             logger.error("Error accessing delivery history: {}", e.getMessage());
+            session.invalidate();
+            redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
+            return "redirect:/auth/login";
+        }
+    }
+
+    @GetMapping("/courier/delivery-history")
+    public String courierDeliveryHistory(HttpSession session, Model model, RedirectAttributes redirectAttributes) {
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            redirectAttributes.addFlashAttribute("error", "Please login to continue.");
+            return "redirect:/auth/login";
+        }
+
+        try {
+            User user = viewService.getUserByUsername(username);
+            if (!viewService.isValidRole(user, "COURIER")) {
+                return viewService.getDashboardRedirect(username);
+            }
+
+            List<DeliveryPackage> completedDeliveries = deliveryPackageService.getCompletedDeliveriesByCourier((Courier) user);
+            model.addAttribute("user", user);
+            model.addAttribute("completedPackages", completedDeliveries);
+            model.addAttribute("role", "COURIER");
+            return "delivery_history";
+        } catch (RuntimeException e) {
+            logger.error("Error accessing courier delivery history: {}", e.getMessage());
             session.invalidate();
             redirectAttributes.addFlashAttribute("error", "Session expired. Please login again.");
             return "redirect:/auth/login";

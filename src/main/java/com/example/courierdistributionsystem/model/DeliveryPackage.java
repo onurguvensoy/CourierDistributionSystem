@@ -19,6 +19,7 @@ import java.util.List;
 @Table(name = "delivery_packages")
 @RedisHash("delivery_packages")
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "package_id")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DeliveryPackage implements Serializable {
     
     private static final long serialVersionUID = 1L;
@@ -38,7 +39,7 @@ public class DeliveryPackage implements Serializable {
     @JsonBackReference(value = "customer-packages")
     private Customer customer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "courier_id")
     @JsonIdentityReference(alwaysAsId = true)
     @JsonProperty("courierId")
@@ -186,10 +187,20 @@ public class DeliveryPackage implements Serializable {
         return customer != null ? customer.getUsername() : null;
     }
 
+    @JsonIgnore
+    public void setCustomerUsername(String username) {
+        // This is just a helper method to avoid deserialization errors
+    }
+
     @JsonProperty("courierUsername")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public String getCourierUsername() {
-        return courier != null ? courier.getUsername() : null;
+        return courier != null ? courier.getUsername() : "N/A";
+    }
+
+    @JsonIgnore
+    public void setCourierUsername(String username) {
+        // This is just a helper method to avoid deserialization errors
     }
 
     private String generateTrackingNumber() {

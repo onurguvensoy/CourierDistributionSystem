@@ -20,7 +20,7 @@ import java.io.Serializable;
 @Inheritance(strategy = InheritanceType.JOINED)
 @OnDelete(action = OnDeleteAction.CASCADE)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
 @JsonIdentityInfo(
     generator = ObjectIdGenerators.PropertyGenerator.class,
     property = "id",
@@ -39,7 +39,7 @@ public class User implements Serializable {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String password;
 
@@ -47,7 +47,6 @@ public class User implements Serializable {
     @Column(nullable = false)
     private UserRole role;
 
-    @JsonIgnore
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -63,5 +62,15 @@ public class User implements Serializable {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+    }
+
+    @JsonIgnore
+    public String getPassword() {
+        return password;
+    }
+
+    @JsonProperty
+    public void setPassword(String password) {
+        this.password = password;
     }
 }

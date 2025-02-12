@@ -4,7 +4,6 @@
 
 <%@ include file="common/auth_header.jsp" %>
 
-<!-- Custom styles for signup page -->
 <style>
     html, body {
         height: 100%;
@@ -78,12 +77,12 @@
 </style>
 
 <div class="container">
-    <!-- Toast Container -->
+
     <div class="toast-container"></div>
 
     <div class="card o-hidden border-0 shadow-lg">
         <div class="card-body p-0">
-            <!-- Nested Row within Card Body -->
+        
             <div class="row">
                 <div class="col-lg-5 d-none d-lg-block bg-register-image"></div>
                 <div class="col-lg-7">
@@ -207,7 +206,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize toastr options
+
     toastr.options = {
         "closeButton": true,
         "debug": false,
@@ -228,8 +227,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const signupForm = document.getElementById('signupForm');
     const roleSelect = document.getElementById('role');
     const vehicleTypeGroup = document.getElementById('vehicleTypeGroup');
+    const phoneNumberInput = document.getElementById('phoneNumber');
 
-    if (!signupForm || !roleSelect || !vehicleTypeGroup) {
+    if (!signupForm || !roleSelect || !vehicleTypeGroup || !phoneNumberInput) {
         console.error('Required elements not found!');
         return;
     }
@@ -241,6 +241,13 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             vehicleTypeGroup.style.display = 'none';
             document.getElementById('vehicleType').required = false;
+        }
+        
+    
+        if (this.value === 'CUSTOMER' || this.value === 'COURIER') {
+            phoneNumberInput.required = true;
+        } else {
+            phoneNumberInput.required = false;
         }
     });
 
@@ -257,11 +264,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
-        const phoneNumber = document.getElementById('phoneNumber').value.trim();
+        const phoneNumber = phoneNumberInput.value.trim();
         const role = roleSelect.value;
 
         // Validation
-        if (!username || !email || !password || !confirmPassword || !phoneNumber || !role) {
+        if (!username || !email || !password || !confirmPassword || !role) {
             toastr.error('Please fill in all required fields.');
             submitButton.disabled = false;
             submitButton.innerHTML = originalButtonText;
@@ -275,16 +282,24 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Prepare form data
+  
+        if ((role === 'CUSTOMER' || role === 'COURIER') && !phoneNumber) {
+            toastr.error('Phone number is required for customers and couriers.');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            return;
+        }
+
+  
         const formData = {
             username: username,
             email: email,
             password: password,
-            phoneNumber: phoneNumber,
-            role: role
+            role: role,
+            phoneNumber: phoneNumber
         };
 
-        // Add vehicle type if courier
+    
         if (role === 'COURIER') {
             const vehicleType = document.getElementById('vehicleType').value;
             if (!vehicleType) {

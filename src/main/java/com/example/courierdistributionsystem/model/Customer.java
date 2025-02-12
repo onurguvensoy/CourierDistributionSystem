@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.springframework.data.redis.core.RedisHash;
-import org.springframework.data.redis.core.index.Indexed;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,7 +16,11 @@ import java.util.List;
 @Table(name = "customers")
 @PrimaryKeyJoinColumn(name = "id")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
+@JsonIdentityInfo(
+    generator = ObjectIdGenerators.PropertyGenerator.class,
+    property = "id",
+    scope = Customer.class)
 @RedisHash("customers")
 public class Customer extends User {
     
@@ -25,6 +28,7 @@ public class Customer extends User {
     @JsonManagedReference(value = "customer-packages")
     @ToString.Exclude
     @Builder.Default
+    @JsonIgnoreProperties({"customer", "courier"})
     private List<DeliveryPackage> packages = new ArrayList<>();
 
     @PrePersist
@@ -38,14 +42,22 @@ public class Customer extends User {
 
     @JsonProperty
     public List<DeliveryPackage> getPackages() {
-        return packages != null ? new ArrayList<>(packages) : new ArrayList<>();
+        if (packages == null) {
+            packages = new ArrayList<>();
+        }
+        return new ArrayList<>(packages);
     }
 
-    public void setPackages(List<DeliveryPackage> packages) {
-        if (this.packages != null) {
-            this.packages.clear();
-            if (packages != null) {
-                this.packages.addAll(packages);
+    @JsonProperty
+    public void setPackages(List<DeliveryPackage> newPackages) {
+        if (this.packages == null) {
+            this.packages = new ArrayList<>();
+        }
+        this.packages.clear();
+        if (newPackages != null) {
+            for (DeliveryPackage pkg : newPackages) {
+                pkg.setCustomer(this);
+                this.packages.add(pkg);
             }
         }
     }
