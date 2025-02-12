@@ -2,6 +2,10 @@ package com.example.courierdistributionsystem.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.index.Indexed;
+import org.springframework.data.annotation.Id;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Entity
@@ -10,9 +14,15 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DeliveryReport {
+@RedisHash(value = "delivery_reports", timeToLive = 86400) 
+public class DeliveryReport implements Serializable {
+    
+    private static final long serialVersionUID = 1L;
+
+    @jakarta.persistence.Id
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Indexed
     private Long id;
 
     @ManyToOne
@@ -34,9 +44,6 @@ public class DeliveryReport {
 
     @Column(name = "customer_confirmation")
     private boolean customerConfirmation;
-
-    @Column(name = "delivery_rating")
-    private Integer deliveryRating;
 
     @Column(name = "delivery_photo_url")
     private String deliveryPhotoUrl;

@@ -1,6 +1,4 @@
 package com.example.courierdistributionsystem.controller;
-
-import com.example.courierdistributionsystem.exception.DeliveryReportException;
 import com.example.courierdistributionsystem.model.DeliveryReport;
 import com.example.courierdistributionsystem.service.DeliveryReportService;
 import jakarta.validation.constraints.NotNull;
@@ -11,8 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
+
 import java.util.List;
 import java.util.Map;
 
@@ -156,36 +153,5 @@ public class DeliveryReportController {
                 "message", "Failed to delete delivery report"
             ));
         }
-    }
-
-    private void validateDeliveryReport(DeliveryReport report) {
-        Map<String, String> errors = new HashMap<>();
-
-        if (report.getDeliveryTime() != null && report.getDeliveryTime().isAfter(LocalDateTime.now())) {
-            errors.put("deliveryTime", "Delivery time cannot be in the future");
-        }
-
-        if (report.getDeliveryRating() != null && (report.getDeliveryRating() < 1 || report.getDeliveryRating() > 5)) {
-            errors.put("deliveryRating", "Delivery rating must be between 1 and 5");
-        }
-
-        if (report.getDistanceTraveled() != null && report.getDistanceTraveled() < 0) {
-            errors.put("distanceTraveled", "Distance traveled cannot be negative");
-        }
-
-        if (!errors.isEmpty()) {
-            logger.warn("Delivery report validation failed: {}", errors);
-            throw new DeliveryReportException("Validation failed: " + errors);
-        }
-    }
-
-    private void updateReportFields(DeliveryReport report, DeliveryReport reportDetails) {
-        report.setDeliveryTime(reportDetails.getDeliveryTime());
-        report.setDeliveryNotes(reportDetails.getDeliveryNotes());
-        report.setCustomerConfirmation(reportDetails.isCustomerConfirmation());
-        report.setDeliveryRating(reportDetails.getDeliveryRating());
-        report.setDeliveryPhotoUrl(reportDetails.getDeliveryPhotoUrl());
-        report.setSignatureUrl(reportDetails.getSignatureUrl());
-        report.setDistanceTraveled(reportDetails.getDistanceTraveled());
     }
 }

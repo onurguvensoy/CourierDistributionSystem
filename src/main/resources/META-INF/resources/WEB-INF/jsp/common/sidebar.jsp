@@ -47,12 +47,6 @@
     <c:if test="${user.role == 'CUSTOMER'}">
         <!-- Nav Item - Customer Pages -->
         <li class="nav-item">
-            <a class="nav-link" href="/customer/dashboard">
-                <i class="fas fa-fw fa-box"></i>
-                <span>My Packages</span>
-            </a>
-        </li>
-        <li class="nav-item">
             <a class="nav-link" href="/customer/new-package">
                 <i class="fas fa-fw fa-plus"></i>
                 <span>Create Package</span>

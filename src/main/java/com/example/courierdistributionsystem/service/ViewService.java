@@ -1,20 +1,19 @@
 package com.example.courierdistributionsystem.service;
 
-import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.model.Customer;
-import com.example.courierdistributionsystem.model.Courier;
-import com.example.courierdistributionsystem.model.Admin;
-import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.repository.CustomerRepository;
-import com.example.courierdistributionsystem.repository.CourierRepository;
-import com.example.courierdistributionsystem.repository.AdminRepository;
-import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
+import com.example.courierdistributionsystem.model.*;
+import com.example.courierdistributionsystem.repository.jpa.*;
+import com.example.courierdistributionsystem.socket.WebSocketService;
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 @Service
 public class ViewService {
@@ -37,6 +36,9 @@ public class ViewService {
 
     @Autowired
     private WebSocketService webSocketService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     public User getUserByUsername(String username) {
         if (username == null) {
@@ -105,6 +107,7 @@ public class ViewService {
         return packageRepository.findByStatusAndCourierIsNull(DeliveryPackage.DeliveryStatus.PENDING);
     }
 
+    @Transactional(readOnly = true)
     public List<DeliveryPackage> getActiveDeliveries(User courier) {
         if (!(courier instanceof Courier)) {
             throw new IllegalArgumentException("User must be a courier");
@@ -118,6 +121,7 @@ public class ViewService {
         );
     }
 
+    @Transactional(readOnly = true)
     public List<DeliveryPackage> getCustomerPackages(User customer) {
         if (customer == null) {
             throw new IllegalArgumentException("Customer cannot be null");
@@ -183,5 +187,107 @@ public class ViewService {
         packageRepository.save(deliveryPackage);
         
         webSocketService.notifyDeliveryStatusUpdate(deliveryPackage);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCustomerDashboardStats(User user) {
+        if (!(user instanceof Customer)) {
+            throw new IllegalArgumentException("User must be a customer");
+        }
+        Customer customer = (Customer) user;
+        
+        List<DeliveryPackage> allPackages = packageRepository.findByCustomer(customer);
+        
+        List<DeliveryPackage> activePackages = allPackages.stream()
+            .filter(pkg -> !pkg.getStatus().equals(DeliveryPackage.DeliveryStatus.DELIVERED) 
+                && !pkg.getStatus().equals(DeliveryPackage.DeliveryStatus.CANCELLED))
+            .toList();
+
+        List<DeliveryPackage> completedPackages = allPackages.stream()
+            .filter(pkg -> pkg.getStatus().equals(DeliveryPackage.DeliveryStatus.DELIVERED) 
+                || pkg.getStatus().equals(DeliveryPackage.DeliveryStatus.CANCELLED))
+            .peek(pkg -> {
+                if (pkg.getDeliveredAt() != null) {
+                    pkg.setFormattedDeliveryDate(pkg.getDeliveredAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                }
+            })
+            .toList();
+
+        long deliveredCount = allPackages.stream()
+            .filter(pkg -> pkg.getStatus().equals(DeliveryPackage.DeliveryStatus.DELIVERED))
+            .count();
+
+        
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("activePackages", activePackages);
+        stats.put("completedPackages", completedPackages);
+        stats.put("totalPackages", allPackages.size());
+        stats.put("activeShipments", activePackages.size());
+        stats.put("deliveredPackages", deliveredCount);
+
+        return stats;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCustomerProfileStats(Customer customer) {
+        Map<String, Object> stats = new HashMap<>();
+        
+        long totalPackages = customer.getPackages().size();
+        long deliveredPackages = customer.getPackages().stream()
+            .filter(p -> p.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED)
+            .count();
+        long activeShipments = customer.getPackages().stream()
+            .filter(p -> p.getStatus() != DeliveryPackage.DeliveryStatus.DELIVERED 
+                && p.getStatus() != DeliveryPackage.DeliveryStatus.CANCELLED)
+            .count();
+        stats.put("totalPackages", totalPackages);
+        stats.put("deliveredPackages", deliveredPackages);
+        stats.put("activeShipments", activeShipments);
+
+        return stats;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCourierProfileStats(Courier courier) {
+        Map<String, Object> stats = new HashMap<>();
+        
+        List<DeliveryPackage> deliveries = courier.getDeliveries();
+        long totalDeliveries = deliveries.size();
+        long completedDeliveries = deliveries.stream()
+            .filter(d -> d.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED)
+            .count();
+        long activeDeliveries = deliveries.stream()
+            .filter(d -> d.getStatus() != DeliveryPackage.DeliveryStatus.DELIVERED 
+                && d.getStatus() != DeliveryPackage.DeliveryStatus.CANCELLED)
+            .count();
+
+
+        stats.put("totalDeliveries", totalDeliveries);
+        stats.put("completedDeliveries", completedDeliveries);
+        stats.put("activeDeliveries", activeDeliveries);
+
+        return stats;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAdminProfileStats() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        long totalUsers = userRepository.count();
+        long customerCount = customerRepository.count();
+        long courierCount = courierRepository.count();
+        long totalPackages = packageRepository.count();
+        long activePackages = packageRepository.findAll().stream()
+            .filter(p -> p.getStatus() != DeliveryPackage.DeliveryStatus.DELIVERED)
+            .count();
+
+        stats.put("totalUsers", totalUsers);
+        stats.put("customerCount", customerCount);
+        stats.put("courierCount", courierCount);
+        stats.put("totalPackages", totalPackages);
+        stats.put("activePackages", activePackages);
+
+        return stats;
     }
 }

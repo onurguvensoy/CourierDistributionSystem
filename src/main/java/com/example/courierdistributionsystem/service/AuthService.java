@@ -2,7 +2,9 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.dto.SignupRequest;
 import com.example.courierdistributionsystem.exception.AuthenticationException;
 import com.example.courierdistributionsystem.model.*;
-import com.example.courierdistributionsystem.repository.AdminRepository;
+import com.example.courierdistributionsystem.repository.jpa.AdminRepository;
+import com.example.courierdistributionsystem.utils.PasswordEncoderService;
+
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

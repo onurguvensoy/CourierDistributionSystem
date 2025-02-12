@@ -70,6 +70,11 @@
 			<artifactId>jakarta.servlet-api</artifactId>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.tomcat</groupId>
+			<artifactId>tomcat-jasper</artifactId>
+			<version>10.1.19</version>
+		</dependency>
 		<!-- Database -->
 		<dependency>
 			<groupId>com.h2database</groupId>

@@ -1,6 +1,6 @@
 package com.example.courierdistributionsystem.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.*;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import java.io.Serializable;
 
 @Data
 @SuperBuilder
@@ -18,7 +19,16 @@ import org.hibernate.annotations.OnDeleteAction;
 @Table(name = "users")
 @Inheritance(strategy = InheritanceType.JOINED)
 @OnDelete(action = OnDeleteAction.CASCADE)
-public class User {
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
+@JsonIdentityInfo(
+    generator = ObjectIdGenerators.PropertyGenerator.class,
+    property = "id",
+    scope = User.class)
+public class User implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,6 +50,9 @@ public class User {
     @JsonIgnore
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column
+    private String phoneNumber;
 
     public enum UserRole {
         ADMIN,

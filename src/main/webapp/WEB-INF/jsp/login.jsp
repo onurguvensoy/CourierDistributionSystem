@@ -2,10 +2,23 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <c:set var="pageTitle" value="Login" />
 
-<%@ include file="common/header.jsp" %>
+<%@ include file="common/auth_header.jsp" %>
 
 <!-- Custom styles for login page -->
 <style>
+    html, body {
+        height: 100%;
+    }
+    .container {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .card {
+        width: 100%;
+        max-width: 900px;
+    }
     .bg-login-image {
         background: url('https://source.unsplash.com/K4mSJ7kc0As/600x800');
         background-position: center;
@@ -47,6 +60,9 @@
         color: #5a5c69;
         font-weight: 700;
     }
+    .my-5 {
+        margin: 0 !important;
+    }
 </style>
 
 <div class="container">
@@ -54,9 +70,9 @@
     <div class="toast-container"></div>
     
     <!-- Outer Row -->
-    <div class="row justify-content-center">
+    <div class="row justify-content-center w-100">
         <div class="col-xl-10 col-lg-12 col-md-9">
-            <div class="card o-hidden border-0 shadow-lg my-5">
+            <div class="card o-hidden border-0 shadow-lg">
                 <div class="card-body p-0">
                     <!-- Nested Row within Card Body -->
                     <div class="row">
@@ -221,4 +237,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<%@ include file="common/footer.jsp" %>
+<%@ include file="common/auth_footer.jsp" %>

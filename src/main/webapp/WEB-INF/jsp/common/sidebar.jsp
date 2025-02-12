@@ -3,7 +3,7 @@
 
     <!-- Sidebar - Brand -->
     <a class="sidebar-brand d-flex align-items-center justify-content-center" href="/">
-        <div class="sidebar-brand-icon rotate-n-15">
+        <div class="sidebar-brand-icon">
             <i class="fas fa-truck"></i>
         </div>
         <div class="sidebar-brand-text mx-3">CDS</div>
@@ -15,7 +15,7 @@
     <!-- Nav Item - Dashboard -->
     <li class="nav-item">
         <a class="nav-link" href="/">
-            <i class="fas fa-fw fa-tachometer-alt"></i>
+            <i class="fas fa-fw fa-home"></i>
             <span>Dashboard</span>
         </a>
     </li>
@@ -23,58 +23,82 @@
     <!-- Divider -->
     <hr class="sidebar-divider">
 
-    <!-- Heading -->
-    <div class="sidebar-heading">
-        Interface
-    </div>
+    <c:choose>
+        <%-- Admin Navigation Items --%>
+        <c:when test="${user.role eq 'ADMIN'}">
+            <!-- Heading -->
+            <div class="sidebar-heading">
+                Administration
+            </div>
 
-    <c:if test="${user.role == 'ADMIN'}">
-        <!-- Nav Item - Admin Pages -->
-        <li class="nav-item">
-            <a class="nav-link" href="/admin/dashboard">
-                <i class="fas fa-fw fa-cog"></i>
-                <span>Admin Dashboard</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/admin/reports">
-                <i class="fas fa-fw fa-chart-area"></i>
-                <span>Reports</span>
-            </a>
-        </li>
-    </c:if>
+            <!-- Nav Item - User Management -->
+            <li class="nav-item">
+                <a class="nav-link" href="/admin/users">
+                    <i class="fas fa-fw fa-users"></i>
+                    <span>User Management</span>
+                </a>
+            </li>
 
-    <c:if test="${user.role == 'CUSTOMER'}">
-        <!-- Nav Item - Customer Pages -->
-        <li class="nav-item">
-            <a class="nav-link" href="/customer/dashboard">
-                <i class="fas fa-fw fa-box"></i>
-                <span>My Packages</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/customer/new-package">
-                <i class="fas fa-fw fa-plus"></i>
-                <span>Create Package</span>
-            </a>
-        </li>
-    </c:if>
+            <!-- Nav Item - Package Management -->
+            <li class="nav-item">
+                <a class="nav-link" href="/admin/packages">
+                    <i class="fas fa-fw fa-boxes"></i>
+                    <span>Package Management</span>
+                </a>
+            </li>
 
-    <c:if test="${user.role == 'COURIER'}">
-        <!-- Nav Item - Courier Pages -->
-        <li class="nav-item">
-            <a class="nav-link" href="/courier/dashboard">
-                <i class="fas fa-fw fa-truck"></i>
-                <span>My Deliveries</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/courier/available-packages">
-                <i class="fas fa-fw fa-box-open"></i>
-                <span>Available Packages</span>
-            </a>
-        </li>
-    </c:if>
+            <!-- Nav Item - Reports -->
+            <li class="nav-item">
+                <a class="nav-link" href="/admin/reports">
+                    <i class="fas fa-fw fa-chart-bar"></i>
+                    <span>Reports</span>
+                </a>
+            </li>
+        </c:when>
+
+        <%-- Customer Navigation Items --%>
+        <c:when test="${user.role eq 'CUSTOMER'}">
+            <!-- Heading -->
+            <div class="sidebar-heading">
+                Package Management
+            </div>
+
+        
+
+            <!-- Nav Item - Create Package -->
+            <li class="nav-item">
+                <a class="nav-link" href="/customer/new-package">
+                    <i class="fas fa-fw fa-plus"></i>
+                    <span>Create Package</span>
+                </a>
+            </li>
+
+            <!-- Nav Item - Delivery History -->
+            <li class="nav-item">
+                <a class="nav-link" href="/customer/delivery-history">
+                    <i class="fas fa-fw fa-history"></i>
+                    <span>Delivery History</span>
+                </a>
+            </li>
+        </c:when>
+
+        <%-- Courier Navigation Items --%>
+        <c:when test="${user.role eq 'COURIER'}">
+            <!-- Heading -->
+            <div class="sidebar-heading">
+                Deliveries
+            </div>
+
+
+            <!-- Nav Item - Delivery History -->
+            <li class="nav-item">
+                <a class="nav-link" href="/courier/delivery-history">
+                    <i class="fas fa-fw fa-history"></i>
+                    <span>Delivery History</span>
+                </a>
+            </li>
+        </c:when>
+    </c:choose>
 
     <!-- Divider -->
     <hr class="sidebar-divider">

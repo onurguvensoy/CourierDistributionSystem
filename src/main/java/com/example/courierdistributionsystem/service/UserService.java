@@ -2,7 +2,13 @@ package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.exception.AuthenticationException;
 import com.example.courierdistributionsystem.model.*;
-import com.example.courierdistributionsystem.repository.*;
+import com.example.courierdistributionsystem.repository.jpa.UserRepository;
+import com.example.courierdistributionsystem.repository.jpa.AdminRepository;
+import com.example.courierdistributionsystem.repository.jpa.CustomerRepository;
+import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
+import com.example.courierdistributionsystem.utils.PasswordEncoderService;
+
+
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -66,16 +72,7 @@ public class UserService {
         return userLookupTimer.record(() -> {
             try {
                 Optional<User> user = userRepository.findByUsername(username);
-                
-                user.ifPresent(u -> {
-                    logger.debug("Initializing lazy collections for user: {}", username);
-                    initializeLazyCollections(u);
-                });
-
-                if (user.isEmpty()) {
-                    logger.debug("User not found: {}", username);
-                }
-                
+                user.ifPresent(u -> initializeLazyCollections(u));
                 return user;
             } catch (Exception e) {
                 logger.error("Error looking up user: {} - {}", username, e.getMessage(), e);
@@ -89,15 +86,10 @@ public class UserService {
             if (user instanceof Customer) {
                 Customer customer = (Customer) user;
                 Hibernate.initialize(customer.getPackages());
-                Hibernate.initialize(customer.getNotifications());
-                Hibernate.initialize(customer.getRatings());
             } else if (user instanceof Courier) {
                 Hibernate.initialize(((Courier) user).getDeliveries());
-                Hibernate.initialize(((Courier) user).getRatings());
             } else if (user instanceof Admin) {
                 Hibernate.initialize(((Admin) user).getReports());
-                Hibernate.initialize(((Admin) user).getNotifications());
-                Hibernate.initialize(((Admin) user).getMetrics());
             }
         } catch (Exception e) {
             logger.warn("Error initializing lazy collections for user: {} - {}", user.getUsername(), e.getMessage());
@@ -109,12 +101,7 @@ public class UserService {
         logger.debug("Looking up user by email: {}", email);
         try {
             Optional<User> user = userRepository.findByEmail(email);
-            
-            user.ifPresent(u -> {
-                logger.debug("Found user by email: {}", email);
-                initializeLazyCollections(u);
-            });
-
+            user.ifPresent(u -> initializeLazyCollections(u));
             return user;
         } catch (Exception e) {
             logger.error("Error looking up user by email: {} - {}", email, e.getMessage(), e);
@@ -130,8 +117,8 @@ public class UserService {
         return userRepository.existsByEmail(email);
     }
 
-    @Transactional
     @CacheEvict(value = "users", allEntries = true)
+    @Transactional
     public Admin saveAdmin(Admin admin) {
         logger.info("Saving admin user: {}", admin.getUsername());
         try {
@@ -146,8 +133,8 @@ public class UserService {
         }
     }
 
-    @Transactional
     @CacheEvict(value = "users", allEntries = true)
+    @Transactional
     public Customer saveCustomer(Customer customer) {
         logger.info("Saving customer user: {}", customer.getUsername());
         try {
@@ -162,8 +149,8 @@ public class UserService {
         }
     }
 
-    @Transactional
     @CacheEvict(value = "users", allEntries = true)
+    @Transactional
     public Courier saveCourier(Courier courier) {
         logger.info("Saving courier user: {}", courier.getUsername());
         try {
@@ -272,38 +259,47 @@ public class UserService {
         return saveAdmin(admin);
     }
 
+    @Cacheable(value = "users", key = "'all'")
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
+    @Cacheable(value = "users", key = "'customers'")
     public List<Customer> getAllCustomers() {
         return customerRepository.findAll();
     }
 
+    @Cacheable(value = "users", key = "'couriers'")
     public List<Courier> getAllCouriers() {
         return courierRepository.findAll();
     }
 
+    @Cacheable(value = "users", key = "'admins'")
     public List<Admin> getAllAdmins() {
         return adminRepository.findAll();
     }
 
+    @Cacheable(value = "users", key = "'courier_' + #id")
     public Optional<Courier> getCourierById(Long id) {
         return courierRepository.findById(id);
     }
 
+    @Cacheable(value = "users", key = "'customer_' + #id")
     public Optional<Customer> getCustomerById(Long id) {
         return customerRepository.findById(id);
     }
 
+    @Cacheable(value = "users", key = "'admin_' + #id")
     public Optional<Admin> getAdminById(Long id) {
         return adminRepository.findById(id);
     }
 
+    @Cacheable(value = "users", key = "'user_' + #id")
     public Optional<User> getUserById(Long id) {
         return userRepository.findById(id);
     }
 
+    @Cacheable(value = "users", key = "'stats'")
     public Map<String, Object> getUserStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalUsers", userRepository.count());
@@ -313,24 +309,15 @@ public class UserService {
         return stats;
     }
 
-    @Transactional
     @CacheEvict(value = "users", allEntries = true)
+    @Transactional
     public void deleteUser(User user) {
         logger.info("Deleting user: {} with role: {}", user.getUsername(), user.getRole());
         try {
             switch (user.getRole()) {
-                case ADMIN -> {
-                    Admin admin = (Admin) user;
-                    adminRepository.delete(admin);
-                }
-                case CUSTOMER -> {
-                    Customer customer = (Customer) user;
-                    customerRepository.delete(customer);
-                }
-                case COURIER -> {
-                    Courier courier = (Courier) user;
-                    courierRepository.delete(courier);
-                }
+                case ADMIN -> adminRepository.delete((Admin) user);
+                case CUSTOMER -> customerRepository.delete((Customer) user);
+                case COURIER -> courierRepository.delete((Courier) user);
             }
             userRepository.delete(user);
             logger.info("User deleted successfully: {}", user.getUsername());
@@ -360,6 +347,7 @@ public class UserService {
         }
     }
 
+    @CacheEvict(value = "users", allEntries = true)
     @Transactional
     public User editUser(Long id, Map<String, String> updates) {
         User user = getUserById(id)
@@ -380,6 +368,79 @@ public class UserService {
         }
 
         return userRepository.save(user);
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public Map<String, Object> updateUserSettings(String username, Map<String, String> settings) {
+        logger.info("Updating settings for user: {}", username);
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (settings.containsKey("email")) {
+                String newEmail = settings.get("email");
+                if (!user.getEmail().equals(newEmail) && existsByEmail(newEmail)) {
+                    throw new RuntimeException("Email already exists");
+                }
+                user.setEmail(newEmail);
+            }
+
+            if (settings.containsKey("phoneNumber")) {
+                if (user instanceof Customer) {
+                    ((Customer) user).setPhoneNumber(settings.get("phoneNumber"));
+                } else if (user instanceof Courier) {
+                    ((Courier) user).setPhoneNumber(settings.get("phoneNumber"));
+                }
+            }
+
+            userRepository.save(user);
+            
+            response.put("status", "success");
+            response.put("message", "Settings updated successfully");
+            logger.info("Successfully updated settings for user: {}", username);
+        } catch (Exception e) {
+            logger.error("Error updating user settings: {} - {}", username, e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to update settings: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @Transactional
+    @CacheEvict(value = "users", allEntries = true)
+    public Map<String, Object> changePassword(String username, String currentPassword, String newPassword) {
+        logger.info("Changing password for user: {}", username);
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            User user = findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+                logger.warn("Invalid current password for user: {}", username);
+                response.put("status", "error");
+                response.put("message", "Current password is incorrect");
+                return response;
+            }
+
+            validatePassword(newPassword);
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+            
+            response.put("status", "success");
+            response.put("message", "Password changed successfully");
+            logger.info("Successfully changed password for user: {}", username);
+        } catch (Exception e) {
+            logger.error("Error changing password: {} - {}", username, e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Failed to change password: " + e.getMessage());
+        }
+        
+        return response;
     }
 
     public static class UserNotFoundException extends RuntimeException {

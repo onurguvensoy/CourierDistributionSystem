@@ -1,0 +1,90 @@
+/* Connection Status */
+.connection-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin: 0 10px;
+    transition: all 0.3s ease;
+}
+
+.connection-status i {
+    font-size: 16px;
+    color: #858796;
+}
+
+.connection-status.connected i {
+    color: #1cc88a;
+}
+
+.connection-status.disconnected i {
+    color: #e74a3b;
+}
+
+/* Notifications */
+.notifications-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #e3e6f0;
+    transition: background-color 0.3s ease;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fc;
+}
+
+.notification-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.notification-message {
+    color: #5a5c69;
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+}
+
+.notification-time {
+    color: #858796;
+    font-size: 0.75rem;
+}
+
+.dropdown-list {
+    min-width: 300px;
+}
+
+.dropdown-list .dropdown-header {
+    background-color: #4e73df;
+    border: 1px solid #4e73df;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    color: #fff;
+}
+
+.badge-counter {
+    position: absolute;
+    transform: scale(0.7);
+    transform-origin: top right;
+    right: 0.25rem;
+    margin-top: -0.25rem;
+}
+
+/* Animation for new notifications */
+@keyframes notification-highlight {
+    0% {
+        background-color: rgba(78, 115, 223, 0.1);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.notification-item.new {
+    animation: notification-highlight 2s ease-out;
+} 

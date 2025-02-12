@@ -96,7 +96,7 @@
                             <th>Delivery Address</th>
                             <th>Delivered At</th>
                             <th>Courier</th>
-                            <th>Rating</th>
+                    
                         </tr>
                     </thead>
                     <tbody>
@@ -109,23 +109,6 @@
                                 <td>${package.deliveryAddress}</td>
                                 <td>${package.deliveredAt}</td>
                                 <td>${package.courier.username}</td>
-                                <td>
-                                    <c:choose>
-                                        <c:when test="${package.rating != null}">
-                                            <div class="rating-stars">
-                                                <c:forEach begin="1" end="5" var="i">
-                                                    <i class="fas fa-star ${i <= package.rating.courierRating ? 'text-warning' : 'text-gray-300'}"></i>
-                                                </c:forEach>
-                                            </div>
-                                        </c:when>
-                                        <c:otherwise>
-                                            <button class="btn btn-primary btn-sm" 
-                                                    onclick="showRatingModal('${package.package_id}')">
-                                                <i class="fas fa-star"></i> Rate Delivery
-                                            </button>
-                                        </c:otherwise>
-                                    </c:choose>
-                                </td>
                             </tr>
                         </c:forEach>
                     </tbody>
@@ -159,49 +142,6 @@
     </div>
 </div>
 
-<!-- Rating Modal -->
-<div class="modal fade" id="ratingModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Rate Delivery</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="ratingForm">
-                    <input type="hidden" id="ratingPackageId">
-                    <div class="form-group">
-                        <label>Rate the Delivery Service (1-5 stars)</label>
-                        <div class="rating-input">
-                            <i class="fas fa-star" data-rating="1"></i>
-                            <i class="fas fa-star" data-rating="2"></i>
-                            <i class="fas fa-star" data-rating="3"></i>
-                            <i class="fas fa-star" data-rating="4"></i>
-                            <i class="fas fa-star" data-rating="5"></i>
-                        </div>
-                        <input type="hidden" id="ratingValue" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Comments</label>
-                        <textarea class="form-control" id="ratingComment" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" id="anonymousRating">
-                            <label class="custom-control-label" for="anonymousRating">Submit Anonymously</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitRating()">Submit Rating</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Include WebSocket JavaScript -->
 <script src="/webjars/sockjs-client/sockjs.min.js"></script>
@@ -218,10 +158,6 @@ function showTrackingModal(packageId) {
     loadPackageDetails(packageId);
 }
 
-function showRatingModal(packageId) {
-    $('#ratingPackageId').val(packageId);
-    $('#ratingModal').modal('show');
-}
 
 function initializeMap() {
     if (!map) {
@@ -268,64 +204,6 @@ function updateMapLocation(lat, lng) {
         currentMarker = L.marker([lat, lng]).addTo(map);
         map.setView([lat, lng], 13);
     }
-}
-
-// Rating functionality
-$('.rating-input .fa-star').hover(
-    function() {
-        const rating = $(this).data('rating');
-        updateStars(rating);
-    },
-    function() {
-        const rating = $('#ratingValue').val() || 0;
-        updateStars(rating);
-    }
-).click(function() {
-    const rating = $(this).data('rating');
-    $('#ratingValue').val(rating);
-    updateStars(rating);
-});
-
-function updateStars(rating) {
-    $('.rating-input .fa-star').each(function() {
-        const starRating = $(this).data('rating');
-        $(this).toggleClass('text-warning', starRating <= rating);
-    });
-}
-
-function submitRating() {
-    const packageId = $('#ratingPackageId').val();
-    const rating = $('#ratingValue').val();
-    const comment = $('#ratingComment').val();
-    const anonymous = $('#anonymousRating').is(':checked');
-
-    if (!rating) {
-        toastr.error('Please select a rating');
-        return;
-    }
-
-    $.ajax({
-        url: `/api/packages/${packageId}/rate`,
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify({
-            rating: rating,
-            comment: comment,
-            anonymous: anonymous
-        }),
-        success: function(response) {
-            if (response.status === 'success') {
-                toastr.success('Rating submitted successfully');
-                $('#ratingModal').modal('hide');
-                location.reload();
-            } else {
-                toastr.error(response.message || 'Failed to submit rating');
-            }
-        },
-        error: function(xhr) {
-            toastr.error(xhr.responseJSON?.message || 'Failed to submit rating');
-        }
-    });
 }
 
 function cancelPackage(packageId) {

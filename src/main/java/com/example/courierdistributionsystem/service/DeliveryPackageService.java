@@ -5,16 +5,21 @@ import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.model.DeliveryReport;
-import com.example.courierdistributionsystem.model.Rating;
-import com.example.courierdistributionsystem.repository.DeliveryPackageRepository;
-import com.example.courierdistributionsystem.repository.CustomerRepository;
-import com.example.courierdistributionsystem.repository.CourierRepository;
-import com.example.courierdistributionsystem.repository.DeliveryReportRepository;
-import com.example.courierdistributionsystem.repository.RatingRepository;
+import com.example.courierdistributionsystem.repository.jpa.DeliveryPackageRepository;
+import com.example.courierdistributionsystem.repository.jpa.CustomerRepository;
+import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
+import com.example.courierdistributionsystem.repository.jpa.DeliveryReportRepository;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,34 +29,31 @@ import java.util.HashMap;
 @Service
 public class DeliveryPackageService {
     private static final Logger logger = LoggerFactory.getLogger(DeliveryPackageService.class);
+    private static final String PACKAGES_CACHE = "packages";
+    private static final String REPORTS_CACHE = "reports";
+    private static final String LOCATIONS_CACHE = "locations";
 
     private final DeliveryPackageRepository deliveryPackageRepository;
     private final CustomerRepository customerRepository;
     private final CourierRepository courierRepository;
     private final DeliveryReportRepository deliveryReportRepository;
-    private final RatingRepository ratingRepository;
-    private final WebSocketNotificationService notificationService;
+ 
+
 
     public DeliveryPackageService(
             DeliveryPackageRepository deliveryPackageRepository,
             CustomerRepository customerRepository,
             CourierRepository courierRepository,
-            DeliveryReportRepository deliveryReportRepository,
-            RatingRepository ratingRepository,
-            WebSocketNotificationService notificationService) {
+            DeliveryReportRepository deliveryReportRepository
+            ) {
         this.deliveryPackageRepository = deliveryPackageRepository;
         this.customerRepository = customerRepository;
         this.courierRepository = courierRepository;
         this.deliveryReportRepository = deliveryReportRepository;
-        this.ratingRepository = ratingRepository;
-        this.notificationService = notificationService;
     }
 
-    public List<DeliveryPackage> getAllDeliveryPackages() {
-        logger.debug("Fetching all delivery packages");
-        return deliveryPackageRepository.findAll();
-    }
-
+    @Cacheable(value = PACKAGES_CACHE, key = "#id")
+    @Transactional(readOnly = true)
     public DeliveryPackage getDeliveryPackageById(Long id) {
         logger.debug("Fetching delivery package with id: {}", id);
         return deliveryPackageRepository.findById(id)
@@ -61,74 +63,65 @@ public class DeliveryPackageService {
             });
     }
 
+    @Cacheable(value = PACKAGES_CACHE, key = "'all'")
+    public List<DeliveryPackage> getAllDeliveryPackages() {
+        logger.debug("Fetching all delivery packages");
+        return deliveryPackageRepository.findAll();
+    }
+
+    @Cacheable(value = PACKAGES_CACHE, key = "'all'")
+    public Page<DeliveryPackage> getDeliveryPackagesPage(Pageable pageable) {
+        return deliveryPackageRepository.findAll(pageable);
+    }
+
+    @Cacheable(value = PACKAGES_CACHE, key = "'customer_' + #username")
+    public List<DeliveryPackage> getDeliveryPackagesByCustomerUsername(String username) {
+        return deliveryPackageRepository.findByCustomer_Username(username);
+    }
+
+    @Cacheable(value = PACKAGES_CACHE, key = "'courier_' + #username")
+    public List<DeliveryPackage> getDeliveryPackagesByCourierUsername(String username) {
+        return deliveryPackageRepository.findByCourier_Username(username);
+    }
+
+    @CacheEvict(value = PACKAGES_CACHE, allEntries = true)
     @Transactional
-    public DeliveryPackage createDeliveryPackage(Map<String, String> deliveryRequest) {
-        logger.info("Creating new delivery package");
-        
-        // Extract and validate required fields
-        String username = validateRequiredField(deliveryRequest, "username", "Username");
-        String pickupAddress = validateRequiredField(deliveryRequest, "pickupAddress", "Pickup address");
-        String deliveryAddress = validateRequiredField(deliveryRequest, "deliveryAddress", "Delivery address");
-        String description = validateRequiredField(deliveryRequest, "description", "Description");
-        String weightStr = validateRequiredField(deliveryRequest, "weight", "Weight");
-        String specialInstructions = deliveryRequest.getOrDefault("specialInstructions", "");
-
-        // Find customer
-        Customer customer = customerRepository.findByUsername(username)
-            .orElseThrow(() -> {
-                logger.error("Customer not found with username: {}", username);
-                return new IllegalArgumentException("Customer not found");
-            });
-
-        // Parse and validate weight
-        double weight = parseWeight(weightStr);
-
-        // Create delivery package
-        DeliveryPackage newPackage = DeliveryPackage.builder()
-            .customer(customer)
-            .pickupAddress(pickupAddress)
-            .deliveryAddress(deliveryAddress)
-            .description(description)
-            .specialInstructions(specialInstructions)
-            .weight(weight)
-            .status(DeliveryPackage.DeliveryStatus.PENDING)
-            .createdAt(LocalDateTime.now())
-            .updatedAt(LocalDateTime.now())
-            .build();
-
-        // Save package
-        DeliveryPackage savedPackage = deliveryPackageRepository.save(newPackage);
-        logger.info("Successfully created delivery package with id: {}", savedPackage.getPackage_id());
-
-        // Notify through WebSocket
-        notificationService.notifyNewDeliveryAvailable(savedPackage);
-
-        return savedPackage;
+    public DeliveryPackage createDeliveryPackage(DeliveryPackage deliveryPackage) {
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        deliveryPackage.setCreatedAt(LocalDateTime.now());
+        deliveryPackage.setUpdatedAt(LocalDateTime.now());
+        return deliveryPackageRepository.save(deliveryPackage);
     }
 
-    private String validateRequiredField(Map<String, String> request, String field, String fieldName) {
-        String value = request.get(field);
-        if (value == null || value.trim().isEmpty()) {
-            logger.error("Missing required field: {}", fieldName);
-            throw new IllegalArgumentException("Missing required field: " + fieldName);
+    @CacheEvict(value = PACKAGES_CACHE, key = "#id")
+    @Transactional
+    public void deleteDeliveryPackage(Long id) {
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(id);
+        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+            throw new IllegalStateException("Cannot delete a package that is not in PENDING status");
         }
-        return value.trim();
+        deliveryPackageRepository.deleteById(id);
     }
 
-    private double parseWeight(String weightStr) {
-        try {
-            double weight = Double.parseDouble(weightStr);
-            if (weight <= 0) {
-                logger.error("Invalid weight value: {}. Weight must be greater than 0", weightStr);
-                throw new IllegalArgumentException("Weight must be greater than 0");
-            }
-            return weight;
-        } catch (NumberFormatException e) {
-            logger.error("Invalid weight format: {}", weightStr);
-            throw new IllegalArgumentException("Invalid weight format");
-        }
+    @Caching(evict = {
+        @CacheEvict(value = PACKAGES_CACHE, key = "#packageId"),
+        @CacheEvict(value = LOCATIONS_CACHE, key = "#packageId")
+    })
+    @Transactional
+    public DeliveryPackage updateLocation(Long packageId, String username, String location, double latitude, double longitude) {
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
+        validateCourierForPackage(deliveryPackage, username);
+
+        deliveryPackage.setCurrentLocation(location);
+        deliveryPackage.setLatitude(latitude);
+        deliveryPackage.setLongitude(longitude);
+        deliveryPackage.setUpdatedAt(LocalDateTime.now());
+
+        return deliveryPackageRepository.save(deliveryPackage);
     }
 
+    @CachePut(value = PACKAGES_CACHE, key = "#id")
+    @Transactional
     public DeliveryPackage updateDeliveryPackage(Long id, Map<String, String> deliveryRequest) {
         DeliveryPackage existingDelivery = getDeliveryPackageById(id);
 
@@ -152,11 +145,15 @@ public class DeliveryPackageService {
             existingDelivery.setSpecialInstructions(deliveryRequest.get("specialInstructions"));
         }
 
-        DeliveryPackage updatedDelivery = deliveryPackageRepository.save(existingDelivery);
-        notificationService.notifyDeliveryStatusUpdate(updatedDelivery);
-        return updatedDelivery;
+        return deliveryPackageRepository.save(existingDelivery);
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = PACKAGES_CACHE, key = "#id"),
+        @CacheEvict(value = PACKAGES_CACHE, key = "'customer_' + #username"),
+        @CacheEvict(value = PACKAGES_CACHE, key = "'all'")
+    })
+    @Transactional
     public void cancelDeliveryPackage(Long id, String username) {
         DeliveryPackage deliveryPackage = getDeliveryPackageById(id);
         Customer customer = customerRepository.findByUsername(username)
@@ -179,14 +176,14 @@ public class DeliveryPackageService {
             courierRepository.save(courier);
         }
 
-        DeliveryPackage cancelledDelivery = deliveryPackageRepository.save(deliveryPackage);
-        notificationService.notifyDeliveryStatusUpdate(cancelledDelivery);
+       deliveryPackageRepository.save(deliveryPackage);
+    
     }
 
+    @Cacheable(value = PACKAGES_CACHE, key = "'customer_' + #username")
     public List<DeliveryPackage> getCustomerDeliveryPackages(String username) {
         Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-        
         return deliveryPackageRepository.findByCustomer(customer);
     }
 
@@ -227,10 +224,14 @@ public class DeliveryPackageService {
         return trackingInfo;
     }
 
+    @Cacheable(value = PACKAGES_CACHE, key = "'available'")
+    @Transactional(readOnly = true)
     public List<DeliveryPackage> getAvailableDeliveryPackages() {
         return deliveryPackageRepository.findByStatus(DeliveryPackage.DeliveryStatus.PENDING);
     }
 
+    @Cacheable(value = PACKAGES_CACHE, key = "'courier_active_' + #username")
+    @Transactional(readOnly = true)
     public List<DeliveryPackage> getCourierActiveDeliveryPackages(String username) {
         Courier courier = courierRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
@@ -241,64 +242,32 @@ public class DeliveryPackageService {
                    DeliveryPackage.DeliveryStatus.IN_TRANSIT));
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = PACKAGES_CACHE, key = "#packageId"),
+        @CacheEvict(value = PACKAGES_CACHE, key = "'available'"),
+        @CacheEvict(value = PACKAGES_CACHE, key = "'courier_active_' + #username")
+    })
     @Transactional
     public DeliveryPackage updateDeliveryStatus(Long packageId, String username, DeliveryPackage.DeliveryStatus status) {
-        logger.info("Updating delivery status for package {} to {} by courier {}", packageId, status, username);
-        
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
-        
-        // Validate courier
-        if (!deliveryPackage.getCourier().getUsername().equals(username)) {
-            logger.warn("Unauthorized status update attempt for package {} by courier {}", packageId, username);
-            throw new IllegalArgumentException("Unauthorized to update this package");
-        }
-
-        // Validate status transition
-        validateStatusTransition(deliveryPackage.getStatus(), status);
+        validateCourierForPackage(deliveryPackage, username);
 
         deliveryPackage.setStatus(status);
-        updateStatusTimestamp(deliveryPackage, status);
         
-        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
-        logger.info("Successfully updated package {} status to {}", packageId, status);
-
-        // Send WebSocket notification to customer
-        notificationService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
-
-        // If delivered, send rating prompt
         if (status == DeliveryPackage.DeliveryStatus.DELIVERED) {
-            notificationService.sendRatingPrompt(deliveryPackage.getCustomer().getUsername(), packageId);
+            deliveryPackage.setDeliveredAt(LocalDateTime.now());
+            Courier courier = deliveryPackage.getCourier();
+            courier.setAvailable(true);
+            courierRepository.save(courier);
         }
 
-        return updatedPackage;
+        return deliveryPackageRepository.save(deliveryPackage);
     }
 
-    private void validateStatusTransition(DeliveryPackage.DeliveryStatus currentStatus, DeliveryPackage.DeliveryStatus newStatus) {
-        boolean isValid = switch (currentStatus) {
-            case PENDING -> newStatus == DeliveryPackage.DeliveryStatus.ASSIGNED;
-            case ASSIGNED -> newStatus == DeliveryPackage.DeliveryStatus.PICKED_UP;
-            case PICKED_UP -> newStatus == DeliveryPackage.DeliveryStatus.IN_TRANSIT;
-            case IN_TRANSIT -> newStatus == DeliveryPackage.DeliveryStatus.DELIVERED;
-            default -> false;
-        };
-
-        if (!isValid) {
-            logger.warn("Invalid status transition from {} to {}", currentStatus, newStatus);
-            throw new IllegalStateException("Invalid status transition from " + currentStatus + " to " + newStatus);
+    private void validateCourierForPackage(DeliveryPackage deliveryPackage, String username) {
+        if (!deliveryPackage.getCourier().getUsername().equals(username)) {
+            throw new IllegalArgumentException("Unauthorized to update this package");
         }
-    }
-
-    private void updateStatusTimestamp(DeliveryPackage deliveryPackage, DeliveryPackage.DeliveryStatus status) {
-        LocalDateTime now = LocalDateTime.now();
-        switch (status) {
-            case PENDING -> {}  // No timestamp to set
-            case ASSIGNED -> deliveryPackage.setAssignedAt(now);
-            case PICKED_UP -> deliveryPackage.setPickedUpAt(now);
-            case IN_TRANSIT -> {}  // No timestamp to set
-            case DELIVERED -> deliveryPackage.setDeliveredAt(now);
-            case CANCELLED -> deliveryPackage.setCancelledAt(now);
-        }
-        deliveryPackage.setUpdatedAt(now);
     }
 
     @Transactional
@@ -332,96 +301,63 @@ public class DeliveryPackageService {
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
         logger.info("Successfully updated location for package {}", packageId);
 
-        // Send WebSocket notifications
-        String customerUsername = deliveryPackage.getCustomer().getUsername();
-        notificationService.sendLocationUpdate(customerUsername, packageId, location, latitude, longitude);
-        notificationService.sendPackageUpdate(customerUsername, updatedPackage);
-
         return updatedPackage;
     }
 
+    @CacheEvict(value = PACKAGES_CACHE, allEntries = true)
     @Transactional
     public DeliveryPackage takeDeliveryPackage(Long packageId, String username) {
-        logger.info("Attempting to assign package {} to courier {}", packageId, username);
-        
-        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
-        
-        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
-            logger.warn("Package {} is not available for assignment. Current status: {}", packageId, deliveryPackage.getStatus());
-            throw new IllegalStateException("Package is not available for assignment");
-        }
-
         Courier courier = courierRepository.findByUsername(username)
-            .orElseThrow(() -> {
-                logger.error("Courier not found with username: {}", username);
-                return new IllegalArgumentException("Courier not found");
-            });
+            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
 
         if (!courier.isAvailable()) {
-            logger.warn("Courier {} is not available for new assignments", username);
-            throw new IllegalStateException("Courier is not available for new assignments");
+            throw new IllegalStateException("Courier is not available for deliveries");
+        }
+
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
+        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+            throw new IllegalStateException("Package is not available for pickup");
         }
 
         deliveryPackage.setCourier(courier);
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
-        deliveryPackage.setAssignedAt(LocalDateTime.now());
-        
         courier.setAvailable(false);
         courierRepository.save(courier);
 
-        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
-        logger.info("Successfully assigned package {} to courier {}", packageId, username);
-
-        // Send WebSocket notification to customer
-        notificationService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
-
-        return updatedPackage;
+        return deliveryPackageRepository.save(deliveryPackage);
     }
 
+    @CacheEvict(value = PACKAGES_CACHE, allEntries = true)
     @Transactional
     public DeliveryPackage dropDeliveryPackage(Long packageId, String username) {
-        logger.info("Attempting to drop package {} by courier {}", packageId, username);
-        
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
-        
-        if (!deliveryPackage.getCourier().getUsername().equals(username)) {
-            logger.warn("Unauthorized drop attempt for package {} by courier {}", packageId, username);
-            throw new IllegalArgumentException("Unauthorized to drop this package");
-        }
-
-        if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED) {
-            logger.warn("Cannot drop delivered package {}", packageId);
-            throw new IllegalStateException("Cannot drop a delivered package");
-        }
+        validateCourierForPackage(deliveryPackage, username);
 
         Courier courier = deliveryPackage.getCourier();
+        deliveryPackage.setCourier(null);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
         courier.setAvailable(true);
         courierRepository.save(courier);
 
-        deliveryPackage.setCourier(null);
-        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
-        deliveryPackage.setUpdatedAt(LocalDateTime.now());
-        
-        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
-        logger.info("Successfully dropped package {}", packageId);
-
-        // Send WebSocket notification to customer
-        notificationService.sendPackageUpdate(deliveryPackage.getCustomer().getUsername(), updatedPackage);
-
-        return updatedPackage;
+        return deliveryPackageRepository.save(deliveryPackage);
     }
 
     // Delivery Report Methods
+    @Cacheable(value = REPORTS_CACHE, key = "'all'")
     public List<DeliveryReport> getAllDeliveryReports() {
         return deliveryReportRepository.findAll();
     }
 
+    @Cacheable(value = REPORTS_CACHE, key = "'courier_' + #username")
     public List<DeliveryReport> getCourierDeliveryReports(String username) {
         Courier courier = courierRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Courier not found"));
         return deliveryReportRepository.findByCourier(courier);
     }
 
+    @CachePut(value = REPORTS_CACHE, key = "#result.id")
+    @CacheEvict(value = REPORTS_CACHE, key = "'all'")
+    @Transactional
     public DeliveryReport createDeliveryReport(Long packageId, DeliveryReport report, String username) {
         Courier courier = courierRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Courier not found"));
@@ -438,30 +374,33 @@ public class DeliveryPackageService {
         return deliveryReportRepository.save(report);
     }
 
+    @Cacheable(value = REPORTS_CACHE, key = "#id")
     public DeliveryReport getDeliveryReportById(Long id) {
         return deliveryReportRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Delivery report not found"));
     }
 
+    @Cacheable(value = REPORTS_CACHE, key = "'package_' + #packageId")
     public List<DeliveryReport> getDeliveryReportsByPackage(Long packageId) {
         DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
         return deliveryReportRepository.findByDeliveryPackage(deliveryPackage);
     }
 
+    @CachePut(value = REPORTS_CACHE, key = "#id")
+    @Transactional
     public DeliveryReport updateDeliveryReport(Long id, DeliveryReport reportDetails) {
         DeliveryReport report = getDeliveryReportById(id);
-
         report.setDeliveryTime(reportDetails.getDeliveryTime());
         report.setDeliveryNotes(reportDetails.getDeliveryNotes());
         report.setCustomerConfirmation(reportDetails.isCustomerConfirmation());
-        report.setDeliveryRating(reportDetails.getDeliveryRating());
         report.setDeliveryPhotoUrl(reportDetails.getDeliveryPhotoUrl());
         report.setSignatureUrl(reportDetails.getSignatureUrl());
         report.setDistanceTraveled(reportDetails.getDistanceTraveled());
-
         return deliveryReportRepository.save(report);
     }
 
+    @CacheEvict(value = REPORTS_CACHE, allEntries = true)
+    @Transactional
     public void deleteDeliveryReport(Long id) {
         DeliveryReport report = getDeliveryReportById(id);
         deliveryReportRepository.delete(report);
@@ -470,6 +409,7 @@ public class DeliveryPackageService {
     /**
      * Get active delivery packages for a customer (PENDING, ASSIGNED, PICKED_UP, IN_TRANSIT)
      */
+    @Cacheable(value = PACKAGES_CACHE, key = "'customer_active_' + #username")
     public List<DeliveryPackage> getCustomerActiveDeliveryPackages(String username) {
         Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
@@ -481,9 +421,8 @@ public class DeliveryPackageService {
                    DeliveryPackage.DeliveryStatus.IN_TRANSIT));
     }
 
-    /**
-     * Get completed delivery packages for a customer (DELIVERED)
-     */
+   
+    @Cacheable(value = PACKAGES_CACHE, key = "'customer_history_' + #username")
     public List<DeliveryPackage> getCustomerDeliveryHistory(String username) {
         Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
@@ -492,94 +431,45 @@ public class DeliveryPackageService {
             DeliveryPackage.DeliveryStatus.DELIVERED);
     }
 
-    /**
-     * Rate a completed delivery
-     */
-    @Transactional
-    public Rating rateDelivery(Long packageId, String username, Map<String, Object> ratingRequest) {
-        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
-        Customer customer = customerRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-
-        // Validate customer ownership
-        if (!deliveryPackage.getCustomer().equals(customer)) {
-            throw new IllegalArgumentException("Delivery package does not belong to this customer");
-        }
-
-        // Validate delivery status
-        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.DELIVERED) {
-            throw new IllegalArgumentException("Can only rate delivered packages");
-        }
-
-        // Check if already rated
-        if (ratingRepository.existsByDeliveryPackageAndCustomer(deliveryPackage, customer)) {
-            throw new IllegalArgumentException("Delivery has already been rated");
-        }
-
-        // Validate rating value
-        Double ratingValue = ((Number) ratingRequest.get("rating")).doubleValue();
-        if (ratingValue < 1 || ratingValue > 5) {
-            throw new IllegalArgumentException("Rating must be between 1 and 5");
-        }
-
-        // Create rating
-        Rating rating = Rating.builder()
-            .customer(customer)
-            .courier(deliveryPackage.getCourier())
-            .deliveryPackage(deliveryPackage)
-            .courierRating(ratingValue)
-            .deliveryRating(ratingValue)
-            .comment((String) ratingRequest.get("comment"))
-            .anonymous((Boolean) ratingRequest.getOrDefault("anonymous", false))
-            .build();
-
-        Rating savedRating = ratingRepository.save(rating);
-
-        // Update courier's average rating
-        Courier courier = deliveryPackage.getCourier();
-        Double averageRating = ratingRepository.getAverageCourierRating(courier);
-        courier.setAverageRating(averageRating != null ? averageRating : 0.0);
-        courierRepository.save(courier);
-
-        return savedRating;
-    }
-
-    /**
-     * Get rating for a specific delivery
-     */
-    public Rating getDeliveryRating(Long packageId, String username) {
-        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
-        Customer customer = customerRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-
-        if (!deliveryPackage.getCustomer().equals(customer)) {
-            throw new IllegalArgumentException("Delivery package does not belong to this customer");
-        }
-
-        return ratingRepository.findByDeliveryPackageAndCustomer(deliveryPackage, customer)
-            .orElse(null);
-    }
-
     @Transactional
     public DeliveryPackage createPackage(CreatePackageRequest request, Customer customer) {
         if (request.getWeight() <= 0) {
             throw new IllegalArgumentException("Weight must be greater than 0");
         }
 
-        DeliveryPackage newPackage = DeliveryPackage.builder()
-            .customer(customer)
-            .pickupAddress(request.getPickupAddress())
-            .deliveryAddress(request.getDeliveryAddress())
-            .weight(request.getWeight())
-            .description(request.getDescription())
-            .specialInstructions(request.getSpecialInstructions())
-            .status(DeliveryPackage.DeliveryStatus.PENDING)
-            .createdAt(LocalDateTime.now())
-            .build();
+        // Fetch the customer within the transaction to ensure we have a managed entity
+        Customer managedCustomer = customerRepository.findById(customer.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
+        DeliveryPackage newPackage = DeliveryPackage.builder()
+                .customer(managedCustomer)
+                .pickupAddress(request.getPickupAddress())
+                .deliveryAddress(request.getDeliveryAddress())
+                .weight(request.getWeight())
+                .description(request.getDescription())
+                .specialInstructions(request.getSpecialInstructions())
+                .status(DeliveryPackage.DeliveryStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .trackingNumber(generateTrackingNumber())
+                .build();
+
+        // Save the package
         DeliveryPackage savedPackage = deliveryPackageRepository.save(newPackage);
-        notificationService.notifyNewDeliveryAvailable(savedPackage);
+
+        // Initialize the customer's packages collection if needed and add the new package
+        if (managedCustomer.getPackages() == null) {
+            managedCustomer.getPackages().clear();
+        }
+        managedCustomer.getPackages().add(savedPackage);
         
+
         return savedPackage;
+    }
+
+    private String generateTrackingNumber() {
+        return String.format("CDS-%d-%04d", 
+            System.currentTimeMillis() % 1000000000, 
+            (int)(Math.random() * 10000));
     }
 }

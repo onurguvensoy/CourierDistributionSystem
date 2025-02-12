@@ -8,8 +8,10 @@ import lombok.experimental.SuperBuilder;
 import lombok.EqualsAndHashCode;
 import lombok.Builder;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.springframework.data.redis.core.RedisHash;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -22,6 +24,8 @@ import java.util.ArrayList;
 @Table(name = "couriers")
 @PrimaryKeyJoinColumn(name = "user_id")
 @OnDelete(action = OnDeleteAction.CASCADE)
+@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
+@RedisHash("couriers")
 public class Courier extends User {
 
     @Column(nullable = false)
@@ -43,10 +47,6 @@ public class Courier extends User {
     @Column(name = "vehicle_type")
     private String vehicleType;
 
-    @Column(name = "average_rating")
-    @Builder.Default
-    private Double averageRating = 1.0;
-
     @JsonIgnore
     @OneToMany(mappedBy = "courier", cascade = CascadeType.ALL, orphanRemoval = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
@@ -58,16 +58,6 @@ public class Courier extends User {
     @OnDelete(action = OnDeleteAction.CASCADE)
     @Builder.Default
     private List<DeliveryReport> reports = new ArrayList<>();
-
-    @JsonIgnore
-    @OneToMany(mappedBy = "courier", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @Builder.Default
-    private List<Rating> ratings = new ArrayList<>();
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<Notification> notifications = new ArrayList<>();
 
     public void setIsAvailable(boolean available) {
         this.available = available;
@@ -83,9 +73,6 @@ public class Courier extends User {
         super.onCreate();
         if (getRole() == null) {
             setRole(UserRole.COURIER);
-        }
-        if (averageRating == null) {
-            averageRating = 0.0;
         }
     }
 } 

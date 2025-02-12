@@ -1,20 +1,26 @@
 package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.model.*;
-import com.example.courierdistributionsystem.repository.*;
+import com.example.courierdistributionsystem.repository.jpa.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class DeliveryReportService {
     private static final Logger logger = LoggerFactory.getLogger(DeliveryReportService.class);
+    private static final String REPORTS_CACHE_KEY = "delivery_reports";
+    private static final long CACHE_TTL = 3600; // 1 hour in seconds
 
     @Autowired
     private DeliveryReportRepository deliveryReportRepository;
@@ -23,19 +29,24 @@ public class DeliveryReportService {
     private DeliveryPackageRepository packageRepository;
 
     @Autowired
-    private CourierRepository courierRepository;
-
-    @Autowired
     private UserService userService;
 
+    @Autowired
+    private RedisTemplate<String, List<DeliveryReport>> redisTemplate;
+
+    @Cacheable(value = REPORTS_CACHE_KEY)
     public List<DeliveryReport> getAllReports() {
-        return deliveryReportRepository.findAll();
+        logger.info("Fetching all delivery reports");
+        List<DeliveryReport> reports = deliveryReportRepository.findAll();
+        redisTemplate.opsForValue().set(REPORTS_CACHE_KEY, reports, CACHE_TTL, TimeUnit.SECONDS);
+        return reports;
     }
 
     public Optional<DeliveryReport> getReportById(Long id) {
         return deliveryReportRepository.findById(id);
     }
 
+    @CacheEvict(value = REPORTS_CACHE_KEY, allEntries = true)
     @Transactional
     public DeliveryReport generateReport(Long packageId, String adminUsername) {
         logger.info("Generating delivery report for package {} by admin {}", packageId, adminUsername);
@@ -83,11 +94,7 @@ public class DeliveryReportService {
         content.append("Distance Traveled: ").append(String.format("%.2f", distance)).append(" km\n");
         content.append("Pickup Time: ").append(pickupTime).append("\n");
         content.append("Delivery Time: ").append(deliveryTime).append("\n");
-        
-        if (pkg.getCourier().getAverageRating() != null) {
-            content.append("Courier Rating: ").append(String.format("%.1f", pkg.getCourier().getAverageRating())).append("/5.0\n");
-        }
-
+    
         return content.toString();
     }
 
@@ -107,6 +114,7 @@ public class DeliveryReportService {
         return deliveryReportRepository.findByCourier_Username(username);
     }
 
+    @CacheEvict(value = REPORTS_CACHE_KEY, allEntries = true)
     @Transactional
     public void deleteReport(Long id) {
         deliveryReportRepository.deleteById(id);

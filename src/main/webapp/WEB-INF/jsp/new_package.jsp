@@ -1,41 +1,65 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <c:set var="pageTitle" value="Create New Package" />
 
-<%@ include file="common/header.jsp" %>
-<%@ include file="common/sidebar.jsp" %>
-<%@ include file="common/topbar.jsp" %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="_csrf" content="${_csrf.token}"/>
+    <meta name="_csrf_header" content="${_csrf.headerName}"/>
+    <title>${pageTitle} - Courier Distribution System</title>
 
-<!-- Add required libraries -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet">
+    <!-- Custom fonts for this template-->
+    <link href="/startbootstrap-sb-admin-2-4.1.3/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
 
-<script>
-// Configure toastr options
-toastr.options = {
-    "closeButton": true,
-    "debug": false,
-    "newestOnTop": true,
-    "progressBar": true,
-    "positionClass": "toast-top-right",
-    "preventDuplicates": false,
-    "onclick": null,
-    "showDuration": "300",
-    "hideDuration": "1000",
-    "timeOut": "5000",
-    "extendedTimeOut": "1000",
-    "showEasing": "swing",
-    "hideEasing": "linear",
-    "showMethod": "fadeIn",
-    "hideMethod": "fadeOut",
-    "containerId": "toast-container"
-};
-</script>
+    <!-- Custom styles for this template-->
+    <link href="/startbootstrap-sb-admin-2-4.1.3/css/sb-admin-2.min.css" rel="stylesheet">
+    
+    <!-- Custom styles for datatables -->
+    <link href="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+    
+    <!-- Toastr CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css" rel="stylesheet">
+
+    <!-- Core plugin JavaScript-->
+    <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/jquery/jquery.min.js"></script>
+    <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/jquery-easing/jquery.easing.min.js"></script>
+
+    <!-- Custom scripts for all pages-->
+    <script src="/startbootstrap-sb-admin-2-4.1.3/js/sb-admin-2.min.js"></script>
+
+    <!-- Page level plugins -->
+    <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/jquery.dataTables.min.js"></script>
+    <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+    <!-- Toastr JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
+</head>
+
+<body id="page-top">
+
+<!-- Page Wrapper -->
+<div id="wrapper">
+    <!-- Sidebar -->
+    <%@ include file="common/sidebar.jsp" %>
+
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            <!-- Topbar -->
+            <%@ include file="common/topbar.jsp" %>
 
 <!-- Begin Page Content -->
 <div class="container-fluid">
-
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Create New Package</h1>
@@ -51,6 +75,9 @@ toastr.options = {
                 <div class="card-body">
                     <form id="createPackageForm" class="needs-validation" novalidate>
                         <input type="hidden" name="username" value="${user.username}">
+                        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}" />
+                        <input type="hidden" id="csrfHeader" value="${_csrf.headerName}" />
+                                    
                         <div class="form-group">
                             <label for="pickupAddress">Pickup Address <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="pickupAddress" name="pickupAddress" 
@@ -119,23 +146,61 @@ toastr.options = {
         </div>
     </div>
 </div>
+            <!-- End of Page Content -->
+        </div>
+        <!-- End of Main Content -->
+
+        <!-- Footer -->
+<%@ include file="common/footer.jsp" %> 
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
 
 <script>
+// Configure toastr options
+toastr.options = {
+    "closeButton": true,
+    "debug": false,
+    "newestOnTop": true,
+    "progressBar": true,
+    "positionClass": "toast-top-right",
+    "preventDuplicates": false,
+    "showDuration": "300",
+    "hideDuration": "1000",
+    "timeOut": "5000",
+    "extendedTimeOut": "1000",
+    "showEasing": "swing",
+    "hideEasing": "linear",
+    "showMethod": "fadeIn",
+    "hideMethod": "fadeOut"
+};
+
 $(document).ready(function() {
     // Character count for textareas
     $('#description').on('input', function() {
-        $('#descriptionLength').text($(this).val().length + '/500');
+        const length = $(this).val().length;
+        $('#descriptionLength').text(`${length}/500`);
     });
 
     $('#specialInstructions').on('input', function() {
-        $('#instructionsLength').text($(this).val().length + '/200');
+        const length = $(this).val().length;
+        $('#instructionsLength').text(`${length}/200`);
     });
 
-    // Form validation and submission
+    // Form submission
     $('#createPackageForm').on('submit', function(e) {
         e.preventDefault();
         
-        const form = $(this);
+        const submitButton = $('#submitButton');
+        submitButton.prop('disabled', true)
+                   .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...');
         
         // Get form data
         const formData = {
@@ -147,42 +212,31 @@ $(document).ready(function() {
             specialInstructions: $('#specialInstructions').val().trim() || ''
         };
 
-        // Basic validation
-        if (!formData.pickupAddress || formData.pickupAddress.length < 5) {
-            toastr.error('Pickup address must be at least 5 characters');
-            return;
-        }
+        // Get CSRF token
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+        const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
 
-        if (!formData.deliveryAddress || formData.deliveryAddress.length < 5) {
-            toastr.error('Delivery address must be at least 5 characters');
-            return;
-        }
-
-        if (!formData.description || formData.description.length < 10) {
-            toastr.error('Description must be at least 10 characters');
-            return;
-        }
-
-        if (isNaN(formData.weight) || formData.weight <= 0 || formData.weight > 1000) {
-            toastr.error('Weight must be between 0.1 and 1000 kg');
-            return;
-        }
-
-        const submitButton = $('#submitButton');
-        submitButton.prop('disabled', true)
-                   .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...');
+        // Create headers object
+        const headers = new Headers({
+            'Content-Type': 'application/json',
+            [csrfHeader]: csrfToken
+        });
 
         // Send API request
         fetch('/api/packages/create', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
+            credentials: 'same-origin',
             body: JSON.stringify(formData)
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data.package_id) {
+            if (data.status === 'success' || data.package_id) {
                 toastr.success('Package created successfully!');
                 setTimeout(() => window.location.href = '/customer/dashboard', 1500);
             } else {
@@ -192,8 +246,6 @@ $(document).ready(function() {
         .catch(error => {
             console.error('Error:', error);
             toastr.error(error.message || 'Failed to create package. Please try again.');
-        })
-        .finally(() => {
             submitButton.prop('disabled', false)
                        .html('<i class="fas fa-box"></i> Create Package');
         });
@@ -215,5 +267,5 @@ $(document).ready(function() {
     });
 });
 </script>
-
-<%@ include file="common/footer.jsp" %> 
+</body>
+</html> 

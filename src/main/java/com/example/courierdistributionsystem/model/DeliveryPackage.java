@@ -3,6 +3,10 @@ package com.example.courierdistributionsystem.model;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.*;
+import org.springframework.data.redis.core.RedisHash;
+import org.springframework.data.redis.core.index.Indexed;
+import org.springframework.data.annotation.Id;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,26 +17,32 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "delivery_packages")
+@RedisHash("delivery_packages")
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "package_id")
-public class DeliveryPackage {
+public class DeliveryPackage implements Serializable {
     
+    private static final long serialVersionUID = 1L;
+    
+    @jakarta.persistence.Id
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Indexed
     private Long package_id;
 
     @Column(unique = true, nullable = false)
+    @Indexed
     private String trackingNumber;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id", nullable = false)
-    @JsonIdentityReference(alwaysAsId = true)
-    @JsonProperty("customerId")
+    @JsonBackReference(value = "customer-packages")
     private Customer customer;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "courier_id")
     @JsonIdentityReference(alwaysAsId = true)
     @JsonProperty("courierId")
+    @ToString.Exclude
     private Courier courier;
 
     @Column(nullable = false)
@@ -59,6 +69,12 @@ public class DeliveryPackage {
     @Column
     private String currentLocation;
 
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DeliveryStatus status;
@@ -81,12 +97,17 @@ public class DeliveryPackage {
     @Column(name = "picked_up_at")
     private LocalDateTime pickedUpAt;
 
-    @OneToOne(mappedBy = "deliveryPackage", cascade = CascadeType.ALL)
-    private Rating rating;
+
 
     @OneToMany(mappedBy = "deliveryPackage", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
+    @ToString.Exclude
     private List<DeliveryStatusHistory> statusHistory = new ArrayList<>();
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String formattedDeliveryDate;
 
     public enum DeliveryStatus {
         PENDING,
@@ -160,11 +181,13 @@ public class DeliveryPackage {
     }
 
     @JsonProperty("customerUsername")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public String getCustomerUsername() {
         return customer != null ? customer.getUsername() : null;
     }
 
     @JsonProperty("courierUsername")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public String getCourierUsername() {
         return courier != null ? courier.getUsername() : null;
     }
@@ -184,6 +207,20 @@ public class DeliveryPackage {
     public void setId(Long id) {
         this.package_id = id;
     }
+
+    @Override
+    public String toString() {
+        return "DeliveryPackage{" +
+                "package_id=" + package_id +
+                ", trackingNumber='" + trackingNumber + '\'' +
+                ", customerId=" + (customer != null ? customer.getId() : null) +
+                ", courierId=" + (courier != null ? courier.getId() : null) +
+                ", pickupAddress='" + pickupAddress + '\'' +
+                ", deliveryAddress='" + deliveryAddress + '\'' +
+                ", weight=" + weight +
+                ", status=" + status +
+                '}';
+    }
 }
 
 @Entity
@@ -193,8 +230,10 @@ public class DeliveryPackage {
 @AllArgsConstructor
 @Table(name = "delivery_status_history")
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
-class DeliveryStatusHistory {
-    @Id
+class DeliveryStatusHistory implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
+    @jakarta.persistence.Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 

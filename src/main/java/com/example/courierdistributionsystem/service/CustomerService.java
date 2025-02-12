@@ -3,7 +3,7 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.exception.CustomerException;
 import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.CustomerRepository;
+import com.example.courierdistributionsystem.repository.jpa.CustomerRepository;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.slf4j.Logger;

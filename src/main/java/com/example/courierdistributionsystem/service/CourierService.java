@@ -3,7 +3,9 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.exception.CourierException;
 import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.repository.CourierRepository;
+import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
+import com.example.courierdistributionsystem.socket.WebSocketService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -191,7 +193,6 @@ public class CourierService {
             .phoneNumber(phoneNumber)
             .vehicleType(vehicleType)
             .available(true)
-            .averageRating(0.0)
             .build();
 
         return courierRepository.save(courier);

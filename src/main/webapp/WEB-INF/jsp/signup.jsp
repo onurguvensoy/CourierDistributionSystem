@@ -2,10 +2,23 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <c:set var="pageTitle" value="Register" />
 
-<%@ include file="common/header.jsp" %>
+<%@ include file="common/auth_header.jsp" %>
 
 <!-- Custom styles for signup page -->
 <style>
+    html, body {
+        height: 100%;
+    }
+    .container {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .card {
+        width: 100%;
+        max-width: 900px;
+    }
     .bg-register-image {
         background: url('https://source.unsplash.com/Mv9hjnEUHR4/600x800');
         background-position: center;
@@ -59,13 +72,16 @@
         border-top-left-radius: 0;
         border-bottom-left-radius: 0;
     }
+    .my-5 {
+        margin: 0 !important;
+    }
 </style>
 
 <div class="container">
     <!-- Toast Container -->
     <div class="toast-container"></div>
 
-    <div class="card o-hidden border-0 shadow-lg my-5">
+    <div class="card o-hidden border-0 shadow-lg">
         <div class="card-body p-0">
             <!-- Nested Row within Card Body -->
             <div class="row">
@@ -317,4 +333,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<%@ include file="common/footer.jsp" %> 
+<%@ include file="common/auth_footer.jsp" %> 
