@@ -51,7 +51,7 @@
                                 <td>${package.deliveryAddress}</td>
                                 <td>
                                     <span id="package-status-${package.package_id}" 
-                                          class="badge badge-${getStatusBadgeClass(package.status)}">
+                                          >
                                         ${package.status}
                                     </span>
                                 </td>
@@ -143,10 +143,6 @@
 </div>
 
 
-<!-- Include WebSocket JavaScript -->
-<script src="/webjars/sockjs-client/sockjs.min.js"></script>
-<script src="/webjars/stomp-websocket/stomp.min.js"></script>
-<script src="/js/customer-websocket.js"></script>
 
 <script>
 let map = null;
@@ -227,7 +223,7 @@ function cancelPackage(packageId) {
     }
 }
 
-// WebSocket UI update functions
+
 window.updatePackageLocationOnMap = function(packageId, latitude, longitude, location) {
     if (map && currentMarker && $('#trackingModal').is(':visible')) {
         updateMapLocation(latitude, longitude);

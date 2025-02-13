@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
@@ -64,10 +65,10 @@
         <div id="content-wrapper" class="d-flex flex-column">
 
             <div id="content">
-                <!-- Topbar -->
+
                 <%@ include file="common/topbar.jsp" %>
 
-                <!-- Begin Page Content -->
+  
                 <div class="container-fluid">
                     <input type="hidden" id="username" value="${user.username}">
                     
@@ -199,10 +200,26 @@
                                                         <td>${pkg.pickupAddress}</td>
                                                         <td>${pkg.deliveryAddress}</td>
                                                         <td>
-                                                            <span class="badge badge-${pkg.status == 'PENDING' ? 'warning' : 
-                                                                pkg.status == 'IN_TRANSIT' ? 'info' : 'success'}">
-                                                                ${pkg.status}
-                                                            </span>
+                                                            <c:choose>
+                                                                <c:when test="${pkg.status == 'PENDING'}">
+                                                                    <span class="badge badge-warning">${pkg.status}</span>
+                                                                </c:when>
+                                                                <c:when test="${pkg.status == 'ASSIGNED'}">
+                                                                    <span class="badge badge-info">${pkg.status}</span>
+                                                                </c:when>
+                                                                <c:when test="${pkg.status == 'PICKED_UP'}">
+                                                                    <span class="badge badge-primary">${pkg.status}</span>
+                                                                </c:when>
+                                                                <c:when test="${pkg.status == 'IN_TRANSIT'}">
+                                                                    <span class="badge badge-info">${pkg.status}</span>
+                                                                </c:when>
+                                                                <c:when test="${pkg.status == 'DELIVERED'}">
+                                                                    <span class="badge badge-success">${pkg.status}</span>
+                                                                </c:when>
+                                                                <c:otherwise>
+                                                                    <span class="badge badge-secondary">${pkg.status}</span>
+                                                                </c:otherwise>
+                                                            </c:choose>
                                                         </td>
                                                         <td>${pkg.courier != null ? pkg.courier.username : 'Not Assigned'}</td>
                                                         <td>${pkg.createdAt}</td>
@@ -231,8 +248,132 @@
     <link href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap4.min.css" rel="stylesheet">
 
     <script>
+    let stompClient = null;
+    let activePackagesTable = null;
+
+    
+             
+            
+
+      
+    
+    function getStatusBadgeHtml(status) {
+        let badgeClass;
+        switch(status) {
+            case 'PENDING':
+                badgeClass = 'warning';
+                break;
+            case 'ASSIGNED':
+                badgeClass = 'info';
+                break;
+            case 'PICKED_UP':
+                badgeClass = 'primary';
+                break;
+            case 'IN_TRANSIT':
+                badgeClass = 'info';
+                break;
+            case 'DELIVERED':
+                badgeClass = 'success';
+                break;
+            default:
+                badgeClass = 'secondary';
+        }
+        return `<span class="badge badge-${badgeClass}">${status}</span>`;
+    }
+
+    function refreshActivePackages() {
+        try {
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content');
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+            
+            if (!csrfHeader || !csrfToken) {
+                console.error('CSRF tokens not found');
+                return;
+            }
+
+            $.ajax({
+                url: '/api/customer/active-packages',
+                method: 'GET',
+                headers: {
+                    [csrfHeader]: csrfToken
+                },
+                success: function(data) {
+                    try {
+                        const table = $('#activePackagesTable').DataTable();
+                        const currentPage = table.page();
+                        const currentPageLength = table.page.len();
+                        const currentSearch = table.search();
+                        
+                        table.clear();
+                        
+                        data.forEach(pkg => {
+                            table.row.add([
+                                pkg.package_id,
+                                pkg.pickupAddress,
+                                pkg.deliveryAddress,
+                                getStatusBadgeHtml(pkg.status),
+                                pkg.courier ? pkg.courier.username : 'Not Assigned',
+                                pkg.createdAt
+                            ]);
+                        });
+                        
+                        table.draw(false);
+                        
+                        // Restore table state
+                        table.page(currentPage).draw('page');
+                        table.page.len(currentPageLength);
+                        table.search(currentSearch).draw();
+
+                        // Update dashboard counters
+                        updatePackageCounters(data);
+                    } catch (error) {
+                        console.error('Error updating table data:', error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error fetching active packages:', error);
+                }
+            });
+        } catch (error) {
+            console.error('Error in refreshActivePackages:', error);
+        }
+    }
+
+    function updatePackageCounters(packages) {
+        try {
+            let pendingCount = 0;
+            let inTransitCount = 0;
+            let deliveredCount = parseInt(document.querySelector('.text-success .h5').textContent);
+
+            packages.forEach(pkg => {
+                if (pkg.status === 'PENDING') {
+                    pendingCount++;
+                } else if (['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(pkg.status)) {
+                    inTransitCount++;
+                }
+            });
+
+            // Update counters
+            document.querySelector('.text-warning .h5').textContent = pendingCount;
+            document.querySelector('.text-info .h5').textContent = inTransitCount;
+
+            // Update progress bar
+            const progressBar = document.querySelector('.progress-bar');
+            if (inTransitCount > 0) {
+                progressBar.style.width = '100%';
+                progressBar.setAttribute('aria-valuenow', inTransitCount);
+            } else {
+                progressBar.style.width = '0%';
+                progressBar.setAttribute('aria-valuenow', '0');
+            }
+        } catch (error) {
+            console.error('Error updating package counters:', error);
+        }
+    }
+
     $(document).ready(function() {
-        $('#activePackagesTable').DataTable({
+        // Initialize DataTable
+        activePackagesTable = $('#activePackagesTable').DataTable({
             "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                    '<"row"<"col-sm-12"tr>>' +
                    '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
@@ -251,6 +392,18 @@
                 }
             }
         });
+
+        // Initialize toastr
+        toastr.options = {
+            closeButton: true,
+            progressBar: true,
+            positionClass: "toast-top-right",
+            timeOut: 5000
+        };
+
+ 
+
+    
     });
     </script>
 </body>

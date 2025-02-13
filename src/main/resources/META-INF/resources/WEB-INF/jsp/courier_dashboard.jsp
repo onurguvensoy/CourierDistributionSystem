@@ -226,10 +226,6 @@
     </div>
 </div>
 
-<!-- Include WebSocket JavaScript -->
-<script src="/webjars/sockjs-client/sockjs.min.js"></script>
-<script src="/webjars/stomp-websocket/stomp.min.js"></script>
-<script src="/js/websocket.js"></script>
 
 <script>
 let currentPackageId = null;
@@ -264,7 +260,6 @@ function submitStatusUpdate() {
     $('#statusModal').modal('hide');
 }
 
-// UI Update Functions
 window.refreshPackageList = function() {
     location.reload();
 };

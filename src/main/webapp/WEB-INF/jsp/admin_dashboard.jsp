@@ -15,56 +15,56 @@
     <meta name="_csrf_header" content="${_csrf.headerName}"/>
     <title>${pageTitle} - Courier Distribution System</title>
 
-    <!-- Custom fonts for this template-->
+
     <link href="/startbootstrap-sb-admin-2-4.1.3/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
 
-    <!-- Custom styles for this template-->
+
     <link href="/startbootstrap-sb-admin-2-4.1.3/css/sb-admin-2.min.css" rel="stylesheet">
     
-    <!-- Custom styles for datatables -->
+
     <link href="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
     
-    <!-- Toastr CSS -->
+
     <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/css/toastr.min.css" rel="stylesheet">
 
-    <!-- Core plugin JavaScript-->
+
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/jquery/jquery.min.js"></script>
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/jquery-easing/jquery.easing.min.js"></script>
 
-    <!-- Custom scripts for all pages-->
+
     <script src="/startbootstrap-sb-admin-2-4.1.3/js/sb-admin-2.min.js"></script>
 
-    <!-- Page level plugins -->
+
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/jquery.dataTables.min.js"></script>
     <script src="/startbootstrap-sb-admin-2-4.1.3/vendor/datatables/dataTables.bootstrap4.min.js"></script>
 
-    <!-- Toastr JS -->
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/js/toastr.min.js"></script>
 
-    <!-- WebSocket -->
+  
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 
 <body id="page-top">
 
-<!-- Page Wrapper -->
+
 <div id="wrapper">
-    <!-- Sidebar -->
+
     <%@ include file="common/sidebar.jsp" %>
 
-    <!-- Content Wrapper -->
+
     <div id="content-wrapper" class="d-flex flex-column">
-        <!-- Main Content -->
+
         <div id="content">
-            <!-- Topbar -->
+
             <%@ include file="common/topbar.jsp" %>
 
-            <!-- Begin Page Content -->
+
             <div class="container-fluid">
-                <!-- Page Heading -->
+   
                 <div class="d-sm-flex align-items-center justify-content-between mb-4">
                     <h1 class="h3 mb-0 text-gray-800">Admin Dashboard</h1>
                     <a href="/admin/reports" class="d-none d-sm-inline-block btn btn-primary shadow-sm">
@@ -72,9 +72,9 @@
                     </a>
                 </div>
 
-                <!-- Content Row - System Statistics -->
+
                 <div class="row">
-                    <!-- Total Users Card -->
+    
                     <div class="col-xl-3 col-md-6 mb-4">
                         <div class="card border-left-primary shadow h-100 py-2">
                             <div class="card-body">
@@ -94,7 +94,7 @@
                         </div>
                     </div>
 
-                    <!-- Active Couriers Card -->
+
                     <div class="col-xl-3 col-md-6 mb-4">
                         <div class="card border-left-success shadow h-100 py-2">
                             <div class="card-body">
@@ -114,7 +114,7 @@
                         </div>
                     </div>
 
-                    <!-- Pending Packages Card -->
+
                     <div class="col-xl-3 col-md-6 mb-4">
                         <div class="card border-left-warning shadow h-100 py-2">
                             <div class="card-body">
@@ -256,31 +256,28 @@
                     </div>
                 </div>
             </div>
-            <!-- End of Page Content -->
+
         </div>
-        <!-- End of Main Content -->
 
-        <!-- Footer -->
+
+
         <%@ include file="common/footer.jsp" %>
-        <!-- End of Footer -->
-    </div>
-    <!-- End of Content Wrapper -->
-</div>
-<!-- End of Page Wrapper -->
 
-<!-- Scroll to Top Button-->
+    </div>
+
+</div>
+
 <a class="scroll-to-top rounded" href="#page-top">
     <i class="fas fa-angle-up"></i>
 </a>
 
-<!-- DataTables JavaScript -->
 <script src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap4.min.js"></script>
 <link href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap4.min.css" rel="stylesheet">
 
 <script>
 $(document).ready(function() {
-    // Initialize DataTables with Bootstrap styling
+
     $('#usersTable, #packagesTable').DataTable({
         "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                '<"row"<"col-sm-12"tr>>' +

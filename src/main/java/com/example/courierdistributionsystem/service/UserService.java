@@ -11,7 +11,6 @@ import com.example.courierdistributionsystem.utils.PasswordEncoderService;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import jakarta.validation.constraints.NotBlank;
 import org.hibernate.Hibernate;
 import org.slf4j.Logger;

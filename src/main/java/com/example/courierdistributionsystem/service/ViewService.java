@@ -2,8 +2,6 @@ package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.model.*;
 import com.example.courierdistributionsystem.repository.jpa.*;
-import com.example.courierdistributionsystem.socket.WebSocketService;
-
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,16 +24,10 @@ public class ViewService {
     private CourierRepository courierRepository;
 
     @Autowired
-    private AdminRepository adminRepository;
-
-    @Autowired
     private DeliveryPackageRepository packageRepository;
 
     @Autowired
     private DeliveryPackageService deliveryPackageService;
-
-    @Autowired
-    private WebSocketService webSocketService;
 
     @Autowired
     private UserRepository userRepository;
@@ -115,8 +107,6 @@ public class ViewService {
         deliveryPackage.setCourier(courier);
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
         packageRepository.save(deliveryPackage);
-        
-        webSocketService.notifyDeliveryStatusUpdate(deliveryPackage);
     }
 
     @Transactional
@@ -133,8 +123,6 @@ public class ViewService {
             DeliveryPackage.DeliveryStatus newStatus = DeliveryPackage.DeliveryStatus.valueOf(status.toUpperCase());
             deliveryPackage.setStatus(newStatus);
             packageRepository.save(deliveryPackage);
-            
-            webSocketService.notifyDeliveryStatusUpdate(deliveryPackage);
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid status: " + status);
         }
@@ -153,8 +141,6 @@ public class ViewService {
         deliveryPackage.setCourier(null);
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
         packageRepository.save(deliveryPackage);
-        
-        webSocketService.notifyDeliveryStatusUpdate(deliveryPackage);
     }
 
     @Transactional(readOnly = true)
@@ -184,8 +170,6 @@ public class ViewService {
         long deliveredCount = allPackages.stream()
             .filter(pkg -> pkg.getStatus().equals(DeliveryPackage.DeliveryStatus.DELIVERED))
             .count();
-
-        
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("activePackages", activePackages);
@@ -229,7 +213,6 @@ public class ViewService {
             .filter(d -> d.getStatus() != DeliveryPackage.DeliveryStatus.DELIVERED 
                 && d.getStatus() != DeliveryPackage.DeliveryStatus.CANCELLED)
             .count();
-
 
         stats.put("totalDeliveries", totalDeliveries);
         stats.put("completedDeliveries", completedDeliveries);
