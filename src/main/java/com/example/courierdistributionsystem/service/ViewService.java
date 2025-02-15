@@ -75,9 +75,7 @@ public class ViewService {
 
         return packageRepository.findByCourierAndStatusIn(
             (Courier) courier, 
-            List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, 
-                   DeliveryPackage.DeliveryStatus.PICKED_UP, 
-                   DeliveryPackage.DeliveryStatus.IN_TRANSIT)
+            List.of(DeliveryPackage.DeliveryStatus.IN_PROGRESS)
         );
     }
 
@@ -105,7 +103,7 @@ public class ViewService {
         }
 
         deliveryPackage.setCourier(courier);
-        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.IN_PROGRESS);
         packageRepository.save(deliveryPackage);
     }
 

@@ -9,9 +9,8 @@ import com.example.courierdistributionsystem.repository.jpa.DeliveryPackageRepos
 import com.example.courierdistributionsystem.repository.jpa.CustomerRepository;
 import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
 import com.example.courierdistributionsystem.repository.jpa.DeliveryReportRepository;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.example.courierdistributionsystem.repository.redis.RedisDeliveryPackageRepository;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.cache.annotation.Cacheable;
@@ -25,10 +24,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Optional;
 
 @Service
 public class DeliveryPackageService {
-    private static final Logger logger = LoggerFactory.getLogger(DeliveryPackageService.class);
     private static final String PACKAGES_CACHE = "packages";
     private static final String REPORTS_CACHE = "reports";
     private static final String LOCATIONS_CACHE = "locations";
@@ -37,35 +36,36 @@ public class DeliveryPackageService {
     private final CustomerRepository customerRepository;
     private final CourierRepository courierRepository;
     private final DeliveryReportRepository deliveryReportRepository;
- 
-
+    private final RedisDeliveryPackageRepository redisDeliveryPackageRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public DeliveryPackageService(
             DeliveryPackageRepository deliveryPackageRepository,
             CustomerRepository customerRepository,
             CourierRepository courierRepository,
-            DeliveryReportRepository deliveryReportRepository
+            DeliveryReportRepository deliveryReportRepository,
+            RedisDeliveryPackageRepository redisDeliveryPackageRepository,
+            SimpMessagingTemplate messagingTemplate
             ) {
         this.deliveryPackageRepository = deliveryPackageRepository;
         this.customerRepository = customerRepository;
         this.courierRepository = courierRepository;
         this.deliveryReportRepository = deliveryReportRepository;
+        this.redisDeliveryPackageRepository = redisDeliveryPackageRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @Cacheable(value = PACKAGES_CACHE, key = "#id")
     @Transactional(readOnly = true)
     public DeliveryPackage getDeliveryPackageById(Long id) {
-        logger.debug("Fetching delivery package with id: {}", id);
         return deliveryPackageRepository.findById(id)
             .orElseThrow(() -> {
-                logger.error("Delivery package not found with id: {}", id);
-                return new IllegalArgumentException("Delivery package not found with id: " + id);
+                throw new RuntimeException("Delivery package not found with id: " + id);
             });
     }
 
     @Cacheable(value = PACKAGES_CACHE, key = "'all'")
     public List<DeliveryPackage> getAllDeliveryPackages() {
-        logger.debug("Fetching all delivery packages");
         return deliveryPackageRepository.findAll();
     }
 
@@ -188,18 +188,14 @@ public class DeliveryPackageService {
     }
 
     public Map<String, Object> trackDeliveryPackage(Long id, String username) {
-        logger.info("Tracking package {} for user {}", id, username);
-        
         DeliveryPackage deliveryPackage = getDeliveryPackageById(id);
         Customer customer = customerRepository.findByUsername(username)
             .orElseThrow(() -> {
-                logger.error("Customer not found with username: {}", username);
-                return new IllegalArgumentException("Customer not found");
+                throw new RuntimeException("Customer not found");
             });
 
         if (!deliveryPackage.getCustomer().equals(customer)) {
-            logger.warn("Unauthorized tracking attempt for package {} by user {}", id, username);
-            throw new IllegalArgumentException("Unauthorized to track this package");
+            throw new RuntimeException("Unauthorized to track this package");
         }
 
         Map<String, Object> trackingInfo = new HashMap<>();
@@ -220,26 +216,24 @@ public class DeliveryPackageService {
             }
         }
 
-        logger.debug("Retrieved tracking info for package {}", id);
         return trackingInfo;
     }
 
     @Cacheable(value = PACKAGES_CACHE, key = "'available'")
     @Transactional(readOnly = true)
     public List<DeliveryPackage> getAvailableDeliveryPackages() {
-        return deliveryPackageRepository.findByStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        List<DeliveryPackage> packages = deliveryPackageRepository.findByStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        packages.forEach(redisDeliveryPackageRepository::save);
+        return packages;
     }
 
     @Cacheable(value = PACKAGES_CACHE, key = "'courier_active_' + #username")
     @Transactional(readOnly = true)
     public List<DeliveryPackage> getCourierActiveDeliveryPackages(String username) {
-        Courier courier = courierRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
-
-        return deliveryPackageRepository.findByCourierAndStatusIn(courier, 
-            List.of(DeliveryPackage.DeliveryStatus.ASSIGNED, 
-                   DeliveryPackage.DeliveryStatus.PICKED_UP, 
-                   DeliveryPackage.DeliveryStatus.IN_TRANSIT));
+        List<DeliveryPackage> packages = deliveryPackageRepository.findByCourier_UsernameAndStatus(
+            username, DeliveryPackage.DeliveryStatus.IN_PROGRESS);
+        packages.forEach(redisDeliveryPackageRepository::save);
+        return packages;
     }
 
     @Caching(evict = {
@@ -261,7 +255,22 @@ public class DeliveryPackageService {
             courierRepository.save(courier);
         }
 
-        return deliveryPackageRepository.save(deliveryPackage);
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        redisDeliveryPackageRepository.save(updatedPackage);
+        
+        // Notify customer about status change
+        messagingTemplate.convertAndSendToUser(
+            deliveryPackage.getCustomer().getUsername(),
+            "/queue/package/status",
+            updatedPackage
+        );
+        
+        // If package becomes available again, notify all couriers
+        if (status == DeliveryPackage.DeliveryStatus.PENDING) {
+            messagingTemplate.convertAndSend("/topic/packages/available", updatedPackage);
+        }
+        
+        return updatedPackage;
     }
 
     private void validateCourierForPackage(DeliveryPackage deliveryPackage, String username) {
@@ -272,24 +281,16 @@ public class DeliveryPackageService {
 
     @Transactional
     public DeliveryPackage updateDeliveryLocation(Long packageId, String username, Double latitude, Double longitude, String location) {
-        logger.info("Updating location for package {} by courier {}", packageId, username);
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
         
         if (latitude == null || longitude == null) {
-            logger.error("Missing latitude or longitude for location update");
             throw new IllegalArgumentException("Latitude and longitude are required");
         }
 
-        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
-        
-        // Validate courier
-        if (!deliveryPackage.getCourier().getUsername().equals(username)) {
-            logger.warn("Unauthorized location update attempt for package {} by courier {}", packageId, username);
-            throw new IllegalArgumentException("Unauthorized to update this package");
-        }
+        validateCourierForPackage(deliveryPackage, username);
 
         if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.DELIVERED ||
             deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.CANCELLED) {
-            logger.warn("Cannot update location for package {} with status {}", packageId, deliveryPackage.getStatus());
             throw new IllegalStateException("Cannot update location for " + deliveryPackage.getStatus() + " package");
         }
 
@@ -299,7 +300,7 @@ public class DeliveryPackageService {
         deliveryPackage.setUpdatedAt(LocalDateTime.now());
         
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
-        logger.info("Successfully updated location for package {}", packageId);
+        redisDeliveryPackageRepository.save(updatedPackage);
 
         return updatedPackage;
     }
@@ -307,24 +308,30 @@ public class DeliveryPackageService {
     @CacheEvict(value = PACKAGES_CACHE, allEntries = true)
     @Transactional
     public DeliveryPackage takeDeliveryPackage(Long packageId, String username) {
+        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
         Courier courier = courierRepository.findByUsername(username)
-            .orElseThrow(() -> new IllegalArgumentException("Courier not found"));
+            .orElseThrow(() -> new RuntimeException("Courier not found"));
 
-        if (!courier.isAvailable()) {
-            throw new IllegalStateException("Courier is not available for deliveries");
+        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+            throw new RuntimeException("Package is not available for pickup");
         }
 
-        DeliveryPackage deliveryPackage = getDeliveryPackageById(packageId);
-        if (deliveryPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
-            throw new IllegalStateException("Package is not available for pickup");
+        if (deliveryPackage.getCourier() != null) {
+            throw new RuntimeException("Package is already assigned to a courier");
         }
 
         deliveryPackage.setCourier(courier);
-        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.ASSIGNED);
+        deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.IN_PROGRESS);
         courier.setAvailable(false);
         courierRepository.save(courier);
 
-        return deliveryPackageRepository.save(deliveryPackage);
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        redisDeliveryPackageRepository.save(updatedPackage);
+        
+        // Notify all couriers about available package
+        messagingTemplate.convertAndSend("/topic/packages/available", updatedPackage);
+        
+        return updatedPackage;
     }
 
     @CacheEvict(value = PACKAGES_CACHE, allEntries = true)
@@ -339,7 +346,13 @@ public class DeliveryPackageService {
         courier.setAvailable(true);
         courierRepository.save(courier);
 
-        return deliveryPackageRepository.save(deliveryPackage);
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+        redisDeliveryPackageRepository.save(updatedPackage);
+        
+        // Notify all couriers about available package
+        messagingTemplate.convertAndSend("/topic/packages/available", updatedPackage);
+        
+        return updatedPackage;
     }
 
     // Delivery Report Methods
@@ -416,9 +429,7 @@ public class DeliveryPackageService {
         
         return deliveryPackageRepository.findByCustomerAndStatusIn(customer, 
             List.of(DeliveryPackage.DeliveryStatus.PENDING,
-                   DeliveryPackage.DeliveryStatus.ASSIGNED,
-                   DeliveryPackage.DeliveryStatus.PICKED_UP,
-                   DeliveryPackage.DeliveryStatus.IN_TRANSIT));
+                   DeliveryPackage.DeliveryStatus.IN_PROGRESS));
     }
 
    
@@ -437,7 +448,6 @@ public class DeliveryPackageService {
             throw new IllegalArgumentException("Weight must be greater than 0");
         }
 
-        // Fetch the customer within the transaction to ensure we have a managed entity
         Customer managedCustomer = customerRepository.findById(customer.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
 
@@ -454,16 +464,12 @@ public class DeliveryPackageService {
                 .trackingNumber(generateTrackingNumber())
                 .build();
 
-        // Save the package
         DeliveryPackage savedPackage = deliveryPackageRepository.save(newPackage);
-
-        // Initialize the customer's packages collection if needed and add the new package
-        if (managedCustomer.getPackages() == null) {
-            managedCustomer.getPackages().clear();
-        }
-        managedCustomer.getPackages().add(savedPackage);
+        redisDeliveryPackageRepository.save(savedPackage);
         
-
+        // Notify all couriers about new package
+        messagingTemplate.convertAndSend("/topic/packages/available", savedPackage);
+        
         return savedPackage;
     }
 
@@ -476,5 +482,18 @@ public class DeliveryPackageService {
     @Transactional(readOnly = true)
     public List<DeliveryPackage> getCompletedDeliveriesByCourier(Courier courier) {
         return deliveryPackageRepository.findByCourierAndStatus(courier, DeliveryPackage.DeliveryStatus.DELIVERED);
+    }
+
+    @Cacheable(value = PACKAGES_CACHE, key = "#trackingNumber")
+    public DeliveryPackage findByTrackingNumber(String trackingNumber) {
+        Optional<DeliveryPackage> cachedPackage = redisDeliveryPackageRepository.findByTrackingNumber(trackingNumber);
+        if (cachedPackage.isPresent()) {
+            return cachedPackage.get();
+        }
+        
+        DeliveryPackage pkg = deliveryPackageRepository.findByTrackingNumber(trackingNumber)
+            .orElseThrow(() -> new RuntimeException("Package not found"));
+        redisDeliveryPackageRepository.save(pkg);
+        return pkg;
     }
 }

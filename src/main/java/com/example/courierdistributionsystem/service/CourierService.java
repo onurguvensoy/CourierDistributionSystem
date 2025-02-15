@@ -4,11 +4,9 @@ import com.example.courierdistributionsystem.exception.CourierException;
 import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
-import com.example.courierdistributionsystem.socket.WebSocketService;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -16,18 +14,18 @@ import org.springframework.validation.annotation.Validated;
 import java.util.List;
 import java.util.Map;
 
-
 @Service
 @Validated
 public class CourierService {
     private static final Logger logger = LoggerFactory.getLogger(CourierService.class);
 
-    @Autowired
-    private CourierRepository courierRepository;
+    private final CourierRepository courierRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    @Autowired
-    private WebSocketService webSocketService;
-
+    public CourierService(CourierRepository courierRepository, ApplicationEventPublisher eventPublisher) {
+        this.courierRepository = courierRepository;
+        this.eventPublisher = eventPublisher;
+    }
 
     public Courier getCourierById(Long id) {
         logger.debug("Fetching courier with ID: {}", id);
@@ -56,10 +54,14 @@ public class CourierService {
             updateCourierFields(courier, courierRequest);
             Courier updatedCourier = courierRepository.save(courier);
             logger.info("Successfully updated courier profile for ID: {}", id);
-            webSocketService.notifyCourierAssignment(updatedCourier.getId(), Map.of(
+            
+            // Publish event instead of directly calling WebSocketService
+            eventPublisher.publishEvent(Map.of(
                 "type", "COURIER_UPDATE",
+                "courierId", updatedCourier.getId(),
                 "courier", updatedCourier
             ));
+            
             return updatedCourier;
         } catch (Exception e) {
             logger.error("Failed to update courier profile: {}", e.getMessage(), e);
@@ -78,6 +80,13 @@ public class CourierService {
             updateLocationFields(courier, locationRequest);
             courierRepository.save(courier);
             logger.info("Successfully updated location for courier ID: {}", id);
+            
+            // Publish event for location update
+            eventPublisher.publishEvent(Map.of(
+                "type", "COURIER_LOCATION_UPDATE",
+                "courierId", courier.getId(),
+                "location", locationRequest
+            ));
         } catch (Exception e) {
             logger.error("Failed to update courier location: {}", e.getMessage(), e);
             throw new CourierException("Failed to update courier location: " + e.getMessage());
@@ -195,6 +204,14 @@ public class CourierService {
             .available(true)
             .build();
 
-        return courierRepository.save(courier);
+        Courier savedCourier = courierRepository.save(courier);
+        
+        // Publish event for new courier creation
+        eventPublisher.publishEvent(Map.of(
+            "type", "COURIER_CREATED",
+            "courier", savedCourier
+        ));
+        
+        return savedCourier;
     }
 } 

@@ -10,6 +10,8 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 @Entity
 @Data
@@ -37,13 +39,15 @@ public class DeliveryPackage implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id", nullable = false)
     @JsonBackReference(value = "customer-packages")
+    @ToString.Exclude
+    @JsonIgnore
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "courier_id")
-    @JsonIdentityReference(alwaysAsId = true)
-    @JsonProperty("courierId")
+    @JsonBackReference(value = "courier-packages")
     @ToString.Exclude
+    @JsonIgnore
     private Courier courier;
 
     @Column(nullable = false)
@@ -98,11 +102,10 @@ public class DeliveryPackage implements Serializable {
     @Column(name = "picked_up_at")
     private LocalDateTime pickedUpAt;
 
-
-
     @OneToMany(mappedBy = "deliveryPackage", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
+    @JsonManagedReference
     @JsonIgnore
+    @Builder.Default
     @ToString.Exclude
     private List<DeliveryStatusHistory> statusHistory = new ArrayList<>();
 
@@ -112,9 +115,7 @@ public class DeliveryPackage implements Serializable {
 
     public enum DeliveryStatus {
         PENDING,
-        ASSIGNED,
-        PICKED_UP,
-        IN_TRANSIT,
+        IN_PROGRESS,
         DELIVERED,
         CANCELLED
     }
@@ -142,19 +143,23 @@ public class DeliveryPackage implements Serializable {
 
     public void setStatus(DeliveryStatus newStatus) {
         if (this.status != newStatus) {
+            DeliveryStatus oldStatus = this.status;
             this.status = newStatus;
             this.updatedAt = LocalDateTime.now();
             
             switch (newStatus) {
                 case PENDING -> {}
-                case ASSIGNED -> this.assignedAt = LocalDateTime.now();
-                case PICKED_UP -> this.pickedUpAt = LocalDateTime.now();
-                case IN_TRANSIT -> this.updatedAt = LocalDateTime.now();
+                case IN_PROGRESS -> this.assignedAt = LocalDateTime.now();
                 case DELIVERED -> this.deliveredAt = LocalDateTime.now();
                 case CANCELLED -> this.cancelledAt = LocalDateTime.now();
             }
             
-            addStatusHistory("Status changed to " + newStatus, null);
+            addStatusHistory(
+                String.format("Status changed from %s to %s", 
+                    oldStatus != null ? oldStatus : "NEW", 
+                    newStatus),
+                null
+            );
         }
     }
 
@@ -169,14 +174,25 @@ public class DeliveryPackage implements Serializable {
     }
 
     private void addStatusHistory(String notes, String locationData) {
+        if (this.status == null) {
+            this.status = DeliveryStatus.PENDING;
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        String statusNotes = notes != null ? notes : "Status update";
+        
         DeliveryStatusHistory history = DeliveryStatusHistory.builder()
             .deliveryPackage(this)
             .status(this.status)
             .courier(this.courier)
-            .notes(notes)
+            .notes(statusNotes)
             .locationData(locationData)
-            .createdAt(LocalDateTime.now())
+            .createdAt(now)
             .build();
+        
+        if (this.statusHistory == null) {
+            this.statusHistory = new ArrayList<>();
+        }
         
         this.statusHistory.add(history);
     }
@@ -187,20 +203,44 @@ public class DeliveryPackage implements Serializable {
         return customer != null ? customer.getUsername() : null;
     }
 
-    @JsonIgnore
-    public void setCustomerUsername(String username) {
-        // This is just a helper method to avoid deserialization errors
-    }
-
     @JsonProperty("courierUsername")
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public String getCourierUsername() {
-        return courier != null ? courier.getUsername() : "N/A";
+        return courier != null ? courier.getUsername() : null;
     }
 
-    @JsonIgnore
-    public void setCourierUsername(String username) {
-        // This is just a helper method to avoid deserialization errors
+    @JsonProperty("customerDetails")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonIgnore(false)
+    public Map<String, String> getCustomerDetails() {
+        if (customer == null) return null;
+        Map<String, String> details = new HashMap<>();
+        details.put("username", customer.getUsername());
+        details.put("email", customer.getEmail());
+        details.put("phoneNumber", customer.getPhoneNumber());
+        return details;
+    }
+
+    @JsonProperty("customerDetails")
+    public void setCustomerDetails(Map<String, String> details) {
+        // Ignore during deserialization
+    }
+
+    @JsonProperty("courierDetails")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonIgnore(false)
+    public Map<String, String> getCourierDetails() {
+        if (courier == null) return null;
+        Map<String, String> details = new HashMap<>();
+        details.put("username", courier.getUsername());
+        details.put("phoneNumber", courier.getPhoneNumber());
+        details.put("vehicleType", courier.getVehicleType());
+        return details;
+    }
+
+    @JsonProperty("courierDetails")
+    public void setCourierDetails(Map<String, String> details) {
+        // Ignore during deserialization
     }
 
     private String generateTrackingNumber() {
@@ -250,24 +290,56 @@ class DeliveryStatusHistory implements Serializable {
 
     @ManyToOne
     @JoinColumn(name = "delivery_package_id", nullable = false)
-    @JsonIdentityReference(alwaysAsId = true)
+    @JsonBackReference
+    @JsonIgnore
+    @NonNull
     private DeliveryPackage deliveryPackage;
 
     @ManyToOne
     @JoinColumn(name = "courier_id")
     @JsonIdentityReference(alwaysAsId = true)
+    @JsonIgnore
     private Courier courier;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NonNull
     private DeliveryPackage.DeliveryStatus status;
 
     @Column(columnDefinition = "TEXT")
+    @NonNull
     private String notes;
 
     @Column(columnDefinition = "TEXT")
     private String locationData;
 
     @Column(nullable = false)
+    @NonNull
     private LocalDateTime createdAt;
+
+    @JsonProperty("deliveryPackageId")
+    public Long getDeliveryPackageId() {
+        return deliveryPackage != null ? deliveryPackage.getPackage_id() : null;
+    }
+
+    @JsonProperty("courierId")
+    public Long getCourierId() {
+        return courier != null ? courier.getId() : null;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (status == null && deliveryPackage != null) {
+            status = deliveryPackage.getStatus();
+        }
+        if (notes == null) {
+            notes = "Status update";
+        }
+        if (status == null) {
+            status = DeliveryPackage.DeliveryStatus.PENDING;
+        }
+    }
 } 

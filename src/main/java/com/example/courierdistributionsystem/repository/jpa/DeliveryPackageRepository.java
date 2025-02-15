@@ -6,6 +6,7 @@ import com.example.courierdistributionsystem.model.Courier;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DeliveryPackageRepository extends JpaRepository<DeliveryPackage, Long> {
@@ -19,4 +20,6 @@ public interface DeliveryPackageRepository extends JpaRepository<DeliveryPackage
     List<DeliveryPackage> findByCustomerAndStatus(Customer customer, DeliveryPackage.DeliveryStatus status);
     List<DeliveryPackage> findByStatusAndCourierIsNull(DeliveryPackage.DeliveryStatus status);
     List<DeliveryPackage> findByCourierAndStatus(Courier courier, DeliveryPackage.DeliveryStatus status);
+    Optional<DeliveryPackage> findByTrackingNumber(String trackingNumber);
+    List<DeliveryPackage> findByCourier_UsernameAndStatus(String username, DeliveryPackage.DeliveryStatus status);
 } 

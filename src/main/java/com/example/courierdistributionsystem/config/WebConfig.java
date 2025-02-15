@@ -11,10 +11,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private AuthInterceptor authInterceptor;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @Override
     public void addInterceptors(@NonNull InterceptorRegistry registry) {
@@ -31,5 +37,15 @@ public class WebConfig implements WebMvcConfigurer {
         converter.setObjectMapper(objectMapper);
         
         converters.add(0, converter);
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins(frontendUrl)
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("Authorization", "Content-Type", "X-Requested-With")
+                .allowCredentials(true)
+                .maxAge(3600);
     }
 } 

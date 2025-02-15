@@ -18,13 +18,13 @@ import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import java.time.Duration;
-import java.util.List;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
 import com.example.courierdistributionsystem.model.*;
 
+import java.time.Duration;
+import java.util.List;
 
 @Configuration
 @EnableCaching
@@ -34,14 +34,9 @@ public class RedisConfig {
     @Value("${spring.cache.redis.time-to-live:3600000}")
     private long timeToLive;
 
-    @Bean
-    @Primary
-    public ObjectMapper redisObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
+    private ObjectMapper configureObjectMapper(ObjectMapper mapper) {
         mapper.registerModule(new JavaTimeModule());
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
+        mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
         mapper.activateDefaultTyping(
             mapper.getPolymorphicTypeValidator(),
             DefaultTyping.NON_FINAL,
@@ -51,59 +46,63 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
-        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, Object.class);
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-            .entryTtl(Duration.ofMillis(timeToLive))
-            .disableCachingNullValues()
-            .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-            .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
-        return RedisCacheManager.builder(connectionFactory)
-            .cacheDefaults(config)
-            .withCacheConfiguration("users", 
-                RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(30))
-                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer)))
-            .withCacheConfiguration("deliveryPackages", 
-                RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(30))
-                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer)))
-            .withCacheConfiguration("locationHistory", 
-                RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(5))
-                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer)))
-            .withCacheConfiguration("deliveryReports", 
-                RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofHours(24))
-                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer)))
-            .build();
+    @Primary
+    public ObjectMapper redisObjectMapper() {
+        return configureObjectMapper(new ObjectMapper());
     }
 
     @Bean
-    @Primary
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
-        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, Object.class);
-        StringRedisSerializer stringSerializer = new StringRedisSerializer();
-        
-        template.setKeySerializer(stringSerializer);
-        template.setHashKeySerializer(stringSerializer);
+        // Create Jackson2JsonRedisSerializer with configured ObjectMapper
+        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(
+            configureObjectMapper(new ObjectMapper()),
+            Object.class
+        );
+
+        // Set serializers
+        template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
+        template.setHashKeySerializer(new StringRedisSerializer());
         template.setHashValueSerializer(serializer);
-        template.setEnableDefaultSerializer(false);
-        
         template.afterPropertiesSet();
+
         return template;
     }
 
     @Bean
-    public RedisTemplate<String, DeliveryReport> deliveryReportRedisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
+    public RedisCacheConfiguration cacheConfiguration() {
+        ObjectMapper mapper = configureObjectMapper(new ObjectMapper());
+        Jackson2JsonRedisSerializer<Object> serializer = new Jackson2JsonRedisSerializer<>(
+            mapper,
+            Object.class
+        );
+
+        return RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(60))
+                .disableCachingNullValues()
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
+    }
+
+    @Bean
+    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(cacheConfiguration())
+                .build();
+    }
+
+    @Bean
+    public RedisTemplate<String, DeliveryReport> deliveryReportRedisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, DeliveryReport> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
-        Jackson2JsonRedisSerializer<DeliveryReport> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, DeliveryReport.class);
+        Jackson2JsonRedisSerializer<DeliveryReport> serializer = new Jackson2JsonRedisSerializer<>(
+            configureObjectMapper(new ObjectMapper()),
+            DeliveryReport.class
+        );
         
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
@@ -116,11 +115,14 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate<String, DeliveryPackage> deliveryPackageRedisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
+    public RedisTemplate<String, DeliveryPackage> deliveryPackageRedisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, DeliveryPackage> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
-        Jackson2JsonRedisSerializer<DeliveryPackage> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, DeliveryPackage.class);
+        Jackson2JsonRedisSerializer<DeliveryPackage> serializer = new Jackson2JsonRedisSerializer<>(
+            configureObjectMapper(new ObjectMapper()),
+            DeliveryPackage.class
+        );
         
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
@@ -133,11 +135,14 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate<String, LocationHistory> locationHistoryRedisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
+    public RedisTemplate<String, LocationHistory> locationHistoryRedisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, LocationHistory> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
-        Jackson2JsonRedisSerializer<LocationHistory> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, LocationHistory.class);
+        Jackson2JsonRedisSerializer<LocationHistory> serializer = new Jackson2JsonRedisSerializer<>(
+            configureObjectMapper(new ObjectMapper()),
+            LocationHistory.class
+        );
         
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
@@ -150,11 +155,14 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate<String, User> userRedisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
+    public RedisTemplate<String, User> userRedisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, User> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
-        Jackson2JsonRedisSerializer<User> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, User.class);
+        Jackson2JsonRedisSerializer<User> serializer = new Jackson2JsonRedisSerializer<>(
+            configureObjectMapper(new ObjectMapper()),
+            User.class
+        );
         
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
@@ -167,12 +175,13 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate<String, List<DeliveryReport>> deliveryReportListRedisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
+    public RedisTemplate<String, List<DeliveryReport>> deliveryReportListRedisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, List<DeliveryReport>> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         
-        JavaType listType = redisObjectMapper.getTypeFactory().constructCollectionType(List.class, DeliveryReport.class);
-        Jackson2JsonRedisSerializer<List<DeliveryReport>> serializer = new Jackson2JsonRedisSerializer<>(redisObjectMapper, listType);
+        ObjectMapper mapper = configureObjectMapper(new ObjectMapper());
+        JavaType listType = mapper.getTypeFactory().constructCollectionType(List.class, DeliveryReport.class);
+        Jackson2JsonRedisSerializer<List<DeliveryReport>> serializer = new Jackson2JsonRedisSerializer<>(mapper, listType);
         
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
