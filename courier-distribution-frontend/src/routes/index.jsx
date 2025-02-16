@@ -1,30 +1,30 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+
+// Auth Pages
 import Login from '../pages/auth/Login';
 import Signup from '../pages/auth/Signup';
 import ForgotPassword from '../pages/auth/ForgotPassword';
-import Profile from '../components/common/Profile';
-import Settings from '../components/common/Settings';
 
-// Admin Components
+// Layout Components
+import PrivateRoute from '../components/common/PrivateRoute';
+import PublicRoute from '../components/common/PublicRoute';
+import MainLayout from '../components/layout/MainLayout';
+
+// Admin Pages
 import AdminDashboard from '../pages/admin/Dashboard';
 import Reports from '../pages/admin/Reports';
 
-// Courier Components
-import CourierDashboard from '../components/courier/Dashboard';
-import Deliveries from '../components/courier/Deliveries';
-import DeliveryHistory from '../components/courier/DeliveryHistory';
+// Courier Pages
+import CourierDashboard from '../pages/courier/Dashboard';
+import Deliveries from '../pages/courier/Deliveries';
+import DeliveryHistory from '../pages/courier/DeliveryHistory';
 
-// Customer Components
-import CustomerDashboard from '../components/customer/Dashboard';
-import Packages from '../components/customer/Packages';
-import NewPackage from '../components/customer/NewPackage';
-import PackageTracking from '../components/customer/PackageTracking';
-
-// Layout Components
-import PrivateRoute from './PrivateRoute';
-import PublicRoute from './PublicRoute';
-import MainLayout from '../components/layout/MainLayout';
+// Customer Pages
+import CustomerDashboard from '../pages/customer/Dashboard';
+import Packages from '../pages/customer/Packages';
+import NewPackage from '../pages/customer/NewPackage';
+import PackageTracking from '../pages/customer/PackageTracking';
 
 const AppRoutes = () => {
     return (
@@ -39,10 +39,6 @@ const AppRoutes = () => {
             {/* Protected Routes */}
             <Route element={<PrivateRoute />}>
                 <Route element={<MainLayout />}>
-                    {/* Common Routes */}
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/settings" element={<Settings />} />
-
                     {/* Admin Routes */}
                     <Route path="/admin">
                         <Route path="dashboard" element={<AdminDashboard />} />

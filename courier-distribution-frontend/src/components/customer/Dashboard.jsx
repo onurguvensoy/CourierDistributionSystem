@@ -99,16 +99,18 @@ const CustomerDashboard = () => {
     }
 
     return (
-        <div className="container-fluid">
+        <>
+            {/* Page Heading */}
             <div className="d-sm-flex align-items-center justify-content-between mb-4">
-                <h1 className="h3 mb-0 text-gray-800">Customer Dashboard</h1>
+                <h1 className="h3 mb-0 text-gray-800">Dashboard</h1>
                 <Link to="/customer/new-package" className="d-none d-sm-inline-block btn btn-primary shadow-sm">
-                    <i className="fas fa-plus fa-sm text-white-50 mr-2"></i>
-                    New Package
+                    <i className="fas fa-plus fa-sm text-white-50"></i> New Package
                 </Link>
             </div>
 
+            {/* Content Row */}
             <div className="row">
+                {/* Total Packages Card */}
                 <div className="col-xl-3 col-md-6 mb-4">
                     <div className="card border-left-primary shadow h-100 py-2">
                         <div className="card-body">
@@ -117,9 +119,7 @@ const CustomerDashboard = () => {
                                     <div className="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                         Total Packages
                                     </div>
-                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.totalPackages}
-                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">{stats.totalPackages}</div>
                                 </div>
                                 <div className="col-auto">
                                     <i className="fas fa-box fa-2x text-gray-300"></i>
@@ -129,6 +129,7 @@ const CustomerDashboard = () => {
                     </div>
                 </div>
 
+                {/* Active Deliveries Card */}
                 <div className="col-xl-3 col-md-6 mb-4">
                     <div className="card border-left-success shadow h-100 py-2">
                         <div className="card-body">
@@ -137,9 +138,7 @@ const CustomerDashboard = () => {
                                     <div className="text-xs font-weight-bold text-success text-uppercase mb-1">
                                         Active Deliveries
                                     </div>
-                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.activeDeliveries}
-                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">{stats.activeDeliveries}</div>
                                 </div>
                                 <div className="col-auto">
                                     <i className="fas fa-truck fa-2x text-gray-300"></i>
@@ -149,6 +148,7 @@ const CustomerDashboard = () => {
                     </div>
                 </div>
 
+                {/* Completed Deliveries Card */}
                 <div className="col-xl-3 col-md-6 mb-4">
                     <div className="card border-left-info shadow h-100 py-2">
                         <div className="card-body">
@@ -157,9 +157,7 @@ const CustomerDashboard = () => {
                                     <div className="text-xs font-weight-bold text-info text-uppercase mb-1">
                                         Completed Deliveries
                                     </div>
-                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.completedDeliveries}
-                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">{stats.completedDeliveries}</div>
                                 </div>
                                 <div className="col-auto">
                                     <i className="fas fa-check-circle fa-2x text-gray-300"></i>
@@ -169,6 +167,7 @@ const CustomerDashboard = () => {
                     </div>
                 </div>
 
+                {/* Total Spent Card */}
                 <div className="col-xl-3 col-md-6 mb-4">
                     <div className="card border-left-warning shadow h-100 py-2">
                         <div className="card-body">
@@ -190,63 +189,62 @@ const CustomerDashboard = () => {
                 </div>
             </div>
 
-            <div className="card shadow mb-4">
-                <div className="card-header py-3">
-                    <h6 className="m-0 font-weight-bold text-primary">Recent Deliveries</h6>
-                </div>
-                <div className="card-body">
-                    {recentDeliveries.length === 0 ? (
-                        <div className="text-center py-4">
-                            <p className="text-gray-500 mb-0">No recent deliveries.</p>
-                            <Link to="/customer/new-package" className="btn btn-primary mt-3">
-                                Create Your First Delivery
-                            </Link>
+            {/* Recent Deliveries */}
+            <div className="row">
+                <div className="col-xl-12">
+                    <div className="card shadow mb-4">
+                        <div className="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 className="m-0 font-weight-bold text-primary">Recent Deliveries</h6>
                         </div>
-                    ) : (
-                        <div className="table-responsive">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Pickup Address</th>
-                                        <th>Delivery Address</th>
-                                        <th>Status</th>
-                                        <th>Courier</th>
-                                        <th>Created At</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {recentDeliveries.map((delivery) => (
-                                        <tr key={delivery.id}>
-                                            <td>{delivery.id}</td>
-                                            <td>{delivery.pickupAddress}</td>
-                                            <td>{delivery.deliveryAddress}</td>
-                                            <td>
-                                                <span className={`badge bg-${getStatusColor(delivery.status)}`}>
-                                                    {delivery.status}
-                                                </span>
-                                            </td>
-                                            <td>{delivery.courierName || 'Not assigned'}</td>
-                                            <td>{new Date(delivery.createdAt).toLocaleString()}</td>
+                        <div className="card-body">
+                            <div className="table-responsive">
+                                <table className="table table-bordered" width="100%" cellSpacing="0">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Status</th>
+                                            <th>From</th>
+                                            <th>To</th>
+                                            <th>Created At</th>
+                                            <th>Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {recentDeliveries.map((delivery) => (
+                                            <tr key={delivery.id}>
+                                                <td>{delivery.id}</td>
+                                                <td>
+                                                    <span className={`badge badge-${getStatusBadgeColor(delivery.status)}`}>
+                                                        {delivery.status}
+                                                    </span>
+                                                </td>
+                                                <td>{delivery.fromAddress}</td>
+                                                <td>{delivery.toAddress}</td>
+                                                <td>{new Date(delivery.createdAt).toLocaleString()}</td>
+                                                <td>
+                                                    <Link to={`/customer/delivery/${delivery.id}`} 
+                                                          className="btn btn-primary btn-sm">
+                                                        View Details
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
-const getStatusColor = (status) => {
+const getStatusBadgeColor = (status) => {
     switch (status) {
         case 'PENDING':
-            return 'secondary';
-        case 'ASSIGNED':
             return 'warning';
-        case 'PICKED_UP':
+        case 'IN_TRANSIT':
             return 'info';
         case 'DELIVERED':
             return 'success';

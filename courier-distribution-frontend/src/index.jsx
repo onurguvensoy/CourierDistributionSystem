@@ -1,10 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-// Import jQuery and Bootstrap
-import 'jquery';
-import '@popperjs/core';
-import 'bootstrap';
+// Import Bootstrap and React Bootstrap
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'react-bootstrap/dist/react-bootstrap.min.js';
 
 // Import styles
 import './styles/main.scss';

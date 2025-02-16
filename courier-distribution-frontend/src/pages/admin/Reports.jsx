@@ -288,8 +288,11 @@ const Reports = () => {
             </div>
 
             <Card className="shadow mb-4">
-                <Card.Header className="py-3">
+                <Card.Header className="py-3 d-flex justify-content-between align-items-center">
                     <h6 className="m-0 font-weight-bold text-primary">All Delivery Reports</h6>
+                    <Button variant="primary" size="sm" onClick={printAllReports}>
+                        <FontAwesomeIcon icon={faPrint} className="mr-2" /> Print All Reports
+                    </Button>
                 </Card.Header>
                 <Card.Body>
                     <DataTable
