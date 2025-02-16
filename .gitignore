@@ -38,3 +38,4 @@ build/
 
 ### H2 Database ###
 data/
+node_modules

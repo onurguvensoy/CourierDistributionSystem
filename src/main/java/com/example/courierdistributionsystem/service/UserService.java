@@ -6,8 +6,7 @@ import com.example.courierdistributionsystem.repository.jpa.UserRepository;
 import com.example.courierdistributionsystem.repository.jpa.AdminRepository;
 import com.example.courierdistributionsystem.repository.jpa.CustomerRepository;
 import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
-import com.example.courierdistributionsystem.utils.PasswordEncoderService;
-
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -33,16 +32,17 @@ public class UserService {
     private final AdminRepository adminRepository;
     private final CustomerRepository customerRepository;
     private final CourierRepository courierRepository;
-    private final PasswordEncoderService passwordEncoder;
     private final Counter userSignupCounter;
     private final Counter userSignupFailureCounter;
+
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
     public UserService(UserRepository userRepository,
                       AdminRepository adminRepository,
                       CustomerRepository customerRepository,
                       CourierRepository courierRepository,
-                      PasswordEncoderService passwordEncoder,
+                      PasswordEncoder passwordEncoder,
                       MeterRegistry meterRegistry) {
         this.userRepository = userRepository;
         this.adminRepository = adminRepository;
@@ -55,7 +55,7 @@ public class UserService {
                 .register(meterRegistry);
         
         this.userSignupFailureCounter = Counter.builder("user.signup.failures")
-                .description("Number of failed user signups")
+                .description("Total number of failed user signups")
                 .register(meterRegistry);
     }
 

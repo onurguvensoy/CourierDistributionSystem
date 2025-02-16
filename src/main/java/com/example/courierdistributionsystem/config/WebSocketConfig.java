@@ -16,8 +16,6 @@ import org.springframework.web.socket.config.annotation.*;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 import org.springframework.lang.NonNull;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +24,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.util.List;
-import java.util.Map;
 import java.util.Collections;
 
 @Configuration
@@ -37,8 +34,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+    private final ObjectMapper objectMapper;
+
+    public WebSocketConfig(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public void configureMessageBroker(@NonNull MessageBrokerRegistry config) {
@@ -50,7 +50,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         registry.addEndpoint("/websocket")
-               .setAllowedOrigins(frontendUrl)
+               .setAllowedOrigins("http://localhost:3000")
                .setHandshakeHandler(new DefaultHandshakeHandler())
                .withSockJS();
     }
@@ -97,15 +97,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         });
     }
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        return mapper;
-    }
-
     @Override
     public void configureWebSocketTransport(@NonNull WebSocketTransportRegistration registration) {
         registration.setMessageSizeLimit(8192 * 8192);
@@ -116,7 +107,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public boolean configureMessageConverters(@NonNull List<MessageConverter> messageConverters) {
         MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
-        converter.setObjectMapper(objectMapper());
+        converter.setObjectMapper(objectMapper);
         messageConverters.add(converter);
         return false;
     }

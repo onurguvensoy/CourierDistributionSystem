@@ -52,8 +52,14 @@ const Login = () => {
             toast.success('Login successful!');
             navigate(redirectPath);
         } catch (error) {
-            toast.error(error.message || 'Failed to login');
+            const errorMessage = error.message || 'Failed to login';
+            toast.error(errorMessage);
             console.error('Login error:', error);
+            // Clear password field on error
+            setFormData(prev => ({
+                ...prev,
+                password: ''
+            }));
         } finally {
             setLoading(false);
         }
@@ -124,9 +130,13 @@ const Login = () => {
                                                     disabled={loading}
                                                 >
                                                     {loading ? (
-                                                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                                    ) : null}
-                                                    {loading ? 'Logging in...' : 'Login'}
+                                                        <span>
+                                                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                                                            Logging in...
+                                                        </span>
+                                                    ) : (
+                                                        'Login'
+                                                    )}
                                                 </button>
                                             </form>
                                             <hr />

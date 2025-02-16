@@ -5,8 +5,8 @@ import com.example.courierdistributionsystem.dto.SignupRequest;
 import com.example.courierdistributionsystem.exception.AuthenticationException;
 import com.example.courierdistributionsystem.service.AuthService;
 import com.example.courierdistributionsystem.service.UserService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import com.example.courierdistributionsystem.util.JwtUtils;
+
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,74 +19,63 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(
-    origins = {"http://localhost:8080"},
-    allowedHeaders = {"Content-Type", "X-Requested-With", "accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"},
-    exposedHeaders = {"Access-Control-Allow-Origin"},
-    methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.DELETE},
-    allowCredentials = "true",
-    maxAge = 3600
-)
 public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthService authService;
     private final UserService userService;
-    private final HttpServletRequest request;
+    private final JwtUtils jwtUtils;
 
     @Autowired
-    public AuthController(AuthService authService, UserService userService, HttpServletRequest request) {
+    public AuthController(AuthService authService, UserService userService, JwtUtils jwtUtils) {
         this.authService = authService;
         this.userService = userService;
-        this.request = request;
+        this.jwtUtils = jwtUtils;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest, HttpSession currentSession) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
         String username = loginRequest.getUsername();
         logger.info("Login attempt for user: {}", username);
         
         try {
-            logger.debug("Received login request - Username: {}", username);
+            // Validate request
             if (username == null || username.trim().isEmpty() || 
                 loginRequest.getPassword() == null || loginRequest.getPassword().trim().isEmpty()) {
                 logger.warn("Invalid login request: Missing credentials");
-                return ResponseEntity.status(401).body(Map.of(
+                return ResponseEntity.badRequest().body(Map.of(
                     "error", "INVALID_CREDENTIALS",
                     "message", "Username and password are required"
                 ));
             }
-            if (currentSession != null && !currentSession.isNew()) {
-                logger.debug("Invalidating existing session for user: {}", username);
-                try {
-                    currentSession.invalidate();
-                } catch (IllegalStateException e) {
-                    logger.warn("Failed to invalidate existing session: {}", e.getMessage());
-                }
+
+            // Authenticate user
+            Map<String, Object> loginResponse = authService.login(username, loginRequest.getPassword());
+            
+            if (loginResponse == null || !loginResponse.containsKey("role") || !loginResponse.containsKey("userId")) {
+                throw new AuthenticationException("Invalid authentication response", "INVALID_AUTH_RESPONSE");
             }
 
-            Map<String, Object> loginResponse = authService.login(username, loginRequest.getPassword());
-            HttpSession newSession = request.getSession(true);
-            newSession.setMaxInactiveInterval(30 * 60);
-            loginResponse.forEach((key, value) -> {
-                if (value != null) {
-                    newSession.setAttribute(key, value);
-                    logger.debug("Setting session attribute: {} for user: {}", key, username);
-                }
-            });
-            loginResponse.remove("password");
+            // Generate JWT token
+            String token = jwtUtils.generateToken(
+                username,
+                (String) loginResponse.get("role"),
+                Long.valueOf(loginResponse.get("userId").toString())
+            );
+            
+            // Create response with token and user info
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("username", username);
+            response.put("role", loginResponse.get("role"));
+            response.put("userId", loginResponse.get("userId"));
             
             logger.info("Login successful for user: {}", username);
-            return ResponseEntity.ok()
-                .header("Access-Control-Allow-Origin", "http://localhost:8080")
-                .header("Access-Control-Allow-Credentials", "true")
-                .body(loginResponse);
+            return ResponseEntity.ok(response);
             
         } catch (AuthenticationException.InvalidCredentialsException e) {
             logger.warn("Invalid credentials for user: {} - {}", username, e.getMessage());
             return ResponseEntity.status(401)
-                .header("Access-Control-Allow-Origin", "http://localhost:8080")
-                .header("Access-Control-Allow-Credentials", "true")
                 .body(Map.of(
                     "error", "INVALID_CREDENTIALS",
                     "message", "Invalid username or password"
@@ -94,8 +83,6 @@ public class AuthController {
         } catch (AuthenticationException e) {
             logger.error("Authentication error for user: {} - {}", username, e.getMessage());
             return ResponseEntity.status(401)
-                .header("Access-Control-Allow-Origin", "http://localhost:8080")
-                .header("Access-Control-Allow-Credentials", "true")
                 .body(Map.of(
                     "error", e.getErrorCode(),
                     "message", e.getMessage()
@@ -103,8 +90,6 @@ public class AuthController {
         } catch (Exception e) {
             logger.error("Unexpected error during login for user: {} - {}", username, e.getMessage(), e);
             return ResponseEntity.status(500)
-                .header("Access-Control-Allow-Origin", "http://localhost:8080")
-                .header("Access-Control-Allow-Credentials", "true")
                 .body(Map.of(
                     "error", "INTERNAL_ERROR",
                     "message", "An unexpected error occurred during login"
@@ -152,41 +137,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpSession session) {
-        String username = (String) session.getAttribute("username");
-        logger.info("Processing logout request for user: {}", username);
-        
-        try {
-            if (username != null) {
-                String[] attributes = {"username", "role", "userId", "email", "phoneNumber", 
-                                    "isAvailable", "deliveryAddress"};
-                
-                for (String attribute : attributes) {
-                    session.removeAttribute(attribute);
-                    logger.debug("Removed session attribute: {} for user: {}", attribute, username);
-                }
-                
-                try {
-                    session.invalidate();
-                    logger.info("Session invalidated successfully for user: {}", username);
-                } catch (IllegalStateException e) {
-                    logger.warn("Session was already invalidated for user: {}", username);
-                }
-            } else {
-                logger.debug("No active session found for logout request");
-            }
-            
-            return ResponseEntity.ok().body(Map.of(
-                "status", "success",
-                "message", "Logged out successfully"
-            ));
-        } catch (Exception e) {
-            logger.error("Error during logout for user: {} - {}", username, e.getMessage(), e);
-            return ResponseEntity.ok().body(Map.of(
-                "status", "success",
-                "message", "Logged out successfully"
-            ));
-        }
+    public ResponseEntity<?> logout() {
+        return ResponseEntity.ok().body(Map.of(
+            "status", "success",
+            "message", "Logged out successfully"
+        ));
     }
 
     @DeleteMapping("/{username}")

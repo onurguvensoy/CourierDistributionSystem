@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import com.example.courierdistributionsystem.util.PasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.User.UserRole;

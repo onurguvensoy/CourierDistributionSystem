@@ -1,8 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Login from '../components/auth/Login';
-import Signup from '../components/auth/Signup';
-import ForgotPassword from '../components/auth/ForgotPassword';
+import Login from '../pages/auth/Login';
+import Signup from '../pages/auth/Signup';
+import ForgotPassword from '../pages/auth/ForgotPassword';
 import Profile from '../components/common/Profile';
 import Settings from '../components/common/Settings';
 

@@ -10,7 +10,7 @@ const Signup = () => {
         email: '',
         password: '',
         confirmPassword: '',
-        role: 'CUSTOMER', // Default role
+        role: 'CUSTOMER', 
         firstName: '',
         lastName: '',
         phone: '',

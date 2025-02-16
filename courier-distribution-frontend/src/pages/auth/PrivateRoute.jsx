@@ -1,20 +1,18 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import authService from '../services/authService';
+import authService from '../../services/authService';
 
 const PrivateRoute = ({ allowedRoles }) => {
     const location = useLocation();
     const isAuthenticated = authService.isAuthenticated();
-    const userRole = authService.getRole()?.toLowerCase();
+    const userRole = authService.getRole();
 
     if (!isAuthenticated) {
-        // Redirect to login with the attempted location
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
-        // Redirect to the user's dashboard if they don't have permission
-        return <Navigate to={`/${userRole}/dashboard`} state={{ from: location }} replace />;
+        return <Navigate to="/" state={{ from: location }} replace />;
     }
 
     return <Outlet />;
