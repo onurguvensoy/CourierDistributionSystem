@@ -113,7 +113,6 @@ public class UserService {
         logger.info("Saving admin user: {}", admin.getUsername());
         try {
             validatePassword(admin.getPassword());
-            admin.setPassword(passwordEncoder.encode(admin.getPassword()));
             Admin savedAdmin = adminRepository.save(admin);
             logger.info("Successfully saved admin user: {}", admin.getUsername());
             return savedAdmin;
@@ -129,7 +128,6 @@ public class UserService {
         logger.info("Saving customer user: {}", customer.getUsername());
         try {
             validatePassword(customer.getPassword());
-            customer.setPassword(passwordEncoder.encode(customer.getPassword()));
             Customer savedCustomer = customerRepository.save(customer);
             logger.info("Successfully saved customer user: {}", customer.getUsername());
             return savedCustomer;
@@ -145,7 +143,6 @@ public class UserService {
         logger.info("Saving courier user: {}", courier.getUsername());
         try {
             validatePassword(courier.getPassword());
-            courier.setPassword(passwordEncoder.encode(courier.getPassword()));
             Courier savedCourier = courierRepository.save(courier);
             logger.info("Successfully saved courier user: {}", courier.getUsername());
             return savedCourier;
@@ -209,13 +206,10 @@ public class UserService {
     }
 
     private Customer processCustomerSignup(Map<String, String> signupRequest) {
-        String rawPassword = signupRequest.get("password");
-        String encodedPassword = passwordEncoder.encode(rawPassword);
-        
         Customer customer = Customer.builder()
                 .username(signupRequest.get("username"))
                 .email(signupRequest.get("email"))
-                .password(encodedPassword)
+                .password(passwordEncoder.encode(signupRequest.get("password")))
                 .role(User.UserRole.CUSTOMER)
                 .phoneNumber(signupRequest.get("phoneNumber"))
                 .build();
@@ -223,13 +217,10 @@ public class UserService {
     }
 
     private Courier processCourierSignup(Map<String, String> signupRequest) {
-        String rawPassword = signupRequest.get("password");
-        String encodedPassword = passwordEncoder.encode(rawPassword);
-        
         Courier courier = Courier.builder()
                 .username(signupRequest.get("username"))
                 .email(signupRequest.get("email"))
-                .password(encodedPassword)
+                .password(passwordEncoder.encode(signupRequest.get("password")))
                 .role(User.UserRole.COURIER)
                 .phoneNumber(signupRequest.get("phoneNumber"))
                 .vehicleType(signupRequest.get("vehicleType"))
@@ -239,13 +230,10 @@ public class UserService {
     }
 
     private Admin processAdminSignup(Map<String, String> signupRequest) {
-        String rawPassword = signupRequest.get("password");
-        String encodedPassword = passwordEncoder.encode(rawPassword);
-        
         Admin admin = Admin.builder()
                 .username(signupRequest.get("username"))
                 .email(signupRequest.get("email"))
-                .password(encodedPassword)
+                .password(passwordEncoder.encode(signupRequest.get("password")))
                 .role(User.UserRole.ADMIN)
                 .build();
         return saveAdmin(admin);

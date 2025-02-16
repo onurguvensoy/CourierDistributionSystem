@@ -2,108 +2,65 @@ package com.example.courierdistributionsystem.service;
 
 import com.example.courierdistributionsystem.dto.SignupRequest;
 import com.example.courierdistributionsystem.exception.AuthenticationException;
-import com.example.courierdistributionsystem.model.*;
-import com.example.courierdistributionsystem.repository.jpa.AdminRepository;
-import lombok.RequiredArgsConstructor;
+import com.example.courierdistributionsystem.model.User;
+import com.example.courierdistributionsystem.util.JwtUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
-import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Validated
-@RequiredArgsConstructor
 public class AuthService {
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
     private final UserService userService;
-    private final PasswordEncoder passwordEncoder;
-    private final AdminRepository adminRepository;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtils jwtUtils;
 
-    @Transactional(readOnly = true)
+    public AuthService(UserService userService, AuthenticationManager authenticationManager, JwtUtils jwtUtils) {
+        this.userService = userService;
+        this.authenticationManager = authenticationManager;
+        this.jwtUtils = jwtUtils;
+    }
+
     public Map<String, Object> login(String username, String password) {
-        logger.debug("Processing login request for user: {}", username);
-        
         try {
-            validateLoginCredentials(username, password);
-            User user = getUserAndValidatePassword(username, password);
-            return createLoginResponse(user);
-        } catch (AuthenticationException e) {
-            logger.warn("Authentication failed for user: {} - {}", username, e.getMessage());
+            authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, password)
+            );
+
+            Optional<User> userOpt = userService.findByUsername(username);
+            if (userOpt.isEmpty()) {
+                throw new RuntimeException("User not found after authentication");
+            }
+            User user = userOpt.get();
+            String jwt = jwtUtils.generateToken(username, user.getRole().toString(), user.getId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", jwt);
+            response.put("username", username);
+            response.put("role", user.getRole());
+            response.put("userId", user.getId());
+
+            logger.info("User {} successfully logged in", username);
+            return response;
+        } catch (BadCredentialsException e) {
+            logger.error("Authentication failed for user: {} - Invalid credentials", username);
             throw e;
-        } catch (Exception e) {
-            logger.error("Unexpected error during login for user: {} - {}", username, e.getMessage(), e);
-            throw new AuthenticationException("An unexpected error occurred during login", "LOGIN_ERROR");
         }
-    }
-
-    private void validateLoginCredentials(String username, String password) {
-        if (username == null || username.trim().isEmpty() || 
-            password == null || password.trim().isEmpty()) {
-            logger.warn("Empty credentials provided");
-            throw new AuthenticationException.InvalidCredentialsException();
-        }
-    }
-
-    private User getUserAndValidatePassword(String username, String password) {
-        User user = userService.findByUsername(username)
-            .orElseThrow(() -> {
-                logger.warn("User not found with username: {}", username);
-                return new AuthenticationException.InvalidCredentialsException();
-            });
-
-        if (!passwordEncoder.matches(password, user.getPassword())) {
-            logger.warn("Invalid password for user: {}", username);
-            throw new AuthenticationException.InvalidCredentialsException();
-        }
-
-        return user;
-    }
-
-    private Map<String, Object> createLoginResponse(User user) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("username", user.getUsername());
-        response.put("email", user.getEmail());
-        response.put("role", user.getRole().name());
-        response.put("userId", user.getId());
-
-        switch (user.getRole()) {
-            case CUSTOMER -> addCustomerDetails((Customer) user, response);
-            case COURIER -> addCourierDetails((Courier) user, response);
-            case ADMIN -> validateAndAddAdminDetails(user.getUsername(), response);
-        }
-
-        logger.info("Login successful for user: {}", user.getUsername());
-        return response;
-    }
-
-    private void addCustomerDetails(Customer customer, Map<String, Object> response) {
-        response.put("phoneNumber", customer.getPhoneNumber());
-    }
-
-    private void addCourierDetails(Courier courier, Map<String, Object> response) {
-        response.put("phoneNumber", courier.getPhoneNumber());
-        response.put("isAvailable", courier.isAvailable());
-    }
-
-    private void validateAndAddAdminDetails(String username, Map<String, Object> response) {
-        adminRepository.findByUsername(username)
-            .orElseThrow(() -> {
-                logger.error("Admin user found in users table but not in admin table: {}", username);
-                return new AuthenticationException("Invalid admin account", "INVALID_ADMIN");
-            });
-        response.put("role", "ADMIN");
     }
 
     @Transactional
-    public Map<String, String> signup(@Valid SignupRequest request) {
+    public Map<String, String> signup(SignupRequest request) {
         logger.debug("Processing signup request for user: {}", request.getUsername());
         
         try {
@@ -139,8 +96,8 @@ public class AuthService {
         signupData.put("phoneNumber", request.getPhoneNumber());
         signupData.put("vehicleType", request.getVehicleType());
 
-        userService.signup(signupData);
-        logger.info("Signup successful for user: {}", request.getUsername());
-        return Map.of("message", "User registered successfully");
+        Map<String, String> response = userService.signup(signupData);
+        logger.info("User {} successfully signed up", request.getUsername());
+        return response;
     }
 }

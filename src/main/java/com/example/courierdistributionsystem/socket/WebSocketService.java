@@ -1,15 +1,17 @@
 package com.example.courierdistributionsystem.socket;
 
-import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.Courier;
+import com.example.courierdistributionsystem.model.DeliveryPackage;
+import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
+import com.example.courierdistributionsystem.service.CourierService;
 import com.example.courierdistributionsystem.service.DeliveryPackageService;
-import com.example.courierdistributionsystem.service.ViewService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.context.event.EventListener;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,15 +22,15 @@ public class WebSocketService {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final DeliveryPackageService deliveryPackageService;
-    private final ViewService viewService;
 
     public WebSocketService(
             SimpMessagingTemplate messagingTemplate,
             DeliveryPackageService deliveryPackageService,
-            ViewService viewService) {
+            CourierService courierService, 
+            CourierRepository courierRepository) {
         this.messagingTemplate = messagingTemplate;
         this.deliveryPackageService = deliveryPackageService;
-        this.viewService = viewService;
+  
     }
 
     @EventListener
@@ -79,7 +81,7 @@ public class WebSocketService {
             // If availability changed, update available packages
             Boolean availabilityChanged = (Boolean) event.get("availabilityChanged");
             if (Boolean.TRUE.equals(availabilityChanged)) {
-                List<DeliveryPackage> availablePackages = viewService.getAvailablePackages();
+                List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
                 messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
             }
         } catch (ClassCastException e) {
@@ -174,11 +176,11 @@ public class WebSocketService {
             );
 
             // Update available packages list for all couriers
-            List<DeliveryPackage> availablePackages = viewService.getAvailablePackages();
+            List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
             messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
 
             // Update active deliveries for the courier
-            List<DeliveryPackage> activeDeliveries = viewService.getActiveDeliveries(viewService.getUserByUsername(username));
+            List<DeliveryPackage> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/active", activeDeliveries);
 
         } catch (Exception e) {
@@ -236,12 +238,12 @@ public class WebSocketService {
                 )
             );
 
-            // Update available packages list for all couriers
-            List<DeliveryPackage> availablePackages = viewService.getAvailablePackages();
+
+            List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
             messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
 
             // Update active deliveries for the courier
-            List<DeliveryPackage> activeDeliveries = viewService.getActiveDeliveries(viewService.getUserByUsername(username));
+            List<DeliveryPackage> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/active", activeDeliveries);
 
         } catch (Exception e) {
@@ -283,12 +285,12 @@ public class WebSocketService {
 
             // If the package becomes available again, update the available packages list
             if (newStatus == DeliveryPackage.DeliveryStatus.PENDING) {
-                List<DeliveryPackage> availablePackages = viewService.getAvailablePackages();
+                List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
                 messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
             }
 
             // Update active deliveries for the courier
-            List<DeliveryPackage> activeDeliveries = viewService.getActiveDeliveries(viewService.getUserByUsername(username));
+            List<DeliveryPackage> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/active", activeDeliveries);
 
         } catch (Exception e) {
@@ -335,7 +337,7 @@ public class WebSocketService {
         // Broadcast if package is available
         if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.PENDING) {
             messagingTemplate.convertAndSend("/topic/packages/available", 
-                viewService.getAvailablePackages());
+                deliveryPackageService.getAvailableDeliveryPackages());
         }
     }
 }

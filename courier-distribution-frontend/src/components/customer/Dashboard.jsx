@@ -1,270 +1,260 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Row, Col, Badge, Button } from 'react-bootstrap';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClock, faTruck, faCheckCircle, faPlus, faHistory } from '@fortawesome/free-solid-svg-icons';
-import DataTable from 'react-data-table-component';
-import moment from 'moment';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import axios from 'axios';
 import SockJS from 'sockjs-client';
 import { Stomp } from '@stomp/stompjs';
-import authService from '../../services/authService';
 
-const Dashboard = () => {
-    const [stats, setStats] = useState({
-        pendingPackages: 0,
-        inTransitPackages: 0,
-        deliveredPackages: 0
-    });
-    const [activePackages, setActivePackages] = useState([]);
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
+const WS_URL = process.env.REACT_APP_WS_URL || 'http://localhost:8080/ws';
+
+const CustomerDashboard = () => {
     const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        totalPackages: 0,
+        activeDeliveries: 0,
+        completedDeliveries: 0,
+        totalSpent: 0
+    });
+    const [recentDeliveries, setRecentDeliveries] = useState([]);
     const [stompClient, setStompClient] = useState(null);
 
-    const updateStats = useCallback((packages) => {
-        const pendingCount = packages.filter(pkg => pkg.status === 'PENDING').length;
-        const inTransitCount = packages.filter(pkg => 
-            ['IN_TRANSIT', 'PICKED_UP', 'ASSIGNED'].includes(pkg.status)
-        ).length;
-        const deliveredCount = packages.filter(pkg => pkg.status === 'DELIVERED').length;
-
-        setStats({
-            pendingPackages: pendingCount,
-            inTransitPackages: inTransitCount,
-            deliveredPackages: deliveredCount
-        });
-    }, []);
-
-    const updatePackages = useCallback((packages) => {
-        setActivePackages(packages);
-        updateStats(packages);
-    }, [updateStats]);
-
-    const initializeWebSocket = useCallback(() => {
-        try {
-            const socket = new SockJS('/websocket');
-            const client = Stomp.over(socket);
-            
-            const username = authService.getUsername();
-            if (!username) {
-                console.error('Username not found');
-                toast.error('Authentication error: Username not found');
-                return;
-            }
-            
-            const connectHeaders = {
-                username: username
-            };
-            
-            client.connect(connectHeaders, () => {
-                console.log('Connected to WebSocket with username:', username);
-                
-                // Subscribe to package updates
-                client.subscribe('/user/queue/packages', (message) => {
-                    try {
-                        const packages = JSON.parse(message.body);
-                        updatePackages(packages);
-                    } catch (error) {
-                        console.error('Error processing package updates:', error);
-                        toast.error('Error processing package updates');
-                    }
-                });
-            }, (error) => {
-                console.error('WebSocket connection error:', error);
-                toast.error('Failed to connect to real-time updates');
-            });
-            
-            setStompClient(client);
-        } catch (error) {
-            console.error('Error initializing WebSocket:', error);
-            toast.error('Failed to initialize real-time updates');
-        }
-    }, [updatePackages]);
-
     useEffect(() => {
-        const fetchInitialData = async () => {
-            try {
-                const response = await authService.get('/api/customer/packages/active');
-                updatePackages(response.data);
-            } catch (error) {
-                console.error('Error fetching initial data:', error);
-                toast.error('Failed to load dashboard data');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchInitialData();
-        initializeWebSocket();
+        fetchDashboardData();
+        setupWebSocket();
 
         return () => {
             if (stompClient) {
                 stompClient.disconnect();
             }
         };
-    }, [initializeWebSocket, updatePackages]);
+    }, []);
 
-    const getStatusBadge = (status) => {
-        const variants = {
-            'PENDING': 'warning',
-            'ASSIGNED': 'info',
-            'PICKED_UP': 'primary',
-            'IN_TRANSIT': 'info',
-            'DELIVERED': 'success'
-        };
-        return <Badge bg={variants[status] || 'secondary'}>{status}</Badge>;
+    const setupWebSocket = () => {
+        const socket = new SockJS(WS_URL);
+        const client = Stomp.over(socket);
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user'));
+
+        client.connect(
+            { Authorization: `Bearer ${token}` },
+            () => {
+                client.subscribe(`/topic/customer/${user.userId}`, (message) => {
+                    const delivery = JSON.parse(message.body);
+                    handleDeliveryUpdate(delivery);
+                });
+            },
+            (error) => {
+                console.error('WebSocket connection error:', error);
+                toast.error('Failed to connect to real-time updates');
+            }
+        );
+
+        setStompClient(client);
     };
 
-    const columns = [
-        {
-            name: 'Package ID',
-            selector: row => row.package_id,
-            sortable: true
-        },
-        {
-            name: 'Pickup Location',
-            selector: row => row.pickupAddress,
-            sortable: true
-        },
-        {
-            name: 'Delivery Location',
-            selector: row => row.deliveryAddress,
-            sortable: true
-        },
-        {
-            name: 'Status',
-            selector: row => row.status,
-            sortable: true,
-            cell: row => getStatusBadge(row.status)
-        },
-        {
-            name: 'Courier',
-            selector: row => row.courier?.username,
-            sortable: true,
-            cell: row => row.courier?.username || 'Not Assigned'
-        },
-        {
-            name: 'Created At',
-            selector: row => row.createdAt,
-            sortable: true,
-            cell: row => moment(row.createdAt).format('YYYY-MM-DD HH:mm:ss')
+    const handleDeliveryUpdate = (delivery) => {
+        setRecentDeliveries(prev => {
+            const index = prev.findIndex(d => d.id === delivery.id);
+            if (index === -1) {
+                return [delivery, ...prev].slice(0, 5);
+            }
+            const updated = [...prev];
+            updated[index] = delivery;
+            return updated;
+        });
+        fetchDashboardData();
+    };
+
+    const fetchDashboardData = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const [statsResponse, deliveriesResponse] = await Promise.all([
+                axios.get(`${API_URL}/customer/stats`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                axios.get(`${API_URL}/customer/recent-deliveries`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+            ]);
+
+            setStats(statsResponse.data);
+            setRecentDeliveries(deliveriesResponse.data);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to fetch dashboard data');
+            console.error('Dashboard data error:', error);
+        } finally {
+            setLoading(false);
         }
-    ];
+    };
 
     if (loading) {
-        return <div className="text-center mt-5"><div className="spinner-border" /></div>;
+        return (
+            <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        );
     }
 
     return (
         <div className="container-fluid">
             <div className="d-sm-flex align-items-center justify-content-between mb-4">
-                <h1 className="h3 mb-0 text-gray-800">My Packages</h1>
-                <div>
-                    <Link to="/customer/new-package" className="btn btn-primary me-2">
-                        <FontAwesomeIcon icon={faPlus} className="me-2" /> Create New Package
-                    </Link>
+                <h1 className="h3 mb-0 text-gray-800">Customer Dashboard</h1>
+                <Link to="/customer/new-package" className="d-none d-sm-inline-block btn btn-primary shadow-sm">
+                    <i className="fas fa-plus fa-sm text-white-50 mr-2"></i>
+                    New Package
+                </Link>
+            </div>
+
+            <div className="row">
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-primary shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
+                                    <div className="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Total Packages
+                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
+                                        {stats.totalPackages}
+                                    </div>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-box fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-success shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
+                                    <div className="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        Active Deliveries
+                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
+                                        {stats.activeDeliveries}
+                                    </div>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-truck fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-info shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
+                                    <div className="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        Completed Deliveries
+                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
+                                        {stats.completedDeliveries}
+                                    </div>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-check-circle fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-warning shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
+                                    <div className="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Total Spent
+                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
+                                        ${stats.totalSpent.toFixed(2)}
+                                    </div>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <Row>
-                <Col xl={4} md={6} className="mb-4">
-                    <Card className="border-left-warning shadow h-100 py-2">
-                        <Card.Body>
-                            <Row className="no-gutters align-items-center">
-                                <Col className="mr-2">
-                                    <div className="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                        Pending Packages
-                                    </div>
-                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.pendingPackages}
-                                    </div>
-                                </Col>
-                                <Col xs="auto">
-                                    <FontAwesomeIcon icon={faClock} className="fa-2x text-gray-300" />
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </Col>
-
-                <Col xl={4} md={6} className="mb-4">
-                    <Card className="border-left-info shadow h-100 py-2">
-                        <Card.Body>
-                            <Row className="no-gutters align-items-center">
-                                <Col className="mr-2">
-                                    <div className="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                        In Transit
-                                    </div>
-                                    <div className="row no-gutters align-items-center">
-                                        <div className="col-auto">
-                                            <div className="h5 mb-0 mr-3 font-weight-bold text-gray-800">
-                                                {stats.inTransitPackages}
-                                            </div>
-                                        </div>
-                                        <div className="col">
-                                            <div className="progress progress-sm mr-2">
-                                                <div 
-                                                    className="progress-bar bg-info" 
-                                                    role="progressbar" 
-                                                    style={{ width: stats.inTransitPackages > 0 ? '100%' : '0%' }}
-                                                    aria-valuenow={stats.inTransitPackages}
-                                                    aria-valuemin="0"
-                                                    aria-valuemax="100"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Col>
-                                <Col xs="auto">
-                                    <FontAwesomeIcon icon={faTruck} className="fa-2x text-gray-300" />
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </Col>
-
-                <Col xl={4} md={6} className="mb-4">
-                    <Card className="border-left-success shadow h-100 py-2">
-                        <Card.Body>
-                            <Row className="no-gutters align-items-center">
-                                <Col className="mr-2">
-                                    <div className="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                        Delivered
-                                    </div>
-                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.deliveredPackages}
-                                    </div>
-                                </Col>
-                                <Col xs="auto">
-                                    <FontAwesomeIcon icon={faCheckCircle} className="fa-2x text-gray-300" />
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
-
-            <Card className="shadow mb-4">
-                <Card.Header className="py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 className="m-0 font-weight-bold text-primary">Active Packages</h6>
-                    <Link to="/customer/delivery-history" className="btn btn-info btn-sm">
-                        <FontAwesomeIcon icon={faHistory} className="me-1" /> View Delivery History
-                    </Link>
-                </Card.Header>
-                <Card.Body>
-                    <DataTable
-                        columns={columns}
-                        data={activePackages}
-                        pagination
-                        responsive
-                        highlightOnHover
-                        striped
-                        defaultSortFieldId={1}
-                        defaultSortAsc={false}
-                    />
-                </Card.Body>
-            </Card>
+            <div className="card shadow mb-4">
+                <div className="card-header py-3">
+                    <h6 className="m-0 font-weight-bold text-primary">Recent Deliveries</h6>
+                </div>
+                <div className="card-body">
+                    {recentDeliveries.length === 0 ? (
+                        <div className="text-center py-4">
+                            <p className="text-gray-500 mb-0">No recent deliveries.</p>
+                            <Link to="/customer/new-package" className="btn btn-primary mt-3">
+                                Create Your First Delivery
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Pickup Address</th>
+                                        <th>Delivery Address</th>
+                                        <th>Status</th>
+                                        <th>Courier</th>
+                                        <th>Created At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {recentDeliveries.map((delivery) => (
+                                        <tr key={delivery.id}>
+                                            <td>{delivery.id}</td>
+                                            <td>{delivery.pickupAddress}</td>
+                                            <td>{delivery.deliveryAddress}</td>
+                                            <td>
+                                                <span className={`badge bg-${getStatusColor(delivery.status)}`}>
+                                                    {delivery.status}
+                                                </span>
+                                            </td>
+                                            <td>{delivery.courierName || 'Not assigned'}</td>
+                                            <td>{new Date(delivery.createdAt).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
 
-export default Dashboard; 
+const getStatusColor = (status) => {
+    switch (status) {
+        case 'PENDING':
+            return 'secondary';
+        case 'ASSIGNED':
+            return 'warning';
+        case 'PICKED_UP':
+            return 'info';
+        case 'DELIVERED':
+            return 'success';
+        case 'CANCELLED':
+            return 'danger';
+        default:
+            return 'secondary';
+    }
+};
+
+export default CustomerDashboard; 

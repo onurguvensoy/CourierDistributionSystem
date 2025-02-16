@@ -1,251 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import apiService from '../../services/apiService';
+import React, { useState } from 'react';
 import { toast } from 'react-toastify';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 const Settings = () => {
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [settings, setSettings] = useState({
-        notifications: {
-            email: true,
-            sms: true,
-            push: true
-        },
-        preferences: {
-            language: 'en',
-            timezone: 'UTC',
-            theme: 'light'
-        },
-        security: {
-            twoFactorAuth: false,
-            sessionTimeout: 30
-        }
+        emailNotifications: true,
+        smsNotifications: false,
+        language: 'en',
+        theme: 'light'
     });
 
-    useEffect(() => {
-        fetchSettings();
-    }, []);
-
-    const fetchSettings = async () => {
-        try {
-            const response = await apiService.getSettings();
-            setSettings(response);
-        } catch (error) {
-            toast.error('Failed to load settings');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleNotificationChange = (e) => {
-        const { name, checked } = e.target;
-        setSettings(prev => ({
-            ...prev,
-            notifications: {
-                ...prev.notifications,
-                [name]: checked
-            }
-        }));
-    };
-
-    const handlePreferenceChange = (e) => {
-        const { name, value } = e.target;
-        setSettings(prev => ({
-            ...prev,
-            preferences: {
-                ...prev.preferences,
-                [name]: value
-            }
-        }));
-    };
-
-    const handleSecurityChange = (e) => {
+    const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setSettings(prev => ({
             ...prev,
-            security: {
-                ...prev.security,
-                [name]: type === 'checkbox' ? checked : value
-            }
+            [name]: type === 'checkbox' ? checked : value
         }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setSaving(true);
+        setLoading(true);
 
         try {
-            await apiService.updateSettings(settings);
+            const token = localStorage.getItem('token');
+            await axios.put(`${API_URL}/user/settings`, settings, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             toast.success('Settings updated successfully');
         } catch (error) {
-            toast.error(error.message || 'Failed to update settings');
+            toast.error(error.response?.data?.message || 'Failed to update settings');
+            console.error('Settings update error:', error);
         } finally {
-            setSaving(false);
+            setLoading(false);
         }
     };
-
-    if (loading) {
-        return (
-            <div className="container-fluid">
-                <div className="text-center mt-5">
-                    <div className="spinner-border text-primary" role="status">
-                        <span className="sr-only">Loading...</span>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="container-fluid">
             <h1 className="h3 mb-4 text-gray-800">Settings</h1>
-
-            <form onSubmit={handleSubmit}>
-                {/* Notification Settings */}
-                <div className="card shadow mb-4">
-                    <div className="card-header py-3">
-                        <h6 className="m-0 font-weight-bold text-primary">Notification Settings</h6>
-                    </div>
-                    <div className="card-body">
-                        <div className="form-group">
-                            <div className="custom-control custom-checkbox">
+            <div className="card shadow mb-4">
+                <div className="card-header py-3">
+                    <h6 className="m-0 font-weight-bold text-primary">User Settings</h6>
+                </div>
+                <div className="card-body">
+                    <form onSubmit={handleSubmit}>
+                        <div className="mb-3">
+                            <div className="form-check">
                                 <input
                                     type="checkbox"
-                                    className="custom-control-input"
+                                    className="form-check-input"
                                     id="emailNotifications"
-                                    name="email"
-                                    checked={settings.notifications.email}
-                                    onChange={handleNotificationChange}
+                                    name="emailNotifications"
+                                    checked={settings.emailNotifications}
+                                    onChange={handleChange}
                                 />
-                                <label className="custom-control-label" htmlFor="emailNotifications">
+                                <label className="form-check-label" htmlFor="emailNotifications">
                                     Email Notifications
                                 </label>
                             </div>
                         </div>
-                        <div className="form-group">
-                            <div className="custom-control custom-checkbox">
+                        <div className="mb-3">
+                            <div className="form-check">
                                 <input
                                     type="checkbox"
-                                    className="custom-control-input"
+                                    className="form-check-input"
                                     id="smsNotifications"
-                                    name="sms"
-                                    checked={settings.notifications.sms}
-                                    onChange={handleNotificationChange}
+                                    name="smsNotifications"
+                                    checked={settings.smsNotifications}
+                                    onChange={handleChange}
                                 />
-                                <label className="custom-control-label" htmlFor="smsNotifications">
+                                <label className="form-check-label" htmlFor="smsNotifications">
                                     SMS Notifications
                                 </label>
                             </div>
                         </div>
-                        <div className="form-group">
-                            <div className="custom-control custom-checkbox">
-                                <input
-                                    type="checkbox"
-                                    className="custom-control-input"
-                                    id="pushNotifications"
-                                    name="push"
-                                    checked={settings.notifications.push}
-                                    onChange={handleNotificationChange}
-                                />
-                                <label className="custom-control-label" htmlFor="pushNotifications">
-                                    Push Notifications
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Preferences */}
-                <div className="card shadow mb-4">
-                    <div className="card-header py-3">
-                        <h6 className="m-0 font-weight-bold text-primary">Preferences</h6>
-                    </div>
-                    <div className="card-body">
-                        <div className="form-group">
-                            <label htmlFor="language">Language</label>
+                        <div className="mb-3">
+                            <label htmlFor="language" className="form-label">Language</label>
                             <select
                                 className="form-control"
                                 id="language"
                                 name="language"
-                                value={settings.preferences.language}
-                                onChange={handlePreferenceChange}
+                                value={settings.language}
+                                onChange={handleChange}
                             >
                                 <option value="en">English</option>
-                                <option value="es">Spanish</option>
-                                <option value="fr">French</option>
+                                <option value="tr">Turkish</option>
                             </select>
                         </div>
-                        <div className="form-group">
-                            <label htmlFor="timezone">Timezone</label>
-                            <select
-                                className="form-control"
-                                id="timezone"
-                                name="timezone"
-                                value={settings.preferences.timezone}
-                                onChange={handlePreferenceChange}
-                            >
-                                <option value="UTC">UTC</option>
-                                <option value="EST">EST</option>
-                                <option value="PST">PST</option>
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="theme">Theme</label>
+                        <div className="mb-3">
+                            <label htmlFor="theme" className="form-label">Theme</label>
                             <select
                                 className="form-control"
                                 id="theme"
                                 name="theme"
-                                value={settings.preferences.theme}
-                                onChange={handlePreferenceChange}
+                                value={settings.theme}
+                                onChange={handleChange}
                             >
                                 <option value="light">Light</option>
                                 <option value="dark">Dark</option>
                             </select>
                         </div>
-                    </div>
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <span>
+                                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                                    Saving...
+                                </span>
+                            ) : (
+                                'Save Changes'
+                            )}
+                        </button>
+                    </form>
                 </div>
-
-                {/* Security Settings */}
-                <div className="card shadow mb-4">
-                    <div className="card-header py-3">
-                        <h6 className="m-0 font-weight-bold text-primary">Security Settings</h6>
-                    </div>
-                    <div className="card-body">
-                        <div className="form-group">
-                            <div className="custom-control custom-checkbox">
-                                <input
-                                    type="checkbox"
-                                    className="custom-control-input"
-                                    id="twoFactorAuth"
-                                    name="twoFactorAuth"
-                                    checked={settings.security.twoFactorAuth}
-                                    onChange={handleSecurityChange}
-                                />
-                                <label className="custom-control-label" htmlFor="twoFactorAuth">
-                                    Enable Two-Factor Authentication
-                                </label>
-                            </div>
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="sessionTimeout">Session Timeout (minutes)</label>
-                            <input
-                                type="number"
-                                className="form-control"
-                                id="sessionTimeout"
-                                name="sessionTimeout"
-                                value={settings.security.sessionTimeout}
-                                onChange={handleSecurityChange}
-                                min="5"
-                                max="120"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                    {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-            </form>
+            </div>
         </div>
     );
 };

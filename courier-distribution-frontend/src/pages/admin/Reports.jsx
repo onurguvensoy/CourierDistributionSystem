@@ -5,11 +5,31 @@ import { faPrint, faEye, faTrash } from '@fortawesome/free-solid-svg-icons';
 import DataTable from 'react-data-table-component';
 import moment from 'moment';
 import { toast } from 'react-toastify';
-import authService from '../../services/authService';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 const Reports = () => {
-    const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [reports, setReports] = useState({
+        deliveryStats: {
+            total: 0,
+            completed: 0,
+            inProgress: 0,
+            cancelled: 0
+        },
+        revenueStats: {
+            total: 0,
+            monthly: 0,
+            weekly: 0,
+            daily: 0
+        },
+        courierStats: {
+            total: 0,
+            active: 0,
+            topPerformers: []
+        }
+    });
     const [showModal, setShowModal] = useState(false);
     const [selectedReport, setSelectedReport] = useState(null);
 
@@ -19,11 +39,14 @@ const Reports = () => {
 
     const fetchReports = async () => {
         try {
-            const response = await authService.get('/api/delivery-reports');
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/admin/reports`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             setReports(response.data);
         } catch (error) {
-            console.error('Error fetching reports:', error);
-            toast.error('Failed to load reports');
+            toast.error(error.response?.data?.message || 'Failed to fetch reports');
+            console.error('Reports fetch error:', error);
         } finally {
             setLoading(false);
         }
@@ -31,7 +54,7 @@ const Reports = () => {
 
     const viewReport = async (reportId) => {
         try {
-            const response = await authService.get(`/api/delivery-reports/${reportId}`);
+            const response = await axios.get(`${API_URL}/delivery-reports/${reportId}`);
             if (response.data) {
                 setSelectedReport(response.data);
                 setShowModal(true);
@@ -45,7 +68,7 @@ const Reports = () => {
     const deleteReport = async (reportId) => {
         if (window.confirm('Are you sure you want to delete this report?')) {
             try {
-                await authService.delete(`/api/delivery-reports/${reportId}`);
+                await axios.delete(`${API_URL}/delivery-reports/${reportId}`);
                 toast.success('Report deleted successfully');
                 fetchReports();
             } catch (error) {
@@ -165,16 +188,103 @@ const Reports = () => {
     ];
 
     if (loading) {
-        return <div className="text-center mt-5"><div className="spinner-border" /></div>;
+        return (
+            <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        );
     }
 
     return (
         <div className="container-fluid">
-            <div className="d-sm-flex align-items-center justify-content-between mb-4">
-                <h1 className="h3 mb-0 text-gray-800">Delivery Reports</h1>
-                <Button variant="primary" onClick={printAllReports}>
-                    <FontAwesomeIcon icon={faPrint} className="me-2" /> Print All Reports
-                </Button>
+            <h1 className="h3 mb-4 text-gray-800">Reports</h1>
+
+            <div className="row">
+                <div className="col-lg-4">
+                    <div className="card shadow mb-4">
+                        <div className="card-header py-3">
+                            <h6 className="m-0 font-weight-bold text-primary">Delivery Statistics</h6>
+                        </div>
+                        <div className="card-body">
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Total Deliveries</div>
+                                <div className="h5">{reports.deliveryStats.total}</div>
+                            </div>
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Completed Deliveries</div>
+                                <div className="h5">{reports.deliveryStats.completed}</div>
+                            </div>
+                            <div className="mb-3">
+                                <div className="small text-gray-500">In Progress</div>
+                                <div className="h5">{reports.deliveryStats.inProgress}</div>
+                            </div>
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Cancelled</div>
+                                <div className="h5">{reports.deliveryStats.cancelled}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-lg-4">
+                    <div className="card shadow mb-4">
+                        <div className="card-header py-3">
+                            <h6 className="m-0 font-weight-bold text-primary">Revenue Statistics</h6>
+                        </div>
+                        <div className="card-body">
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Total Revenue</div>
+                                <div className="h5">${reports.revenueStats.total.toFixed(2)}</div>
+                            </div>
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Monthly Revenue</div>
+                                <div className="h5">${reports.revenueStats.monthly.toFixed(2)}</div>
+                            </div>
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Weekly Revenue</div>
+                                <div className="h5">${reports.revenueStats.weekly.toFixed(2)}</div>
+                            </div>
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Daily Revenue</div>
+                                <div className="h5">${reports.revenueStats.daily.toFixed(2)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-lg-4">
+                    <div className="card shadow mb-4">
+                        <div className="card-header py-3">
+                            <h6 className="m-0 font-weight-bold text-primary">Courier Statistics</h6>
+                        </div>
+                        <div className="card-body">
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Total Couriers</div>
+                                <div className="h5">{reports.courierStats.total}</div>
+                            </div>
+                            <div className="mb-3">
+                                <div className="small text-gray-500">Active Couriers</div>
+                                <div className="h5">{reports.courierStats.active}</div>
+                            </div>
+                            <div className="mt-4">
+                                <h6 className="font-weight-bold">Top Performing Couriers</h6>
+                                <div className="list-group">
+                                    {reports.courierStats.topPerformers.map((courier, index) => (
+                                        <div key={index} className="list-group-item">
+                                            <div className="d-flex w-100 justify-content-between">
+                                                <h6 className="mb-1">{courier.name}</h6>
+                                                <small>{courier.deliveries} deliveries</small>
+                                            </div>
+                                            <small className="text-muted">Rating: {courier.rating}/5</small>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <Card className="shadow mb-4">

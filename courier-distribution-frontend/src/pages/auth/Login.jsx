@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import authService from '../../services/authService';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -24,18 +26,19 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const response = await authService.login(formData.username, formData.password);
-            const user = authService.getCurrentUser();
+            const response = await axios.post(`${API_URL}/auth/login`, formData);
+            const { token, username, role, userId } = response.data;
             
-            if (!user || !user.role) {
-                throw new Error('Invalid user data received');
-            }
+            // Store token and user info
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify({ username, role, userId }));
 
-            const role = user.role.toLowerCase();
-            let redirectPath = '/';
+            // Setup axios default headers for future requests
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             // Determine redirect path based on role
-            switch (role) {
+            let redirectPath = '/';
+            switch (role.toLowerCase()) {
                 case 'admin':
                     redirectPath = '/admin/dashboard';
                     break;
@@ -52,7 +55,7 @@ const Login = () => {
             toast.success('Login successful!');
             navigate(redirectPath);
         } catch (error) {
-            const errorMessage = error.message || 'Failed to login';
+            const errorMessage = error.response?.data?.message || 'Failed to login';
             toast.error(errorMessage);
             console.error('Login error:', error);
             // Clear password field on error

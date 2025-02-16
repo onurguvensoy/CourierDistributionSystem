@@ -26,8 +26,6 @@ public class AdminController {
     @Autowired
     private DeliveryPackageService deliveryPackageService;
 
-    @Autowired
-    private ViewService viewService;
 
     @Autowired
     private DeliveryReportService deliveryReportService;
@@ -217,7 +215,8 @@ public class AdminController {
             throw new IllegalStateException("No user logged in");
         }
         
-        User user = viewService.getUserByUsername(username);
+        User user = userService.findByUsername(username)
+        .orElseThrow(() -> new UserService.UserNotFoundException("User not found with username: " + username));
         if (!(user instanceof Admin)) {
             throw new IllegalStateException("User is not an admin");
         }

@@ -1,233 +1,169 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Form, Button, Alert } from 'react-bootstrap';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faTimes, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import authService from '../../services/authService';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 const NewPackage = () => {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         pickupAddress: '',
         deliveryAddress: '',
         weight: '',
         description: '',
-        specialInstructions: ''
+        fragile: false,
+        priority: 'NORMAL'
     });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [validated, setValidated] = useState(false);
-    const [formChanged, setFormChanged] = useState(false);
 
-    useEffect(() => {
-        // Handle unsaved changes warning
-        const handleBeforeUnload = (e) => {
-            if (formChanged) {
-                e.preventDefault();
-                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
-        return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-        };
-    }, [formChanged]);
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: value
+            [name]: type === 'checkbox' ? checked : value
         }));
-        setFormChanged(true);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const form = e.currentTarget;
-
-        if (form.checkValidity() === false) {
-            e.stopPropagation();
-            setValidated(true);
-            return;
-        }
-
-        setIsSubmitting(true);
+        setLoading(true);
 
         try {
-            const response = await authService.post('/api/packages/create', {
-                ...formData,
-                weight: parseFloat(formData.weight)
+            const token = localStorage.getItem('token');
+            await axios.post(`${API_URL}/customer/packages`, formData, {
+                headers: { Authorization: `Bearer ${token}` }
             });
-
-            if (response.data.status === 'success' || response.data.package_id) {
-                toast.success('Package created successfully!');
-                setTimeout(() => navigate('/customer/dashboard'), 1500);
-            } else {
-                toast.error(response.data.message || 'Failed to create package');
-            }
+            toast.success('Package created successfully');
+            navigate('/customer/packages');
         } catch (error) {
-            console.error('Error creating package:', error);
-            toast.error(error.response?.data?.message || 'Failed to create package. Please try again.');
+            toast.error(error.response?.data?.message || 'Failed to create package');
+            console.error('Package creation error:', error);
         } finally {
-            setIsSubmitting(false);
+            setLoading(false);
         }
     };
 
     return (
         <div className="container-fluid">
-            <div className="d-sm-flex align-items-center justify-content-between mb-4">
-                <h1 className="h3 mb-0 text-gray-800">Create New Package</h1>
-            </div>
+            <h1 className="h3 mb-4 text-gray-800">Create New Package</h1>
 
-            <div className="row">
-                <div className="col-12">
-                    <Card className="shadow mb-4">
-                        <Card.Header className="py-3">
-                            <h6 className="m-0 font-weight-bold text-primary">Package Details</h6>
-                        </Card.Header>
-                        <Card.Body>
-                            <Form noValidate validated={validated} onSubmit={handleSubmit}>
-                                <Form.Group className="mb-3">
-                                    <Form.Label>
-                                        Pickup Address <span className="text-danger">*</span>
-                                    </Form.Label>
-                                    <Form.Control
-                                        type="text"
+            <div className="card shadow mb-4">
+                <div className="card-header py-3">
+                    <h6 className="m-0 font-weight-bold text-primary">Package Details</h6>
+                </div>
+                <div className="card-body">
+                    <form onSubmit={handleSubmit}>
+                        <div className="row">
+                            <div className="col-md-6">
+                                <div className="form-group mb-3">
+                                    <label htmlFor="pickupAddress">Pickup Address</label>
+                                    <textarea
+                                        className="form-control"
+                                        id="pickupAddress"
                                         name="pickupAddress"
                                         value={formData.pickupAddress}
-                                        onChange={handleInputChange}
+                                        onChange={handleChange}
+                                        rows="3"
                                         required
-                                        minLength={5}
-                                        maxLength={200}
                                     />
-                                    <Form.Control.Feedback type="invalid">
-                                        Please provide a pickup address (5-200 characters).
-                                    </Form.Control.Feedback>
-                                </Form.Group>
-
-                                <Form.Group className="mb-3">
-                                    <Form.Label>
-                                        Delivery Address <span className="text-danger">*</span>
-                                    </Form.Label>
-                                    <Form.Control
-                                        type="text"
+                                </div>
+                            </div>
+                            <div className="col-md-6">
+                                <div className="form-group mb-3">
+                                    <label htmlFor="deliveryAddress">Delivery Address</label>
+                                    <textarea
+                                        className="form-control"
+                                        id="deliveryAddress"
                                         name="deliveryAddress"
                                         value={formData.deliveryAddress}
-                                        onChange={handleInputChange}
+                                        onChange={handleChange}
+                                        rows="3"
                                         required
-                                        minLength={5}
-                                        maxLength={200}
                                     />
-                                    <Form.Control.Feedback type="invalid">
-                                        Please provide a delivery address (5-200 characters).
-                                    </Form.Control.Feedback>
-                                </Form.Group>
+                                </div>
+                            </div>
+                        </div>
 
-                                <Form.Group className="mb-3">
-                                    <Form.Label>
-                                        Weight (kg) <span className="text-danger">*</span>
-                                    </Form.Label>
-                                    <Form.Control
+                        <div className="row">
+                            <div className="col-md-6">
+                                <div className="form-group mb-3">
+                                    <label htmlFor="weight">Weight (kg)</label>
+                                    <input
                                         type="number"
+                                        className="form-control"
+                                        id="weight"
                                         name="weight"
                                         value={formData.weight}
-                                        onChange={handleInputChange}
-                                        required
-                                        step="0.1"
+                                        onChange={handleChange}
                                         min="0.1"
-                                        max="1000"
-                                    />
-                                    <Form.Control.Feedback type="invalid">
-                                        Please provide a valid weight between 0.1 and 1000 kg.
-                                    </Form.Control.Feedback>
-                                    <Form.Text className="text-muted">
-                                        Enter the package weight in kilograms (0.1 - 1000 kg).
-                                    </Form.Text>
-                                </Form.Group>
-
-                                <Form.Group className="mb-3">
-                                    <Form.Label>
-                                        Package Description <span className="text-danger">*</span>
-                                    </Form.Label>
-                                    <Form.Control
-                                        as="textarea"
-                                        rows={3}
-                                        name="description"
-                                        value={formData.description}
-                                        onChange={handleInputChange}
+                                        step="0.1"
                                         required
-                                        minLength={10}
-                                        maxLength={500}
                                     />
-                                    <Form.Control.Feedback type="invalid">
-                                        Please provide a package description (10-500 characters).
-                                    </Form.Control.Feedback>
-                                    <Form.Text className="text-muted d-flex justify-content-between">
-                                        <span>Describe the package contents and any relevant details (10-500 characters).</span>
-                                        <span>{formData.description.length}/500</span>
-                                    </Form.Text>
-                                </Form.Group>
-
-                                <Form.Group className="mb-3">
-                                    <Form.Label>Special Instructions</Form.Label>
-                                    <Form.Control
-                                        as="textarea"
-                                        rows={2}
-                                        name="specialInstructions"
-                                        value={formData.specialInstructions}
-                                        onChange={handleInputChange}
-                                        maxLength={200}
-                                    />
-                                    <Form.Text className="text-muted d-flex justify-content-between">
-                                        <span>Optional: Add any special handling instructions or notes for the courier.</span>
-                                        <span>{formData.specialInstructions.length}/200</span>
-                                    </Form.Text>
-                                </Form.Group>
-
-                                <Alert variant="info">
-                                    <FontAwesomeIcon icon={faInfoCircle} className="me-2" />
-                                    Please review all details carefully before submitting. 
-                                    Once created, the package will be available for courier pickup.
-                                </Alert>
-
-                                <div className="mt-3">
-                                    <Button 
-                                        type="submit" 
-                                        variant="primary" 
-                                        className="me-2"
-                                        disabled={isSubmitting}
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FontAwesomeIcon icon={faBox} className="me-2" />
-                                                Create Package
-                                            </>
-                                        )}
-                                    </Button>
-                                    <Link 
-                                        to="/customer/dashboard" 
-                                        className="btn btn-secondary"
-                                        onClick={(e) => {
-                                            if (formChanged && !window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
-                                                e.preventDefault();
-                                            }
-                                        }}
-                                    >
-                                        <FontAwesomeIcon icon={faTimes} className="me-2" />
-                                        Cancel
-                                    </Link>
                                 </div>
-                            </Form>
-                        </Card.Body>
-                    </Card>
+                            </div>
+                            <div className="col-md-6">
+                                <div className="form-group mb-3">
+                                    <label htmlFor="priority">Priority Level</label>
+                                    <select
+                                        className="form-control"
+                                        id="priority"
+                                        name="priority"
+                                        value={formData.priority}
+                                        onChange={handleChange}
+                                        required
+                                    >
+                                        <option value="NORMAL">Normal</option>
+                                        <option value="EXPRESS">Express</option>
+                                        <option value="URGENT">Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="form-group mb-3">
+                            <label htmlFor="description">Package Description</label>
+                            <textarea
+                                className="form-control"
+                                id="description"
+                                name="description"
+                                value={formData.description}
+                                onChange={handleChange}
+                                rows="3"
+                            />
+                        </div>
+
+                        <div className="form-group mb-3">
+                            <div className="form-check">
+                                <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    id="fragile"
+                                    name="fragile"
+                                    checked={formData.fragile}
+                                    onChange={handleChange}
+                                />
+                                <label className="form-check-label" htmlFor="fragile">
+                                    Fragile Package
+                                </label>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <span>
+                                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                                    Creating...
+                                </span>
+                            ) : (
+                                'Create Package'
+                            )}
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

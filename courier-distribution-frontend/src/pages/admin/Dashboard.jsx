@@ -5,41 +5,41 @@ import DataTable from 'react-data-table-component';
 import { Card, Row, Col, Badge } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDownload, faUsers, faTruck, faClock, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
-import authService from '../../services/authService';
+import { toast } from 'react-toastify';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 const Dashboard = () => {
+    const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalUsers: 0,
-        activeCouriers: 0,
-        pendingPackages: 0,
-        totalDeliveries: 0
+        totalPackages: 0,
+        activeDeliveries: 0,
+        revenue: 0
     });
 
     const [users, setUsers] = useState([]);
     const [packages, setPackages] = useState([]);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            try {
-                const [statsResponse, usersResponse, packagesResponse] = await Promise.all([
-                    authService.get('/api/admin/stats'),
-                    authService.get('/api/admin/users'),
-                    authService.get('/api/admin/packages')
-                ]);
-
-                setStats(statsResponse.data);
-                setUsers(usersResponse.data);
-                setPackages(packagesResponse.data);
-            } catch (error) {
-                console.error('Error fetching dashboard data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchDashboardData();
+        fetchDashboardStats();
     }, []);
+
+    const fetchDashboardStats = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/admin/dashboard/stats`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setStats(response.data);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to fetch dashboard statistics');
+            console.error('Dashboard stats error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const userColumns = [
         {
@@ -137,7 +137,13 @@ const Dashboard = () => {
     ];
 
     if (loading) {
-        return <div className="text-center mt-5"><div className="spinner-border" /></div>;
+        return (
+            <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -150,87 +156,87 @@ const Dashboard = () => {
                 </Link>
             </div>
 
-            <Row>
-                <Col xl={3} md={6} className="mb-4">
-                    <Card className="border-left-primary shadow h-100 py-2">
-                        <Card.Body>
-                            <Row className="no-gutters align-items-center">
-                                <Col className="mr-2">
+            <div className="row">
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-primary shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
                                     <div className="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                         Total Users
                                     </div>
                                     <div className="h5 mb-0 font-weight-bold text-gray-800">
                                         {stats.totalUsers}
                                     </div>
-                                </Col>
-                                <Col xs="auto">
-                                    <FontAwesomeIcon icon={faUsers} className="fa-2x text-gray-300" />
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </Col>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-users fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                <Col xl={3} md={6} className="mb-4">
-                    <Card className="border-left-success shadow h-100 py-2">
-                        <Card.Body>
-                            <Row className="no-gutters align-items-center">
-                                <Col className="mr-2">
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-success shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
                                     <div className="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                        Active Couriers
+                                        Total Packages
                                     </div>
                                     <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.activeCouriers}
+                                        {stats.totalPackages}
                                     </div>
-                                </Col>
-                                <Col xs="auto">
-                                    <FontAwesomeIcon icon={faTruck} className="fa-2x text-gray-300" />
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </Col>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-box fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                <Col xl={3} md={6} className="mb-4">
-                    <Card className="border-left-warning shadow h-100 py-2">
-                        <Card.Body>
-                            <Row className="no-gutters align-items-center">
-                                <Col className="mr-2">
-                                    <div className="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                        Pending Packages
-                                    </div>
-                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.pendingPackages}
-                                    </div>
-                                </Col>
-                                <Col xs="auto">
-                                    <FontAwesomeIcon icon={faClock} className="fa-2x text-gray-300" />
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </Col>
-
-                <Col xl={3} md={6} className="mb-4">
-                    <Card className="border-left-info shadow h-100 py-2">
-                        <Card.Body>
-                            <Row className="no-gutters align-items-center">
-                                <Col className="mr-2">
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-info shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
                                     <div className="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                        Total Deliveries
+                                        Active Deliveries
                                     </div>
                                     <div className="h5 mb-0 font-weight-bold text-gray-800">
-                                        {stats.totalDeliveries}
+                                        {stats.activeDeliveries}
                                     </div>
-                                </Col>
-                                <Col xs="auto">
-                                    <FontAwesomeIcon icon={faCheckCircle} className="fa-2x text-gray-300" />
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-truck fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-xl-3 col-md-6 mb-4">
+                    <div className="card border-left-warning shadow h-100 py-2">
+                        <div className="card-body">
+                            <div className="row no-gutters align-items-center">
+                                <div className="col mr-2">
+                                    <div className="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Revenue
+                                    </div>
+                                    <div className="h5 mb-0 font-weight-bold text-gray-800">
+                                        ${stats.revenue.toFixed(2)}
+                                    </div>
+                                </div>
+                                <div className="col-auto">
+                                    <i className="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <Row>
                 <Col xs={12}>

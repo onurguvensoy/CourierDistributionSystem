@@ -159,6 +159,11 @@ public class CourierService {
         }
     }
 
+    private Courier getCourierByUsername(String username) {
+        return courierRepository.findByUsername(username)
+            .orElseThrow(() -> new CourierException("Courier not found with username: " + username));
+    }
+
     private void updateLocationFields(Courier courier, Map<String, String> request) {
         courier.setCurrentLatitude(Double.parseDouble(request.get("latitude")));
         courier.setCurrentLongitude(Double.parseDouble(request.get("longitude")));

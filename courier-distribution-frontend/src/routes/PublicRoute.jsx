@@ -1,18 +1,15 @@
 import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import authService from '../services/authService';
+import { Navigate, Outlet } from 'react-router-dom';
 
 const PublicRoute = () => {
-    const location = useLocation();
-    const isAuthenticated = authService.isAuthenticated();
-    const userRole = authService.getRole()?.toLowerCase();
-    
-    if (isAuthenticated) {
-        // Redirect to the location they came from, or their dashboard
-        const from = location.state?.from?.pathname || `/${userRole}/dashboard`;
-        return <Navigate to={from} replace />;
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
+
+    if (token && user) {
+        const role = user.role.toLowerCase();
+        return <Navigate to={`/${role}/dashboard`} replace />;
     }
-    
+
     return <Outlet />;
 };
 

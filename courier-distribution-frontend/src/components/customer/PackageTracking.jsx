@@ -8,7 +8,10 @@ import moment from 'moment';
 import SockJS from 'sockjs-client';
 import { Stomp } from '@stomp/stompjs';
 import { GoogleMap, LoadScript, Marker, DirectionsRenderer } from '@react-google-maps/api';
-import authService from '../../services/authService';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
+const WS_URL = process.env.REACT_APP_WS_URL || 'http://localhost:8080/ws';
 
 const PackageTracking = () => {
     const { packageId } = useParams();
@@ -44,54 +47,48 @@ const PackageTracking = () => {
 
     const initializeWebSocket = useCallback(() => {
         try {
-            const socket = new SockJS('/websocket');
+            const socket = new SockJS(WS_URL);
             const client = Stomp.over(socket);
+            const token = localStorage.getItem('token');
             
-            const username = authService.getUsername();
-            if (!username) {
-                console.error('Username not found');
-                toast.error('Authentication error: Username not found');
-                return;
-            }
-            
-            const connectHeaders = {
-                username: username
-            };
-            
-            client.connect(connectHeaders, () => {
-                console.log('Connected to WebSocket');
-                
-                // Subscribe to package status updates
-                client.subscribe(`/topic/package/${packageId}/status`, (message) => {
-                    try {
-                        const update = JSON.parse(message.body);
-                        setTrackingInfo(prev => ({
-                            ...prev,
-                            status: update.status,
-                            lastUpdated: update.timestamp
-                        }));
-                        toast.info(`Package status updated to: ${update.status}`);
-                    } catch (error) {
-                        console.error('Error processing status update:', error);
-                    }
-                });
+            client.connect(
+                { Authorization: `Bearer ${token}` },
+                () => {
+                    console.log('Connected to WebSocket');
+                    
+                    // Subscribe to package status updates
+                    client.subscribe(`/topic/package/${packageId}/status`, (message) => {
+                        try {
+                            const update = JSON.parse(message.body);
+                            setTrackingInfo(prev => ({
+                                ...prev,
+                                status: update.status,
+                                lastUpdated: update.timestamp
+                            }));
+                            toast.info(`Package status updated to: ${update.status}`);
+                        } catch (error) {
+                            console.error('Error processing status update:', error);
+                        }
+                    });
 
-                // Subscribe to courier location updates
-                client.subscribe(`/topic/package/${packageId}/location`, (message) => {
-                    try {
-                        const location = JSON.parse(message.body);
-                        updateCourierLocation({
-                            lat: parseFloat(location.latitude),
-                            lng: parseFloat(location.longitude)
-                        });
-                    } catch (error) {
-                        console.error('Error processing location update:', error);
-                    }
-                });
-            }, (error) => {
-                console.error('WebSocket connection error:', error);
-                toast.error('Failed to connect to real-time updates');
-            });
+                    // Subscribe to courier location updates
+                    client.subscribe(`/topic/package/${packageId}/location`, (message) => {
+                        try {
+                            const location = JSON.parse(message.body);
+                            updateCourierLocation({
+                                lat: parseFloat(location.latitude),
+                                lng: parseFloat(location.longitude)
+                            });
+                        } catch (error) {
+                            console.error('Error processing location update:', error);
+                        }
+                    });
+                },
+                (error) => {
+                    console.error('WebSocket connection error:', error);
+                    toast.error('Failed to connect to real-time updates');
+                }
+            );
             
             setStompClient(client);
         } catch (error) {
@@ -103,7 +100,11 @@ const PackageTracking = () => {
     useEffect(() => {
         const fetchTrackingInfo = async () => {
             try {
-                const response = await authService.get(`/api/packages/${packageId}/tracking`);
+                const token = localStorage.getItem('token');
+                const response = await axios.get(`${API_URL}/customer/packages/${packageId}/tracking`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                
                 setTrackingInfo(response.data);
                 
                 // Initialize map with package locations

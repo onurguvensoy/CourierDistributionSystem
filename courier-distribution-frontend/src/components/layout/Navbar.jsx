@@ -1,12 +1,16 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import authService from '../../services/authService';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 const Navbar = () => {
-    const user = authService.getCurrentUser();
+    const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem('user'));
 
     const handleLogout = () => {
-        authService.logout();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        toast.success('Logged out successfully');
+        navigate('/login');
     };
 
     return (
@@ -79,7 +83,7 @@ const Navbar = () => {
                         aria-expanded="false"
                     >
                         <span className="mr-2 d-none d-lg-inline text-gray-600 small">
-                            {user?.username || 'User'}
+                            {user?.username}
                         </span>
                         <img
                             className="img-profile rounded-circle"
@@ -101,7 +105,11 @@ const Navbar = () => {
                             Settings
                         </Link>
                         <div className="dropdown-divider"></div>
-                        <button className="dropdown-item" onClick={handleLogout}>
+                        <button
+                            className="dropdown-item"
+                            role="button"
+                            onClick={handleLogout}
+                        >
                             <i className="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
                             Logout
                         </button>

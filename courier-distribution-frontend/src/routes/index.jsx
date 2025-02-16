@@ -7,8 +7,8 @@ import Profile from '../components/common/Profile';
 import Settings from '../components/common/Settings';
 
 // Admin Components
-import AdminDashboard from '../components/admin/Dashboard';
-import Reports from '../components/admin/Reports';
+import AdminDashboard from '../pages/admin/Dashboard';
+import Reports from '../pages/admin/Reports';
 
 // Courier Components
 import CourierDashboard from '../components/courier/Dashboard';

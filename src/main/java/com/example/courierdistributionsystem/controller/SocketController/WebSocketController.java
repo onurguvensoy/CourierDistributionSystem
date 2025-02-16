@@ -1,7 +1,10 @@
 package com.example.courierdistributionsystem.controller.SocketController;
 
+import com.example.courierdistributionsystem.controller.restController.DeliveryPackageController;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.service.ViewService;
+import com.example.courierdistributionsystem.service.CourierService;
+import com.example.courierdistributionsystem.service.CustomerService;
+import com.example.courierdistributionsystem.service.DeliveryPackageService;
 import com.example.courierdistributionsystem.socket.WebSocketService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -22,20 +25,26 @@ import java.util.stream.Collectors;
 public class WebSocketController {
     private static final Logger logger = LoggerFactory.getLogger(WebSocketController.class);
 
-    @Autowired
-    private ViewService viewService;
 
     @Autowired
     private WebSocketService webSocketService;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+    @Autowired
+    private DeliveryPackageController deliveryPackageController;
+    @Autowired
+    private DeliveryPackageService deliveryPackageService;
+    @Autowired
+    private CustomerService customerService;
+    @Autowired
+    private CourierService courierService;
 
     @MessageMapping("/packages/available")
     public void getAvailablePackages(SimpMessageHeaderAccessor headerAccessor) {
         try {
             String username = getUsername(headerAccessor);
-            List<DeliveryPackage> packages = viewService.getAvailablePackages();
+            List<DeliveryPackage> packages = deliveryPackageService.getAvailableDeliveryPackages();
             
             // Convert to clean DTOs
             List<Map<String, Object>> packageDTOs = packages.stream()
@@ -57,7 +66,7 @@ public class WebSocketController {
     public void getActivePackages(SimpMessageHeaderAccessor headerAccessor) {
         try {
             String username = getUsername(headerAccessor);
-            List<DeliveryPackage> packages = viewService.getActiveDeliveries(viewService.getUserByUsername(username));
+            List<DeliveryPackage> packages = deliveryPackageService.getCourierActiveDeliveryPackages(username);
 
             // Convert to clean DTOs
             List<Map<String, Object>> packageDTOs = packages.stream()

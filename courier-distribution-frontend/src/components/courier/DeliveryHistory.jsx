@@ -1,30 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import apiService from '../../services/apiService';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 const DeliveryHistory = () => {
-    const [deliveries, setDeliveries] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [deliveries, setDeliveries] = useState([]);
     const [filters, setFilters] = useState({
-        status: 'ALL',
-        dateRange: 'LAST_7_DAYS'
+        status: '',
+        startDate: '',
+        endDate: ''
     });
-
-    const fetchDeliveryHistory = useCallback(async () => {
-        try {
-            const response = await apiService.getCourierDeliveryHistory(filters);
-            setDeliveries(response);
-        } catch (error) {
-            console.error('Error fetching delivery history:', error);
-            toast.error('Failed to load delivery history');
-        } finally {
-            setLoading(false);
-        }
-    }, [filters]);
 
     useEffect(() => {
         fetchDeliveryHistory();
-    }, [fetchDeliveryHistory]);
+    }, [filters]);
+
+    const fetchDeliveryHistory = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/courier/delivery-history`, {
+                headers: { Authorization: `Bearer ${token}` },
+                params: filters
+            });
+            setDeliveries(response.data);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to fetch delivery history');
+            console.error('Delivery history error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -34,22 +41,11 @@ const DeliveryHistory = () => {
         }));
     };
 
-    const getStatusBadgeClass = (status) => {
-        const statusClasses = {
-            DELIVERED: 'success',
-            FAILED: 'danger',
-            CANCELLED: 'secondary'
-        };
-        return `badge badge-${statusClasses[status] || 'info'}`;
-    };
-
     if (loading) {
         return (
-            <div className="container-fluid">
-                <div className="text-center mt-5">
-                    <div className="spinner-border text-primary" role="status">
-                        <span className="sr-only">Loading...</span>
-                    </div>
+            <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
                 </div>
             </div>
         );
@@ -59,14 +55,13 @@ const DeliveryHistory = () => {
         <div className="container-fluid">
             <h1 className="h3 mb-4 text-gray-800">Delivery History</h1>
 
-            {/* Filters */}
             <div className="card shadow mb-4">
                 <div className="card-header py-3">
                     <h6 className="m-0 font-weight-bold text-primary">Filters</h6>
                 </div>
                 <div className="card-body">
                     <div className="row">
-                        <div className="col-md-6">
+                        <div className="col-md-4">
                             <div className="form-group">
                                 <label htmlFor="status">Status</label>
                                 <select
@@ -76,82 +71,113 @@ const DeliveryHistory = () => {
                                     value={filters.status}
                                     onChange={handleFilterChange}
                                 >
-                                    <option value="ALL">All</option>
+                                    <option value="">All</option>
                                     <option value="DELIVERED">Delivered</option>
-                                    <option value="FAILED">Failed</option>
                                     <option value="CANCELLED">Cancelled</option>
                                 </select>
                             </div>
                         </div>
-                        <div className="col-md-6">
+                        <div className="col-md-4">
                             <div className="form-group">
-                                <label htmlFor="dateRange">Date Range</label>
-                                <select
+                                <label htmlFor="startDate">Start Date</label>
+                                <input
+                                    type="date"
                                     className="form-control"
-                                    id="dateRange"
-                                    name="dateRange"
-                                    value={filters.dateRange}
+                                    id="startDate"
+                                    name="startDate"
+                                    value={filters.startDate}
                                     onChange={handleFilterChange}
-                                >
-                                    <option value="TODAY">Today</option>
-                                    <option value="LAST_7_DAYS">Last 7 Days</option>
-                                    <option value="LAST_30_DAYS">Last 30 Days</option>
-                                    <option value="ALL_TIME">All Time</option>
-                                </select>
+                                />
+                            </div>
+                        </div>
+                        <div className="col-md-4">
+                            <div className="form-group">
+                                <label htmlFor="endDate">End Date</label>
+                                <input
+                                    type="date"
+                                    className="form-control"
+                                    id="endDate"
+                                    name="endDate"
+                                    value={filters.endDate}
+                                    onChange={handleFilterChange}
+                                />
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Delivery History Table */}
             <div className="card shadow mb-4">
                 <div className="card-header py-3">
-                    <h6 className="m-0 font-weight-bold text-primary">Delivery Records</h6>
+                    <h6 className="m-0 font-weight-bold text-primary">Delivery History</h6>
                 </div>
                 <div className="card-body">
-                    <div className="table-responsive">
-                        <table className="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Package ID</th>
-                                    <th>Customer</th>
-                                    <th>Delivery Address</th>
-                                    <th>Status</th>
-                                    <th>Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {deliveries.length === 0 ? (
+                    {deliveries.length === 0 ? (
+                        <div className="text-center py-4">
+                            <p className="text-gray-500 mb-0">No delivery history found.</p>
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="table">
+                                <thead>
                                     <tr>
-                                        <td colSpan="6" className="text-center">
-                                            No delivery history found
-                                        </td>
+                                        <th>ID</th>
+                                        <th>Customer</th>
+                                        <th>Pickup Address</th>
+                                        <th>Delivery Address</th>
+                                        <th>Status</th>
+                                        <th>Completed At</th>
+                                        <th>Rating</th>
                                     </tr>
-                                ) : (
-                                    deliveries.map((delivery) => (
+                                </thead>
+                                <tbody>
+                                    {deliveries.map((delivery) => (
                                         <tr key={delivery.id}>
-                                            <td>{new Date(delivery.completedAt).toLocaleDateString()}</td>
-                                            <td>{delivery.packageId}</td>
+                                            <td>{delivery.id}</td>
                                             <td>{delivery.customerName}</td>
+                                            <td>{delivery.pickupAddress}</td>
                                             <td>{delivery.deliveryAddress}</td>
                                             <td>
-                                                <span className={getStatusBadgeClass(delivery.status)}>
+                                                <span className={`badge bg-${getStatusColor(delivery.status)}`}>
                                                     {delivery.status}
                                                 </span>
                                             </td>
-                                            <td>{delivery.notes || '-'}</td>
+                                            <td>{new Date(delivery.completedAt).toLocaleString()}</td>
+                                            <td>
+                                                {delivery.rating ? (
+                                                    <div className="text-warning">
+                                                        {Array.from({ length: delivery.rating }, (_, i) => (
+                                                            <i key={i} className="fas fa-star"></i>
+                                                        ))}
+                                                        {Array.from({ length: 5 - delivery.rating }, (_, i) => (
+                                                            <i key={i} className="far fa-star"></i>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted">Not rated</span>
+                                                )}
+                                            </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
     );
+};
+
+const getStatusColor = (status) => {
+    switch (status) {
+        case 'DELIVERED':
+            return 'success';
+        case 'CANCELLED':
+            return 'danger';
+        default:
+            return 'secondary';
+    }
 };
 
 export default DeliveryHistory; 
