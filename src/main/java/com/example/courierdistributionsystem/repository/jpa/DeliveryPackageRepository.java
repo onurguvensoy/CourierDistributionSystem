@@ -22,4 +22,10 @@ public interface DeliveryPackageRepository extends JpaRepository<DeliveryPackage
     List<DeliveryPackage> findByCourierAndStatus(Courier courier, DeliveryPackage.DeliveryStatus status);
     Optional<DeliveryPackage> findByTrackingNumber(String trackingNumber);
     List<DeliveryPackage> findByCourier_UsernameAndStatus(String username, DeliveryPackage.DeliveryStatus status);
+    List<DeliveryPackage> findByCourier_UsernameAndStatusIn(String username, List<DeliveryPackage.DeliveryStatus> statuses);
+    List<DeliveryPackage> findByTrackingNumberContainingIgnoreCase(String query);
+    List<DeliveryPackage> findByCustomer_UsernameAndStatusNot(String username, DeliveryPackage.DeliveryStatus status);
+    Optional<DeliveryPackage> findByIdAndCustomer_Username(Long id, String username);
+    Optional<DeliveryPackage> findByIdAndCourier_Username(Long id, String username);
+    List<DeliveryPackage> findByDescriptionContainingIgnoreCase(String query);
 } 

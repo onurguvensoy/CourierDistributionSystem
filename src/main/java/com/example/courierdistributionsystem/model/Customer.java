@@ -12,6 +12,7 @@ import java.util.List;
 @Data
 @SuperBuilder
 @NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Table(name = "customers")
 @PrimaryKeyJoinColumn(name = "id")
@@ -24,12 +25,14 @@ import java.util.List;
 @RedisHash("customers")
 public class Customer extends User {
     
-    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @JsonManagedReference(value = "customer-packages")
-    @ToString.Exclude
-    @Builder.Default
-    @JsonIgnoreProperties({"customer", "courier"})
-    private List<DeliveryPackage> packages = new ArrayList<>();
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "default_address")
+    private String defaultAddress;
+
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<DeliveryPackage> packages;
 
     @PrePersist
     @Override

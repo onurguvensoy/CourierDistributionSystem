@@ -9,7 +9,9 @@ import java.util.Optional;
 @Repository
 public interface CourierRepository extends JpaRepository<Courier, Long> {
     Optional<Courier> findByUsername(String username);
-    Optional<Courier> findByEmail(String email);
+    List<Courier> findByAvailable(boolean available);
+    List<Courier> findByVehicleType(String vehicleType);
     List<Courier> findByAvailableTrue();
+    Optional<Courier> findByEmail(String email);
     List<Courier> findByCurrentZone(String zone);
 } 

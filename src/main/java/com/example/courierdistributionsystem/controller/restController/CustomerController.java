@@ -3,8 +3,8 @@ package com.example.courierdistributionsystem.controller.restController;
 import com.example.courierdistributionsystem.exception.CustomerException;
 import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.model.User;
-import com.example.courierdistributionsystem.service.CustomerService;
-import com.example.courierdistributionsystem.service.UserService;
+import com.example.courierdistributionsystem.service.ICustomerService;
+import com.example.courierdistributionsystem.service.IUserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
@@ -14,9 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
-import com.example.courierdistributionsystem.model.DeliveryPackage;
-import com.example.courierdistributionsystem.service.DeliveryPackageService;
-import com.example.courierdistributionsystem.dto.CreatePackageRequest;
+import com.example.courierdistributionsystem.service.IDeliveryPackageService;
+import com.example.courierdistributionsystem.dto.CreatePackageDto;
+import com.example.courierdistributionsystem.dto.DeliveryPackageDto;
+
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -30,13 +31,13 @@ public class CustomerController {
     private static final Logger logger = LoggerFactory.getLogger(CustomerController.class);
 
     @Autowired
-    private CustomerService customerService;
+    private ICustomerService customerService;
 
     @Autowired
-    private UserService userService;
+    private IUserService userService;
 
     @Autowired
-    private DeliveryPackageService deliveryPackageService;
+    private IDeliveryPackageService deliveryPackageService;
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getCustomerProfile(@PathVariable @NotNull Long id) {
@@ -56,9 +57,12 @@ public class CustomerController {
                 throw new CustomerException("User is not a customer");
             }
 
-            Customer customer = customerService.getCustomerById(id);
+            Optional<Customer> customerOpt = customerService.getCustomerById(id);
+            if (customerOpt.isEmpty()) {
+                throw new CustomerException("Customer not found");
+            }
             response.put("status", "success");
-            response.put("data", customer);
+            response.put("data", customerOpt.get());
             logger.info("Successfully retrieved customer profile for ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (CustomerException e) {
@@ -106,7 +110,11 @@ public class CustomerController {
         Map<String, Object> response = new HashMap<>();
         try {
             logger.debug("Updating customer profile with data: {}", customerRequest);
-            Customer customer = customerService.updateCustomerProfile(id, customerRequest);
+            Optional<Customer> customerOpt = customerService.getCustomerById(id);
+            if (customerOpt.isEmpty()) {
+                throw new CustomerException("Customer not found");
+            }
+            Customer customer = customerService.updateCustomerProfile(customerOpt.get().getUsername(), customerRequest);
             response.put("status", "success");
             response.put("data", customer);
             logger.info("Successfully updated customer profile with ID: {}", id);
@@ -125,7 +133,7 @@ public class CustomerController {
     }
 
     @PostMapping("/packages/create")
-    public ResponseEntity<?> createPackage(@Valid @RequestBody CreatePackageRequest request, HttpSession session) {
+    public ResponseEntity<?> createPackage(@Valid @RequestBody CreatePackageDto request, HttpSession session) {
         String username = (String) session.getAttribute("username");
         logger.debug("Customer {} attempting to create new package", username);
         
@@ -135,10 +143,12 @@ public class CustomerController {
                 return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
             }
 
-            Customer customer = customerService.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
-            DeliveryPackage newPackage = deliveryPackageService.createPackage(request, customer);
-            logger.info("Customer {} successfully created package {}", username, newPackage.getPackage_id());
+            Optional<Customer> customerOpt = customerService.getCustomerByUsername(username);
+            if (customerOpt.isEmpty()) {
+                throw new IllegalArgumentException("Customer not found");
+            }
+            DeliveryPackageDto newPackage = customerService.createDeliveryPackage(username, request);
+            logger.info("Customer {} successfully created package", username);
             return ResponseEntity.ok(newPackage);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid package creation request from customer {}: {}", username, e.getMessage());
@@ -160,7 +170,7 @@ public class CustomerController {
                 return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
             }
 
-            List<DeliveryPackage> activePackages = deliveryPackageService.getCustomerActiveDeliveryPackages(username);
+            List<DeliveryPackageDto> activePackages = deliveryPackageService.getCustomerActiveDeliveryPackages(username);
             logger.info("Successfully retrieved {} active packages for customer: {}", 
                 activePackages.size(), username);
             return ResponseEntity.ok(activePackages);
@@ -181,7 +191,7 @@ public class CustomerController {
                 return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
             }
 
-            List<DeliveryPackage> deliveryHistory = deliveryPackageService.getCustomerDeliveryHistory(username);
+            List<DeliveryPackageDto> deliveryHistory = deliveryPackageService.getCustomerDeliveryHistory(username);
             logger.info("Successfully retrieved {} delivery history items for customer: {}", 
                 deliveryHistory.size(), username);
             return ResponseEntity.ok(deliveryHistory);
@@ -227,9 +237,12 @@ public class CustomerController {
                 return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
             }
 
-            Map<String, Object> trackingInfo = deliveryPackageService.trackDeliveryPackage(packageId, username);
+            DeliveryPackageDto trackingInfo = deliveryPackageService.trackDeliveryPackage(packageId, username);
             logger.info("Customer {} successfully tracked package {}", username, packageId);
-            return ResponseEntity.ok(trackingInfo);
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("data", trackingInfo);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid package tracking request from customer {} for package {}: {}", 
                 username, packageId, e.getMessage());

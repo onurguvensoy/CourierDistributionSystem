@@ -1,7 +1,7 @@
 package com.example.courierdistributionsystem.controller.restController;
 
 import com.example.courierdistributionsystem.model.*;
-import com.example.courierdistributionsystem.service.*;
+import com.example.courierdistributionsystem.dto.DeliveryPackageDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +13,10 @@ import java.util.HashMap;
 import java.util.List;
 import org.springframework.ui.Model;
 import org.springframework.http.HttpStatus;
+import com.example.courierdistributionsystem.service.IUserService;
+import com.example.courierdistributionsystem.service.IDeliveryPackageService;
+import com.example.courierdistributionsystem.service.IDeliveryReportService;
+import com.example.courierdistributionsystem.exception.ResourceNotFoundException;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -21,14 +25,16 @@ public class AdminController {
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
     @Autowired
-    private UserService userService;
+    private IUserService userService;
 
     @Autowired
-    private DeliveryPackageService deliveryPackageService;
+    private IDeliveryPackageService deliveryPackageService;
 
 
     @Autowired
-    private DeliveryReportService deliveryReportService;
+    private IDeliveryReportService deliveryReportService;
+
+
 
     // User Management Endpoints
     @GetMapping("/users")
@@ -43,31 +49,10 @@ public class AdminController {
     }
 
     @GetMapping("/users/{id}")
-    public ResponseEntity<Map<String, Object>> getUser(@PathVariable Long id) {
-        try {
-            logger.info("Fetching user with ID: {}", id);
-            User user = userService.getUserById(id)
-                    .orElseThrow(() -> new UserService.UserNotFoundException("User not found with ID: " + id));
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("message", "User fetched successfully");
-            response.put("data", user);
-            
-            return ResponseEntity.ok(response);
-        } catch (UserService.UserNotFoundException e) {
-            logger.warn("User fetch failed: {}", e.getMessage());
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "error");
-            response.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        } catch (Exception e) {
-            logger.error("Unexpected error during user fetch", e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "error");
-            response.put("message", "An unexpected error occurred");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
+    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+        User user = userService.getUserById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        return ResponseEntity.ok(user);
     }
 
     @DeleteMapping("/users/{id}")
@@ -75,15 +60,15 @@ public class AdminController {
         try {
             logger.info("Deleting user with ID: {}", id);
             User user = userService.getUserById(id)
-                    .orElseThrow(() -> new UserService.UserNotFoundException("User not found with ID: " + id));
-            userService.deleteUser(user);
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
+            userService.deleteUser(id);
             
             Map<String, Object> response = new HashMap<>();
             response.put("status", "success");
             response.put("message", "User deleted successfully");
             
             return ResponseEntity.ok(response);
-        } catch (UserService.UserNotFoundException e) {
+        } catch (ResourceNotFoundException e) {
             logger.warn("User deletion failed: {}", e.getMessage());
             Map<String, Object> response = new HashMap<>();
             response.put("status", "error");
@@ -99,36 +84,23 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}")
-    public ResponseEntity<Map<String, Object>> updateUser(@PathVariable Long id, @RequestBody Map<String, String> updates) {
-        try {
-            logger.info("Updating user with ID: {}", id);
-            User updatedUser = userService.editUser(id, updates);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "success");
-            response.put("message", "User updated successfully");
-            response.put("data", updatedUser);
-            
-            return ResponseEntity.ok(response);
-        } catch (UserService.UserNotFoundException e) {
-            logger.warn("User update failed: {}", e.getMessage());
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "error");
-            response.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        } catch (IllegalArgumentException e) {
-            logger.warn("User update failed: {}", e.getMessage());
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "error");
-            response.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        } catch (Exception e) {
-            logger.error("Unexpected error during user update", e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "error");
-            response.put("message", "An unexpected error occurred");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+        User existingUser = userService.getUserById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        
+        // Update user fields
+        existingUser.setEmail(user.getEmail());
+        existingUser.setPhoneNumber(user.getPhoneNumber());
+        
+        User updatedUser = userService.updateUser(existingUser);
+        return ResponseEntity.ok(updatedUser);
+    }
+
+    @GetMapping("/users/{id}/profile")
+    public ResponseEntity<User> getUserProfile(@PathVariable Long id) {
+        User user = userService.getUserById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        return ResponseEntity.ok(user);
     }
 
 
@@ -183,7 +155,7 @@ public class AdminController {
             Map<String, Object> userStats = userService.getUserStats();
             stats.putAll(userStats);
             
-            List<DeliveryPackage> allPackages = deliveryPackageService.getAllDeliveryPackages();
+            List<DeliveryPackageDto> allPackages = deliveryPackageService.getAllDeliveryPackages();
             stats.put("totalPackages", allPackages.size());
             stats.put("pendingPackages", allPackages.stream()
                 .filter(p -> p.getStatus() == DeliveryPackage.DeliveryStatus.PENDING)
@@ -216,7 +188,7 @@ public class AdminController {
         }
         
         User user = userService.findByUsername(username)
-        .orElseThrow(() -> new UserService.UserNotFoundException("User not found with username: " + username));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
         if (!(user instanceof Admin)) {
             throw new IllegalStateException("User is not an admin");
         }

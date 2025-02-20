@@ -1,6 +1,6 @@
 package com.example.courierdistributionsystem.controller.restController;
 import com.example.courierdistributionsystem.model.DeliveryReport;
-import com.example.courierdistributionsystem.service.DeliveryReportService;
+import com.example.courierdistributionsystem.service.IDeliveryReportService;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +21,7 @@ public class DeliveryReportController {
     private static final Logger logger = LoggerFactory.getLogger(DeliveryReportController.class);
 
     @Autowired
-    private DeliveryReportService deliveryReportService;
+    private IDeliveryReportService deliveryReportService;
 
     @GetMapping
     public ResponseEntity<?> getAllDeliveryReports() {

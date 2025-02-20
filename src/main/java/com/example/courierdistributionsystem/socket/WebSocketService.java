@@ -1,10 +1,10 @@
 package com.example.courierdistributionsystem.socket;
 
-import com.example.courierdistributionsystem.model.Courier;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
+import com.example.courierdistributionsystem.dto.DeliveryPackageDto;
+import com.example.courierdistributionsystem.service.IDeliveryPackageService;
+import com.example.courierdistributionsystem.service.ICourierService;
 import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
-import com.example.courierdistributionsystem.service.CourierService;
-import com.example.courierdistributionsystem.service.DeliveryPackageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -15,22 +15,22 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class WebSocketService {
     private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final DeliveryPackageService deliveryPackageService;
+    private final IDeliveryPackageService deliveryPackageService;
 
     public WebSocketService(
             SimpMessagingTemplate messagingTemplate,
-            DeliveryPackageService deliveryPackageService,
-            CourierService courierService, 
+            IDeliveryPackageService deliveryPackageService,
+            ICourierService courierService, 
             CourierRepository courierRepository) {
         this.messagingTemplate = messagingTemplate;
         this.deliveryPackageService = deliveryPackageService;
-  
     }
 
     @EventListener
@@ -46,298 +46,293 @@ public class WebSocketService {
             return;
         }
 
-        switch (type) {
-            case "COURIER_UPDATE":
-                handleCourierUpdate(event);
-                break;
-            case "COURIER_LOCATION_UPDATE":
-                handleCourierLocationUpdate(event);
-                break;
-            case "COURIER_CREATED":
-                handleCourierCreated(event);
-                break;
-            default:
-                logger.warn("Unknown event type: {}", type);
+        try {
+            switch (type) {
+                case "COURIER_UPDATE":
+                    handleCourierUpdate(event);
+                    break;
+                case "COURIER_LOCATION_UPDATE":
+                    handleCourierLocationUpdate(event);
+                    break;
+                case "COURIER_CREATED":
+                    handleCourierCreated(event);
+                    break;
+                default:
+                    logger.warn("Unknown event type: {}", type);
+            }
+        } catch (Exception e) {
+            logger.error("Error handling courier event: {}", e.getMessage(), e);
         }
     }
 
     private void handleCourierUpdate(Map<String, Object> event) {
         try {
-            Long courierId = (Long) event.get("courierId");
-            if (courierId == null) {
-                logger.warn("Courier ID is null in update event");
+            String username = (String) event.get("username");
+            if (username == null) {
+                logger.warn("Username is null in courier update event");
                 return;
             }
 
-            Object courierObj = event.get("courier");
-            if (!(courierObj instanceof Courier)) {
-                logger.warn("Invalid courier object in update event");
-                return;
-            }
-
-            Courier courier = (Courier) courierObj;
-            messagingTemplate.convertAndSend("/topic/courier/" + courierId + "/update", courier);
-
-            // If availability changed, update available packages
             Boolean availabilityChanged = (Boolean) event.get("availabilityChanged");
             if (Boolean.TRUE.equals(availabilityChanged)) {
-                List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
+                List<DeliveryPackageDto> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
                 messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
             }
         } catch (ClassCastException e) {
-            logger.error("Error processing courier update event: {}", e.getMessage());
+            logger.error("Invalid event data format: {}", e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error handling courier update: {}", e.getMessage(), e);
         }
     }
 
     private void handleCourierLocationUpdate(Map<String, Object> event) {
         try {
-            Long courierId = (Long) event.get("courierId");
-            if (courierId == null) {
-                logger.warn("Courier ID is null in location update event");
+            String username = (String) event.get("username");
+            if (username == null) {
+                logger.warn("Username is null in location update event");
                 return;
             }
 
-            @SuppressWarnings("unchecked")
-            Map<String, Object> location = (Map<String, Object>) event.get("location");
-            if (location == null) {
-                logger.warn("Location is null in update event");
-                return;
-            }
+            Map<String, Object> locationData = new HashMap<>();
+            locationData.put("latitude", event.get("latitude"));
+            locationData.put("longitude", event.get("longitude"));
+            locationData.put("timestamp", event.get("timestamp"));
 
-            messagingTemplate.convertAndSend("/topic/courier/" + courierId + "/location", location);
+            messagingTemplate.convertAndSend(
+                "/topic/couriers/" + username + "/location",
+                locationData
+            );
         } catch (ClassCastException e) {
-            logger.error("Error processing courier location update event: {}", e.getMessage());
+            logger.error("Invalid location data format: {}", e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error handling location update: {}", e.getMessage(), e);
         }
     }
 
     private void handleCourierCreated(Map<String, Object> event) {
         try {
-            Object courierObj = event.get("courier");
-            if (!(courierObj instanceof Courier)) {
-                logger.warn("Invalid courier object in created event");
+            String username = (String) event.get("username");
+            if (username == null) {
+                logger.warn("Username is null in courier created event");
                 return;
             }
 
-            Courier courier = (Courier) courierObj;
-            messagingTemplate.convertAndSend("/topic/couriers/new", courier);
-        } catch (ClassCastException e) {
-            logger.error("Error processing courier created event: {}", e.getMessage());
+            messagingTemplate.convertAndSend(
+                "/topic/couriers/created",
+                Map.of("username", username)
+            );
+        } catch (Exception e) {
+            logger.error("Error handling courier created event: {}", e.getMessage(), e);
         }
     }
 
     @Transactional
     public void takeDelivery(String username, Long packageId) {
-        if (username == null || packageId == null) {
-            logger.error("Invalid parameters: username={}, packageId={}", username, packageId);
-            sendErrorToUser(username, "Invalid parameters provided");
-            return;
-        }
-
         try {
-            logger.debug("Processing take delivery request from courier {} for package {}", username, packageId);
+            logger.info("Courier {} attempting to take package {}", username, packageId);
             
             // Validate package exists before attempting to take it
-            DeliveryPackage existingPackage = deliveryPackageService.getDeliveryPackageById(packageId);
-            if (existingPackage == null) {
+            Optional<DeliveryPackageDto> existingPackage = deliveryPackageService.getDeliveryPackageById(packageId);
+            if (existingPackage.isEmpty()) {
                 sendErrorToUser(username, "Package not found with ID: " + packageId);
                 return;
             }
 
-            if (existingPackage.getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
+            if (existingPackage.get().getStatus() != DeliveryPackage.DeliveryStatus.PENDING) {
                 sendErrorToUser(username, "Package is not available for pickup");
                 return;
             }
             
-            DeliveryPackage updatedPackage = deliveryPackageService.takeDeliveryPackage(packageId, username);
+            DeliveryPackageDto updatedPackage = deliveryPackageService.takeDeliveryPackage(packageId, username);
             
             // Send success message to the courier
             messagingTemplate.convertAndSendToUser(
                 username,
-                "/queue/package/status",
+                "/queue/packages/take/success",
                 Map.of(
-                    "status", "success",
-                    "message", "Package assigned successfully",
-                    "packageId", packageId,
+                    "message", "Successfully took package",
                     "package", updatedPackage
                 )
             );
 
             // Notify the customer
-            messagingTemplate.convertAndSendToUser(
-                updatedPackage.getCustomerUsername(),
-                "/queue/package/status",
-                Map.of(
-                    "status", "assigned",
-                    "message", "Your package has been assigned to a courier",
-                    "packageId", packageId,
-                    "courierUsername", username,
-                    "package", updatedPackage
-                )
-            );
+            String customerUsername = updatedPackage.getCustomerUsername();
+            if (customerUsername != null) {
+                messagingTemplate.convertAndSendToUser(
+                    customerUsername,
+                    "/queue/packages/status",
+                    Map.of(
+                        "message", "Your package has been picked up by a courier",
+                        "package", updatedPackage
+                    )
+                );
+            }
 
             // Update available packages list for all couriers
-            List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
+            List<DeliveryPackageDto> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
             messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
 
             // Update active deliveries for the courier
-            List<DeliveryPackage> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
+            List<DeliveryPackageDto> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/active", activeDeliveries);
 
         } catch (Exception e) {
-            logger.error("Error processing take delivery request: {}", e.getMessage(), e);
-            sendErrorToUser(username, "Failed to take delivery: " + e.getMessage());
+            logger.error("Error taking delivery: {}", e.getMessage(), e);
+            sendErrorToUser(username, "Failed to take package: " + e.getMessage());
         }
     }
 
     @Transactional
     public void dropDelivery(String username, Long packageId) {
-        if (username == null || packageId == null) {
-            logger.error("Invalid parameters: username={}, packageId={}", username, packageId);
-            sendErrorToUser(username, "Invalid parameters provided");
-            return;
-        }
-
         try {
-            logger.debug("Processing drop delivery request from courier {} for package {}", username, packageId);
+            logger.info("Courier {} attempting to drop package {}", username, packageId);
             
             // Validate package exists before attempting to drop it
-            DeliveryPackage existingPackage = deliveryPackageService.getDeliveryPackageById(packageId);
-            if (existingPackage == null) {
+            Optional<DeliveryPackageDto> existingPackage = deliveryPackageService.getDeliveryPackageById(packageId);
+            if (existingPackage.isEmpty()) {
                 sendErrorToUser(username, "Package not found with ID: " + packageId);
                 return;
             }
 
-            if (existingPackage.getCourierUsername() == null || !existingPackage.getCourierUsername().equals(username)) {
-                sendErrorToUser(username, "Package is not assigned to you");
+            if (existingPackage.get().getStatus() != DeliveryPackage.DeliveryStatus.IN_PROGRESS) {
+                sendErrorToUser(username, "Package is not in progress");
                 return;
             }
             
-            DeliveryPackage updatedPackage = deliveryPackageService.dropDeliveryPackage(packageId, username);
+            DeliveryPackageDto updatedPackage = deliveryPackageService.dropDeliveryPackage(packageId, username);
             
             // Send success message to the courier
             messagingTemplate.convertAndSendToUser(
                 username,
-                "/queue/package/status",
+                "/queue/packages/drop/success",
                 Map.of(
-                    "status", "success",
-                    "message", "Package dropped successfully",
-                    "packageId", packageId,
+                    "message", "Successfully dropped package",
                     "package", updatedPackage
                 )
             );
 
             // Notify the customer
-            messagingTemplate.convertAndSendToUser(
-                updatedPackage.getCustomerUsername(),
-                "/queue/package/status",
-                Map.of(
-                    "status", "pending",
-                    "message", "Your package is waiting for a new courier",
-                    "packageId", packageId,
-                    "package", updatedPackage
-                )
-            );
+            String customerUsername = updatedPackage.getCustomerUsername();
+            if (customerUsername != null) {
+                messagingTemplate.convertAndSendToUser(
+                    customerUsername,
+                    "/queue/packages/status",
+                    Map.of(
+                        "message", "Your package has been delivered",
+                        "package", updatedPackage
+                    )
+                );
+            }
 
-
-            List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
+            // Update available packages list for all couriers
+            List<DeliveryPackageDto> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
             messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
 
             // Update active deliveries for the courier
-            List<DeliveryPackage> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
+            List<DeliveryPackageDto> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/active", activeDeliveries);
 
         } catch (Exception e) {
-            logger.error("Error processing drop delivery request: {}", e.getMessage(), e);
-            sendErrorToUser(username, "Failed to drop delivery: " + e.getMessage());
+            logger.error("Error dropping delivery: {}", e.getMessage(), e);
+            sendErrorToUser(username, "Failed to drop package: " + e.getMessage());
         }
     }
 
     @Transactional
     public void updatePackageStatus(String username, Long packageId, DeliveryPackage.DeliveryStatus newStatus) {
         try {
-            logger.debug("Processing status update request from courier {} for package {} to status {}", 
+            logger.info("Courier {} updating package {} status to {}", 
                 username, packageId, newStatus);
             
-            DeliveryPackage updatedPackage = deliveryPackageService.updateDeliveryStatus(packageId, username, newStatus);
+            DeliveryPackageDto updatedPackage = deliveryPackageService.updateDeliveryStatus(packageId, username, newStatus);
             
             // Send success message to the courier
             messagingTemplate.convertAndSendToUser(
                 username,
-                "/queue/package/status",
+                "/queue/packages/status/success",
                 Map.of(
-                    "status", "success",
-                    "message", "Package status updated successfully",
-                    "packageId", packageId,
-                    "newStatus", newStatus
+                    "message", "Successfully updated package status",
+                    "package", updatedPackage
                 )
             );
 
             // Notify the customer
-            messagingTemplate.convertAndSendToUser(
-                updatedPackage.getCustomerUsername(),
-                "/queue/package/status",
-                Map.of(
-                    "status", newStatus,
-                    "message", "Your package status has been updated to " + newStatus,
-                    "packageId", packageId
-                )
-            );
+            String customerUsername = updatedPackage.getCustomerUsername();
+            if (customerUsername != null) {
+                messagingTemplate.convertAndSendToUser(
+                    customerUsername,
+                    "/queue/packages/status",
+                    Map.of(
+                        "message", "Your package status has been updated",
+                        "package", updatedPackage
+                    )
+                );
+            }
 
             // If the package becomes available again, update the available packages list
             if (newStatus == DeliveryPackage.DeliveryStatus.PENDING) {
-                List<DeliveryPackage> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
+                List<DeliveryPackageDto> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
                 messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
             }
 
             // Update active deliveries for the courier
-            List<DeliveryPackage> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
+            List<DeliveryPackageDto> activeDeliveries = deliveryPackageService.getCourierActiveDeliveryPackages(username);
             messagingTemplate.convertAndSendToUser(username, "/queue/packages/active", activeDeliveries);
 
         } catch (Exception e) {
-            logger.error("Error processing status update request: {}", e.getMessage());
-            sendErrorToUser(username, "Failed to update status: " + e.getMessage());
+            logger.error("Error updating package status: {}", e.getMessage(), e);
+            sendErrorToUser(username, "Failed to update package status: " + e.getMessage());
         }
     }
 
     public void sendErrorToUser(String username, String errorMessage) {
-        if (username == null) {
-            logger.error("Cannot send error message to null username: {}", errorMessage);
-            return;
-        }
-        
-        Map<String, String> error = new HashMap<>();
-        error.put("status", "error");
-        error.put("message", errorMessage);
-        
         try {
-            messagingTemplate.convertAndSendToUser(username, "/queue/errors", error);
-            logger.debug("Sent error message to user {}: {}", username, errorMessage);
+            logger.debug("Sending error message to user {}: {}", username, errorMessage);
+            messagingTemplate.convertAndSendToUser(
+                username,
+                "/queue/errors",
+                Map.of("error", errorMessage)
+            );
         } catch (Exception e) {
-            logger.error("Failed to send error message to user {}: {}", username, e.getMessage(), e);
+            logger.error("Failed to send error message to user: {}", e.getMessage(), e);
         }
     }
 
-    public void notifyPackageUpdate(DeliveryPackage deliveryPackage) {
-        // Notify customer
-        messagingTemplate.convertAndSendToUser(
-            deliveryPackage.getCustomerUsername(),
-            "/queue/package/status",
-            deliveryPackage
-        );
+    public void notifyPackageUpdate(DeliveryPackageDto deliveryPackage) {
+        try {
+            // Notify the customer
+            String customerUsername = deliveryPackage.getCustomerUsername();
+            if (customerUsername != null) {
+                messagingTemplate.convertAndSendToUser(
+                    customerUsername,
+                    "/queue/packages/status",
+                    Map.of(
+                        "message", "Your package has been updated",
+                        "package", deliveryPackage
+                    )
+                );
+            }
 
-        // Notify courier if assigned
-        if (deliveryPackage.getCourierUsername() != null) {
-            messagingTemplate.convertAndSendToUser(
-                deliveryPackage.getCourierUsername(),
-                "/queue/package/status",
-                deliveryPackage
-            );
-        }
+            // Notify the courier if assigned
+            String courierUsername = deliveryPackage.getCourierUsername();
+            if (courierUsername != null) {
+                messagingTemplate.convertAndSendToUser(
+                    courierUsername,
+                    "/queue/packages/status",
+                    Map.of(
+                        "message", "Package has been updated",
+                        "package", deliveryPackage
+                    )
+                );
+            }
 
-        // Broadcast if package is available
-        if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.PENDING) {
-            messagingTemplate.convertAndSend("/topic/packages/available", 
-                deliveryPackageService.getAvailableDeliveryPackages());
+            // Update available packages list if the package is pending
+            if (deliveryPackage.getStatus() == DeliveryPackage.DeliveryStatus.PENDING) {
+                List<DeliveryPackageDto> availablePackages = deliveryPackageService.getAvailableDeliveryPackages();
+                messagingTemplate.convertAndSend("/topic/packages/available", availablePackages);
+            }
+        } catch (Exception e) {
+            logger.error("Error notifying package update: {}", e.getMessage(), e);
         }
     }
 }

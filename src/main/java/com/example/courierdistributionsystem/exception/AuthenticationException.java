@@ -13,13 +13,28 @@ public class AuthenticationException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
+    public AuthenticationException(String message, Throwable cause) {
+        super(message, cause);
+        this.errorCode = "AUTH_ERROR";
+    }
+
     public String getErrorCode() {
         return errorCode;
     }
 
     public static class InvalidCredentialsException extends AuthenticationException {
-        public InvalidCredentialsException() {
-            super("Invalid username or password", "INVALID_CREDENTIALS");
+        public InvalidCredentialsException(String message) {
+            super(message);
+        }
+    }
+
+    public static class LoginFailedException extends AuthenticationException {
+        public LoginFailedException(String message) {
+            super(message);
+        }
+
+        public LoginFailedException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 

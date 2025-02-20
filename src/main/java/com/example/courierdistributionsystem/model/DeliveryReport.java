@@ -7,6 +7,8 @@ import org.springframework.data.redis.core.index.Indexed;
 import org.springframework.data.annotation.Id;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Map;
+import com.example.courierdistributionsystem.utils.JpaConverterJson;
 
 @Entity
 @Table(name = "delivery_reports")
@@ -25,22 +27,39 @@ public class DeliveryReport implements Serializable {
     @Indexed
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "package_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "delivery_package_id", nullable = false)
     private DeliveryPackage deliveryPackage;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "courier_id", nullable = false)
     private Courier courier;
 
-    @Column(name = "delivery_time")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id", nullable = false)
+    private Customer customer;
+
+    @Column(nullable = false)
     private LocalDateTime deliveryTime;
+
+    @Column(columnDefinition = "TEXT")
+    private String deliveryNotes;
+
+    @Column(name = "customer_signature")
+    private String customerSignature;
+
+    @Column(name = "delivery_proof_photo")
+    private String deliveryProofPhoto;
+
+    @Convert(converter = JpaConverterJson.class)
+    @Column(columnDefinition = "json")
+    private Map<String, Object> additionalDetails;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 
     @Column(name = "completion_time")
     private LocalDateTime completionTime;
-
-    @Column(name = "delivery_notes", columnDefinition = "TEXT")
-    private String deliveryNotes;
 
     @Column(name = "customer_confirmation")
     private boolean customerConfirmation;
@@ -54,29 +73,28 @@ public class DeliveryReport implements Serializable {
     @Column(name = "distance_traveled")
     private Double distanceTraveled;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "admin_id", nullable = false)
-    private Admin admin;
-
-    @Column(nullable = false)
-    private LocalDateTime timestamp;
-
-    @Column(nullable = false)
-    private String reportType;
-
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String content;
-
-    @Column
-    private String status;
-
     @PrePersist
     protected void onCreate() {
-        if (completionTime == null) {
-            completionTime = LocalDateTime.now();
-        }
-        if (timestamp == null) {
-            timestamp = LocalDateTime.now();
-        }
+        createdAt = LocalDateTime.now();
+    }
+
+    public void setCompletionTime(LocalDateTime completionTime) {
+        this.completionTime = completionTime;
+    }
+
+    public boolean isCustomerConfirmation() {
+        return customerConfirmation;
+    }
+
+    public String getDeliveryPhotoUrl() {
+        return deliveryPhotoUrl;
+    }
+
+    public String getSignatureUrl() {
+        return signatureUrl;
+    }
+
+    public Double getDistanceTraveled() {
+        return distanceTraveled;
     }
 } 
