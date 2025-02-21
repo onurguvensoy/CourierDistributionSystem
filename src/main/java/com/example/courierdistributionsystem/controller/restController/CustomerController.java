@@ -25,7 +25,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/customer")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
+
 @Validated
 public class CustomerController {
     private static final Logger logger = LoggerFactory.getLogger(CustomerController.class);

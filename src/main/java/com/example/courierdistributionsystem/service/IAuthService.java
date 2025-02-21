@@ -6,6 +6,6 @@ import java.util.Map;
 
 public interface IAuthService {
     Map<String, Object> login(LoginDto request);
-    Map<String, String> logout(String username);
+    Map<String, String> logout(String token);
     Map<String, String> signup(SignupDto request);
 } 

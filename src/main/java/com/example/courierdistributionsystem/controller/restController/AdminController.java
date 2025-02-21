@@ -20,7 +20,6 @@ import com.example.courierdistributionsystem.exception.ResourceNotFoundException
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminController {
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 

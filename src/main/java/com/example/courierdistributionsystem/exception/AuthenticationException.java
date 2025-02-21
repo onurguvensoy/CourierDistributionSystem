@@ -55,4 +55,32 @@ public class AuthenticationException extends RuntimeException {
             super(message, "SESSION_ERROR");
         }
     }
+
+    public static class InvalidTokenException extends AuthenticationException {
+        public InvalidTokenException(String message) {
+            super(message, "INVALID_TOKEN");
+        }
+    }
+
+    public static class TokenExpiredException extends AuthenticationException {
+        public TokenExpiredException(String message) {
+            super(message, "TOKEN_EXPIRED");
+        }
+    }
+
+    public static class LogoutFailedException extends AuthenticationException {
+        public LogoutFailedException(String message) {
+            super(message, "LOGOUT_FAILED");
+        }
+
+        public LogoutFailedException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static class TokenInvalidatedException extends AuthenticationException {
+        public TokenInvalidatedException(String message) {
+            super(message, "TOKEN_INVALIDATED");
+        }
+    }
 } 

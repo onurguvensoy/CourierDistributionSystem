@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/delivery-reports")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 @Validated
 public class DeliveryReportController {
     private static final Logger logger = LoggerFactory.getLogger(DeliveryReportController.class);

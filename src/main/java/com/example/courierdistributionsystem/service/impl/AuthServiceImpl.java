@@ -58,15 +58,18 @@ public class AuthServiceImpl implements IAuthService {
 
     @Override
     @Transactional
-    public Map<String, String> logout(String username) {
+    public Map<String, String> logout(String token) {
         try {
-            logger.info("Processing logout request for user: {}", username);
-            jwtUtils.invalidateToken(username);
+            String username = jwtUtils.getUsernameFromToken(token);
+            if (username == null) {
+                throw new AuthenticationException.InvalidTokenException("Invalid token");
+            }
+            jwtUtils.invalidateToken(token);
             logger.info("User {} successfully logged out", username);
             return Map.of("status", "success", "message", "Successfully logged out");
         } catch (Exception e) {
-            logger.error("Error during logout for user {}: {}", username, e.getMessage());
-            throw new RuntimeException("Failed to process logout");
+            logger.error("Error during logout: {}", e.getMessage());
+            throw new RuntimeException("Failed to process logout: " + e.getMessage());
         }
     }
 
