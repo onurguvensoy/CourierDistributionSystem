@@ -19,12 +19,7 @@ public class CorsConfig {
         config.addAllowedOrigin(FRONTEND_URL);
         
         // Allow all common HTTP methods
-        config.addAllowedMethod("GET");
-        config.addAllowedMethod("POST");
-        config.addAllowedMethod("PUT");
-        config.addAllowedMethod("DELETE");
-        config.addAllowedMethod("PATCH");
-        config.addAllowedMethod("OPTIONS");
+        config.addAllowedMethod("*");
         
         // Allow all headers
         config.addAllowedHeader("*");
@@ -32,8 +27,13 @@ public class CorsConfig {
         // Allow credentials (cookies, authorization headers, etc)
         config.setAllowCredentials(true);
         
+        // Expose the Authorization header
+        config.addExposedHeader("Authorization");
+        
         // Apply this configuration to all paths
         source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration("/ws/**", config);
+        source.registerCorsConfiguration("/ws", config);
         
         return new CorsFilter(source);
     }

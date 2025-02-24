@@ -5,6 +5,7 @@ import com.example.courierdistributionsystem.dto.DeliveryPackageDto;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.service.IDeliveryPackageService;
 import com.example.courierdistributionsystem.service.ICustomerService;
+import com.example.courierdistributionsystem.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,18 +19,25 @@ public class DeliveryPackageController {
 
     private final IDeliveryPackageService deliveryPackageService;
     private final ICustomerService customerService;
+    private final JwtUtils jwtUtils;
 
     @Autowired
-    public DeliveryPackageController(IDeliveryPackageService deliveryPackageService, ICustomerService customerService) {
+    public DeliveryPackageController(IDeliveryPackageService deliveryPackageService, 
+                                   ICustomerService customerService,
+                                   JwtUtils jwtUtils) {
         this.deliveryPackageService = deliveryPackageService;
         this.customerService = customerService;
+        this.jwtUtils = jwtUtils;
     }
 
     @PostMapping
     public ResponseEntity<DeliveryPackageDto> createDeliveryPackage(
-            @RequestHeader("X-Username") String username,
+            @RequestHeader("Authorization") String token,
             @RequestBody CreatePackageDto request) {
-        DeliveryPackageDto createdPackage = customerService.createDeliveryPackage(username, request);
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
+        Long userId = jwtUtils.getUserIdFromToken(jwtToken);
+        DeliveryPackageDto createdPackage = customerService.createDeliveryPackage(username, userId, request);
         return ResponseEntity.ok(createdPackage);
     }
 

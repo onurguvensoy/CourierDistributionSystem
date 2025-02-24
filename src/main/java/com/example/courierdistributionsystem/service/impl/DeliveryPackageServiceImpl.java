@@ -5,6 +5,7 @@ import com.example.courierdistributionsystem.dto.DeliveryPackageDto;
 import com.example.courierdistributionsystem.exception.ResourceNotFoundException;
 import com.example.courierdistributionsystem.mapper.DeliveryPackageMapper;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
+import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.repository.jpa.DeliveryPackageRepository;
 import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
 import com.example.courierdistributionsystem.service.IDeliveryPackageService;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,14 +40,17 @@ public class DeliveryPackageServiceImpl implements IDeliveryPackageService {
     }
 
     @Override
-    public DeliveryPackageDto createDeliveryPackage(CreatePackageDto packageDto) {
-        logger.debug("Creating new delivery package");
+    public DeliveryPackageDto createDeliveryPackage(CreatePackageDto packageDto, Customer customer) {
+        logger.debug("Creating new delivery package for customer: {}", customer.getUsername());
         DeliveryPackage deliveryPackage = new DeliveryPackage();
         deliveryPackage.setDescription(packageDto.getDescription());
         deliveryPackage.setWeight(packageDto.getWeight());
         deliveryPackage.setDeliveryAddress(packageDto.getDeliveryAddress());
         deliveryPackage.setPickupAddress(packageDto.getPickupAddress());
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.PENDING);
+        deliveryPackage.setCustomer(customer);
+        deliveryPackage.setSpecialInstructions(packageDto.getSpecialInstructions());
+        deliveryPackage.setCreatedAt(LocalDateTime.now());
         
         DeliveryPackage savedPackage = deliveryPackageRepository.save(deliveryPackage);
         return deliveryPackageMapper.toDto(savedPackage);

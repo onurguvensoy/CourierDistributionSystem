@@ -3,12 +3,13 @@ package com.example.courierdistributionsystem.service;
 import com.example.courierdistributionsystem.dto.CreatePackageDto;
 import com.example.courierdistributionsystem.dto.DeliveryPackageDto;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
+import com.example.courierdistributionsystem.model.Customer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public interface IDeliveryPackageService {
-    DeliveryPackageDto createDeliveryPackage(CreatePackageDto packageDto);
+    DeliveryPackageDto createDeliveryPackage(CreatePackageDto packageDto, Customer customer);
     Optional<DeliveryPackageDto> getDeliveryPackageById(Long id);
     List<DeliveryPackageDto> getAllDeliveryPackages();
     DeliveryPackageDto updateDeliveryPackage(Long id, Map<String, String> updates);

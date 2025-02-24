@@ -19,5 +19,5 @@ public interface ICustomerService {
     Map<String, Object> getCustomerDashboard(String username);
     List<DeliveryPackageDto> getCustomerDeliveryHistory(String username);
     Customer createCustomerProfile(Map<String, String> profileData);
-    DeliveryPackageDto createDeliveryPackage(String username, CreatePackageDto packageDto);
+    DeliveryPackageDto createDeliveryPackage(String username, Long userId ,  CreatePackageDto packageDto);
 } 

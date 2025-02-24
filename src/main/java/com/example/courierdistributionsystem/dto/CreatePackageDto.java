@@ -1,6 +1,7 @@
 package com.example.courierdistributionsystem.dto;
 
 import com.example.courierdistributionsystem.model.DeliveryPackage;
+import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +15,9 @@ import jakarta.validation.constraints.Positive;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreatePackageDto {
+
+   private Long customerId;
+
     private String trackingNumber;
     
     @NotBlank(message = "Pickup address is required")

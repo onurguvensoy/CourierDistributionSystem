@@ -138,11 +138,14 @@ public class CustomerServiceImpl implements ICustomerService {
     }
 
     @Override
-    public DeliveryPackageDto createDeliveryPackage(String username, CreatePackageDto packageDto) {
-        logger.debug("Creating delivery package for customer: {}", username);
-        Customer customer = getCustomerByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with username: " + username));
+    public DeliveryPackageDto createDeliveryPackage(String username, Long userId, CreatePackageDto packageDto) {
+        logger.debug("Creating delivery package for customer: {} (ID: {})", username, userId);
+        Customer customer = getCustomerById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + userId));
         
-        return deliveryPackageService.createDeliveryPackage(packageDto);
+        // Set the customer ID in the DTO
+        packageDto.setCustomerId(userId);
+        
+        return deliveryPackageService.createDeliveryPackage(packageDto, customer);
     }
 } 

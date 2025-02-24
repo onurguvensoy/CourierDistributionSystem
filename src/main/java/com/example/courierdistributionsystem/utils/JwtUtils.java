@@ -21,10 +21,10 @@ public class JwtUtils {
     @Value("${jwt.secret}")
     private String jwtSecret;
     
-    // 1 hour in milliseconds
+
     private static final int JWT_EXPIRATION_MS = 3600000;
-    
-    // 5 minutes before expiration for refresh window
+
+
     private static final int REFRESH_WINDOW_MS = 300000;
 
     private final Set<String> invalidatedTokens = ConcurrentHashMap.newKeySet();

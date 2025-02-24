@@ -18,10 +18,8 @@ import java.util.Map;
 public class DeliveryPackageDto {
     private Long id;
     
-    @NotBlank(message = "Tracking number is required")
     private String trackingNumber;
     
-    @NotBlank(message = "Customer username is required")
     private String customerUsername;
     
     private String courierUsername;
@@ -35,7 +33,6 @@ public class DeliveryPackageDto {
     @NotNull(message = "Weight is required")
     @Positive(message = "Weight must be positive")
     private Double weight;
-    
     private String description;
     private String specialInstructions;
     private DeliveryPackage.DeliveryStatus status;
@@ -43,4 +40,12 @@ public class DeliveryPackageDto {
     private LocalDateTime updatedAt;
     private Map<String, Object> customerDetails;
     private Map<String, Object> courierDetails;
+    public DeliveryPackageDto(String pickupAddress, String deliveryAddress, Double weight, 
+                             String description, String specialInstructions) {
+        this.pickupAddress = pickupAddress;
+        this.deliveryAddress = deliveryAddress;
+        this.weight = weight;
+        this.description = description;
+        this.specialInstructions = specialInstructions;
+    }
 } 

@@ -5,6 +5,7 @@ import com.example.courierdistributionsystem.model.Customer;
 import com.example.courierdistributionsystem.model.User;
 import com.example.courierdistributionsystem.service.ICustomerService;
 import com.example.courierdistributionsystem.service.IUserService;
+import com.example.courierdistributionsystem.utils.JwtUtils;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
@@ -13,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import jakarta.servlet.http.HttpSession;
 import com.example.courierdistributionsystem.service.IDeliveryPackageService;
 import com.example.courierdistributionsystem.dto.CreatePackageDto;
 import com.example.courierdistributionsystem.dto.DeliveryPackageDto;
@@ -25,7 +25,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/customer")
-
 @Validated
 public class CustomerController {
     private static final Logger logger = LoggerFactory.getLogger(CustomerController.class);
@@ -38,6 +37,9 @@ public class CustomerController {
 
     @Autowired
     private IDeliveryPackageService deliveryPackageService;
+
+    @Autowired
+    private JwtUtils jwtUtils;
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getCustomerProfile(@PathVariable @NotNull Long id) {
@@ -133,35 +135,39 @@ public class CustomerController {
     }
 
     @PostMapping("/packages/create")
-    public ResponseEntity<?> createPackage(@Valid @RequestBody CreatePackageDto request, HttpSession session) {
-        String username = (String) session.getAttribute("username");
-        logger.debug("Customer {} attempting to create new package", username);
+    public ResponseEntity<?> createPackage(@Valid @RequestBody CreatePackageDto request, @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
+        Long userId = jwtUtils.getUserIdFromToken(jwtToken);
+        logger.debug("Customer {} (ID: {}) attempting to create new package", username, userId);
         
         try {
-            if (username == null) {
+            if (username == null || userId == null) {
                 logger.warn("Unauthorized attempt to create package");
                 return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
             }
 
-            Optional<Customer> customerOpt = customerService.getCustomerByUsername(username);
+            Optional<Customer> customerOpt = customerService.getCustomerById(userId);
             if (customerOpt.isEmpty()) {
                 throw new IllegalArgumentException("Customer not found");
             }
-            DeliveryPackageDto newPackage = customerService.createDeliveryPackage(username, request);
-            logger.info("Customer {} successfully created package", username);
+            
+            // Pass both username and userId to ensure proper package creation
+            DeliveryPackageDto newPackage = customerService.createDeliveryPackage(username, userId, request);
+            logger.info("Customer {} (ID: {}) successfully created package", username, userId);
             return ResponseEntity.ok(newPackage);
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid package creation request from customer {}: {}", username, e.getMessage());
+            logger.warn("Invalid package creation request from customer {} (ID: {}): {}", username, userId, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            logger.error("Error creating package for customer {}: {}", username, e.getMessage());
+            logger.error("Error creating package for customer {} (ID: {}): {}", username, userId, e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
     @GetMapping("/packages/active")
-    public ResponseEntity<?> getActivePackages(HttpSession session) {
-        String username = (String) session.getAttribute("username");
+    public ResponseEntity<?> getActivePackages(@RequestHeader("Authorization") String token) {
+        String username = jwtUtils.getUsernameFromToken(token.replace("Bearer ", ""));
         logger.debug("Fetching active packages for customer: {}", username);
         
         try {
@@ -181,8 +187,8 @@ public class CustomerController {
     }
 
     @GetMapping("/delivery-history")
-    public ResponseEntity<?> getDeliveryHistory(HttpSession session) {
-        String username = (String) session.getAttribute("username");
+    public ResponseEntity<?> getDeliveryHistory(@RequestHeader("Authorization") String token) {
+        String username = jwtUtils.getUsernameFromToken(token.replace("Bearer ", ""));
         logger.debug("Fetching delivery history for customer: {}", username);
         
         try {
@@ -202,8 +208,8 @@ public class CustomerController {
     }
 
     @PostMapping("/packages/{packageId}/cancel")
-    public ResponseEntity<?> cancelPackage(@PathVariable Long packageId, HttpSession session) {
-        String username = (String) session.getAttribute("username");
+    public ResponseEntity<?> cancelPackage(@PathVariable Long packageId, @RequestHeader("Authorization") String token) {
+        String username = jwtUtils.getUsernameFromToken(token.replace("Bearer ", ""));
         logger.debug("Customer {} attempting to cancel package {}", username, packageId);
         
         try {
@@ -227,8 +233,8 @@ public class CustomerController {
     }
 
     @GetMapping("/packages/{packageId}/track")
-    public ResponseEntity<?> trackPackage(@PathVariable Long packageId, HttpSession session) {
-        String username = (String) session.getAttribute("username");
+    public ResponseEntity<?> trackPackage(@PathVariable Long packageId, @RequestHeader("Authorization") String token) {
+        String username = jwtUtils.getUsernameFromToken(token.replace("Bearer ", ""));
         logger.debug("Customer {} attempting to track package {}", username, packageId);
         
         try {
