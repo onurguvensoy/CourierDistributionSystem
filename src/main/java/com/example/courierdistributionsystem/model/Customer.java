@@ -16,7 +16,7 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Table(name = "customers")
 @PrimaryKeyJoinColumn(name = "id")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "packages"})
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
 @JsonIdentityInfo(
     generator = ObjectIdGenerators.PropertyGenerator.class,
@@ -31,7 +31,8 @@ public class Customer extends User {
     @Column(name = "default_address")
     private String defaultAddress;
 
-    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<DeliveryPackage> packages;
 
     @PrePersist
@@ -43,25 +44,15 @@ public class Customer extends User {
         }
     }
 
-    @JsonProperty
+    @JsonIgnore
     public List<DeliveryPackage> getPackages() {
         if (packages == null) {
             packages = new ArrayList<>();
         }
-        return new ArrayList<>(packages);
+        return packages;
     }
 
-    @JsonProperty
     public void setPackages(List<DeliveryPackage> newPackages) {
-        if (this.packages == null) {
-            this.packages = new ArrayList<>();
-        }
-        this.packages.clear();
-        if (newPackages != null) {
-            for (DeliveryPackage pkg : newPackages) {
-                pkg.setCustomer(this);
-                this.packages.add(pkg);
-            }
-        }
+        this.packages = newPackages;
     }
 }

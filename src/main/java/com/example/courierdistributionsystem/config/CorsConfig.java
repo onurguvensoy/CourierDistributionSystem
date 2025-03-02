@@ -5,10 +5,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import java.util.Arrays;
 
 @Configuration
 public class CorsConfig {
-    private static final String FRONTEND_URL = "http://localhost:3000";
 
     @Bean
     public CorsFilter corsFilter() {
@@ -16,24 +16,39 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         
         // Allow frontend origin
-        config.addAllowedOrigin(FRONTEND_URL);
+        config.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
         
         // Allow all common HTTP methods
-        config.addAllowedMethod("*");
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         
-        // Allow all headers
-        config.addAllowedHeader("*");
+        // Allow specific headers
+        config.setAllowedHeaders(Arrays.asList(
+            "Origin",
+            "Content-Type",
+            "Accept",
+            "Authorization",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Headers",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers",
+            "X-Requested-With"
+        ));
         
-        // Allow credentials (cookies, authorization headers, etc)
+        // Allow credentials
         config.setAllowCredentials(true);
         
-        // Expose the Authorization header
-        config.addExposedHeader("Authorization");
+        // Expose headers
+        config.setExposedHeaders(Arrays.asList(
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials",
+            "Authorization"
+        ));
         
-        // Apply this configuration to all paths
+        // Cache preflight for 1 hour
+        config.setMaxAge(3600L);
+        
+        // Apply to all paths
         source.registerCorsConfiguration("/**", config);
-        source.registerCorsConfiguration("/ws/**", config);
-        source.registerCorsConfiguration("/ws", config);
         
         return new CorsFilter(source);
     }

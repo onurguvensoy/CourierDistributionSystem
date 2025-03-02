@@ -148,6 +148,7 @@ public class WebSocketController {
     }
 
     private String getUsername(SimpMessageHeaderAccessor headerAccessor) {
-        return (String) headerAccessor.getSessionAttributes().get("username");
+        Map<String, Object> attributes = headerAccessor.getSessionAttributes();
+        return attributes != null ? (String) attributes.get("username") : null;
     }
 } 

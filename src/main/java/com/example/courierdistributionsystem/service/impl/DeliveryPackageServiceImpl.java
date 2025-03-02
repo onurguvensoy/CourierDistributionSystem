@@ -6,8 +6,10 @@ import com.example.courierdistributionsystem.exception.ResourceNotFoundException
 import com.example.courierdistributionsystem.mapper.DeliveryPackageMapper;
 import com.example.courierdistributionsystem.model.DeliveryPackage;
 import com.example.courierdistributionsystem.model.Customer;
+import com.example.courierdistributionsystem.model.DeliveryHistory;
 import com.example.courierdistributionsystem.repository.jpa.DeliveryPackageRepository;
 import com.example.courierdistributionsystem.repository.jpa.CourierRepository;
+import com.example.courierdistributionsystem.repository.jpa.DeliveryHistoryRepository;
 import com.example.courierdistributionsystem.service.IDeliveryPackageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,14 +31,17 @@ public class DeliveryPackageServiceImpl implements IDeliveryPackageService {
     private final DeliveryPackageRepository deliveryPackageRepository;
     private final DeliveryPackageMapper deliveryPackageMapper;
     private final CourierRepository courierRepository;
+    private final DeliveryHistoryRepository deliveryHistoryRepository;
 
     @Autowired
     public DeliveryPackageServiceImpl(DeliveryPackageRepository deliveryPackageRepository,
                                     DeliveryPackageMapper deliveryPackageMapper,
-                                    CourierRepository courierRepository) {
+                                    CourierRepository courierRepository,
+                                    DeliveryHistoryRepository deliveryHistoryRepository) {
         this.deliveryPackageRepository = deliveryPackageRepository;
         this.deliveryPackageMapper = deliveryPackageMapper;
         this.courierRepository = courierRepository;
+        this.deliveryHistoryRepository = deliveryHistoryRepository;
     }
 
     @Override
@@ -187,10 +192,26 @@ public class DeliveryPackageServiceImpl implements IDeliveryPackageService {
             throw new IllegalStateException("Package is not available for pickup");
         }
 
-        deliveryPackage.setCourier(courierRepository.findByUsername(username)
-            .orElseThrow(() -> new ResourceNotFoundException("Courier not found")));
+        var courier = courierRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Courier not found"));
+        
+        deliveryPackage.setCourier(courier);
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.IN_PROGRESS);
+        deliveryPackage.setPickedUpAt(LocalDateTime.now());
         DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+
+        // Create delivery history entry
+        DeliveryHistory history = DeliveryHistory.builder()
+                .courier(courier)
+                .deliveryPackage(updatedPackage)
+                .status(DeliveryPackage.DeliveryStatus.IN_PROGRESS)
+                .pickupLocation(updatedPackage.getPickupAddress())
+                .deliveryLocation(updatedPackage.getDeliveryAddress())
+                .pickedUpAt(LocalDateTime.now())
+                .build();
+        
+        deliveryHistoryRepository.save(history);
+
         return deliveryPackageMapper.toDto(updatedPackage);
     }
 
@@ -205,8 +226,23 @@ public class DeliveryPackageServiceImpl implements IDeliveryPackageService {
         }
 
         deliveryPackage.setStatus(DeliveryPackage.DeliveryStatus.DELIVERED);
-        deliveryPackage = deliveryPackageRepository.save(deliveryPackage);
-        return deliveryPackageMapper.toDto(deliveryPackage);
+        deliveryPackage.setDeliveredAt(LocalDateTime.now());
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+
+        // Create delivery history entry
+        DeliveryHistory history = DeliveryHistory.builder()
+                .courier(deliveryPackage.getCourier())
+                .deliveryPackage(updatedPackage)
+                .status(DeliveryPackage.DeliveryStatus.DELIVERED)
+                .pickupLocation(updatedPackage.getPickupAddress())
+                .deliveryLocation(updatedPackage.getDeliveryAddress())
+                .pickedUpAt(deliveryPackage.getPickedUpAt())
+                .completedAt(LocalDateTime.now())
+                .build();
+        
+        deliveryHistoryRepository.save(history);
+
+        return deliveryPackageMapper.toDto(updatedPackage);
     }
 
     @Override
@@ -216,7 +252,35 @@ public class DeliveryPackageServiceImpl implements IDeliveryPackageService {
                 .orElseThrow(() -> new ResourceNotFoundException("Package not found or not assigned to courier"));
 
         deliveryPackage.setStatus(status);
-        deliveryPackage = deliveryPackageRepository.save(deliveryPackage);
-        return deliveryPackageMapper.toDto(deliveryPackage);
+        LocalDateTime now = LocalDateTime.now();
+
+        switch (status) {
+            case IN_PROGRESS -> deliveryPackage.setPickedUpAt(now);
+            case DELIVERED -> deliveryPackage.setDeliveredAt(now);
+            case CANCELLED -> deliveryPackage.setCancelledAt(now);
+        }
+
+        DeliveryPackage updatedPackage = deliveryPackageRepository.save(deliveryPackage);
+
+        // Create delivery history entry
+        DeliveryHistory history = DeliveryHistory.builder()
+                .courier(deliveryPackage.getCourier())
+                .deliveryPackage(updatedPackage)
+                .status(status)
+                .pickupLocation(updatedPackage.getPickupAddress())
+                .deliveryLocation(updatedPackage.getDeliveryAddress())
+                .pickedUpAt(deliveryPackage.getPickedUpAt())
+                .build();
+
+        // Set appropriate timestamps based on status
+        switch (status) {
+            case IN_PROGRESS -> history.setPickedUpAt(now);
+            case DELIVERED -> history.setCompletedAt(now);
+            case CANCELLED -> history.setCancelledAt(now);
+        }
+        
+        deliveryHistoryRepository.save(history);
+
+        return deliveryPackageMapper.toDto(updatedPackage);
     }
 } 

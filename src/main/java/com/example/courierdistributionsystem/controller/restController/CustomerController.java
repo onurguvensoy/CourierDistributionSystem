@@ -42,29 +42,44 @@ public class CustomerController {
     private JwtUtils jwtUtils;
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getCustomerProfile(@PathVariable @NotNull Long id) {
+    public ResponseEntity<?> getCustomerProfile(@PathVariable @NotNull Long id, @RequestHeader("Authorization") String token) {
         logger.info("Received request to get customer profile with ID: {}", id);
         Map<String, Object> response = new HashMap<>();
         try {
             logger.debug("Fetching customer profile for ID: {}", id);
             
-            Optional<User> user = userService.getUserById(id);
-            if (user.isEmpty()) {
-                logger.warn("No user found with ID: {}", id);
-                throw new CustomerException("Customer not found");
-            }
 
-            if (user.get().getRole() != User.UserRole.CUSTOMER) {
-                logger.warn("User with ID {} is not a customer. Role: {}", id, user.get().getRole());
-                throw new CustomerException("User is not a customer");
+            String jwtToken = token.replace("Bearer ", "");
+            Long tokenUserId = jwtUtils.getUserIdFromToken(jwtToken);
+            if (!id.equals(tokenUserId)) {
+                logger.warn("Unauthorized access attempt to customer profile. Token ID: {}, Requested ID: {}", tokenUserId, id);
+                throw new CustomerException("Unauthorized access to customer profile");
             }
-
             Optional<Customer> customerOpt = customerService.getCustomerById(id);
             if (customerOpt.isEmpty()) {
                 throw new CustomerException("Customer not found");
             }
+            Customer customer = customerOpt.get();
+            if (customer.getRole() != User.UserRole.CUSTOMER) {
+                logger.warn("User with ID {} is not a customer. Role: {}", id, customer.getRole());
+                throw new CustomerException("User is not a customer");
+            }
+            Map<String, Object> customerData = new HashMap<>();
+            customerData.put("id", customer.getId());
+            customerData.put("username", customer.getUsername());
+            customerData.put("email", customer.getEmail());
+            customerData.put("phoneNumber", customer.getPhoneNumber());
+            customerData.put("defaultAddress", customer.getDefaultAddress());
+            customerData.put("role", customer.getRole());
+            List<DeliveryPackageDto> activePackages = deliveryPackageService.getCustomerActiveDeliveryPackages(customer.getUsername());
+            List<DeliveryPackageDto> recentPackages = deliveryPackageService.getCustomerDeliveryPackages(customer.getUsername())
+                .stream()
+                .limit(5)
+                .toList();
+            customerData.put("activePackagesCount", activePackages.size());
+            customerData.put("recentPackages", recentPackages);
             response.put("status", "success");
-            response.put("data", customerOpt.get());
+            response.put("data", customerData);
             logger.info("Successfully retrieved customer profile for ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (CustomerException e) {
@@ -79,8 +94,7 @@ public class CustomerController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
-
-    @PostMapping
+    @PostMapping("/createCustomerProfile")
     public ResponseEntity<?> createCustomerProfile(@RequestBody @Valid Map<String, String> customerRequest) {
         logger.info("Received request to create customer profile");
         Map<String, Object> response = new HashMap<>();
@@ -140,19 +154,15 @@ public class CustomerController {
         String username = jwtUtils.getUsernameFromToken(jwtToken);
         Long userId = jwtUtils.getUserIdFromToken(jwtToken);
         logger.debug("Customer {} (ID: {}) attempting to create new package", username, userId);
-        
         try {
             if (username == null || userId == null) {
                 logger.warn("Unauthorized attempt to create package");
                 return ResponseEntity.status(401).body(Map.of("error", "Unauthorized access"));
             }
-
             Optional<Customer> customerOpt = customerService.getCustomerById(userId);
             if (customerOpt.isEmpty()) {
                 throw new IllegalArgumentException("Customer not found");
             }
-            
-            // Pass both username and userId to ensure proper package creation
             DeliveryPackageDto newPackage = customerService.createDeliveryPackage(username, userId, request);
             logger.info("Customer {} (ID: {}) successfully created package", username, userId);
             return ResponseEntity.ok(newPackage);
@@ -164,7 +174,6 @@ public class CustomerController {
             return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
-
     @GetMapping("/packages/active")
     public ResponseEntity<?> getActivePackages(@RequestHeader("Authorization") String token) {
         String username = jwtUtils.getUsernameFromToken(token.replace("Bearer ", ""));
@@ -232,7 +241,7 @@ public class CustomerController {
         }
     }
 
-    @GetMapping("/packages/{packageId}/track")
+    @GetMapping("/packages/track/{packageId}")
     public ResponseEntity<?> trackPackage(@PathVariable Long packageId, @RequestHeader("Authorization") String token) {
         String username = jwtUtils.getUsernameFromToken(token.replace("Bearer ", ""));
         logger.debug("Customer {} attempting to track package {}", username, packageId);

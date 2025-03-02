@@ -42,13 +42,20 @@ public class DeliveryPackageController {
     }
 
     @GetMapping("/available")
-    public ResponseEntity<List<DeliveryPackageDto>> getAvailableDeliveryPackages() {
+    public ResponseEntity<List<DeliveryPackageDto>> getAvailableDeliveryPackages(
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken); // Validate token but we don't need the user info for this endpoint
         List<DeliveryPackageDto> packages = deliveryPackageService.getAvailableDeliveryPackages();
         return ResponseEntity.ok(packages);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DeliveryPackageDto> getDeliveryPackageById(@PathVariable Long id) {
+    public ResponseEntity<DeliveryPackageDto> getDeliveryPackageById(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken); // Validate token but we don't need the user info for this endpoint
         return deliveryPackageService.getDeliveryPackageById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -56,46 +63,60 @@ public class DeliveryPackageController {
 
     @GetMapping("/courier/active")
     public ResponseEntity<List<DeliveryPackageDto>> getCourierActiveDeliveryPackages(
-            @RequestHeader("X-Username") String username) {
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         List<DeliveryPackageDto> packages = deliveryPackageService.getCourierActiveDeliveryPackages(username);
         return ResponseEntity.ok(packages);
     }
 
     @GetMapping("/customer")
     public ResponseEntity<List<DeliveryPackageDto>> getCustomerDeliveryPackages(
-            @RequestHeader("X-Username") String username) {
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         List<DeliveryPackageDto> packages = deliveryPackageService.getCustomerDeliveryPackages(username);
         return ResponseEntity.ok(packages);
     }
 
     @PostMapping("/{id}/take")
     public ResponseEntity<DeliveryPackageDto> takeDeliveryPackage(
-            @PathVariable Long id,
-            @RequestHeader("X-Username") String username) {
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         DeliveryPackageDto updatedPackage = deliveryPackageService.takeDeliveryPackage(id, username);
         return ResponseEntity.ok(updatedPackage);
     }
 
     @PostMapping("/{id}/drop")
     public ResponseEntity<DeliveryPackageDto> dropDeliveryPackage(
-            @PathVariable Long id,
-            @RequestHeader("X-Username") String username) {
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         DeliveryPackageDto updatedPackage = deliveryPackageService.dropDeliveryPackage(id, username);
         return ResponseEntity.ok(updatedPackage);
     }
 
     @PutMapping("/{id}/status")
     public ResponseEntity<DeliveryPackageDto> updateDeliveryStatus(
+            @RequestHeader("Authorization") String token,
             @PathVariable Long id,
-            @RequestHeader("X-Username") String username,
             @RequestBody Map<String, String> request) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         DeliveryPackage.DeliveryStatus status = DeliveryPackage.DeliveryStatus.valueOf(request.get("status"));
         DeliveryPackageDto updatedPackage = deliveryPackageService.updateDeliveryStatus(id, username, status);
         return ResponseEntity.ok(updatedPackage);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDeliveryPackage(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteDeliveryPackage(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken); // Validate token but we don't need the user info for this endpoint
         deliveryPackageService.deleteDeliveryPackage(id);
         return ResponseEntity.ok().build();
     }

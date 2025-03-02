@@ -4,6 +4,7 @@ import com.example.courierdistributionsystem.dto.CourierDto;
 import com.example.courierdistributionsystem.dto.LocationUpdateDto;
 import com.example.courierdistributionsystem.service.ICourierService;
 import com.example.courierdistributionsystem.service.IDeliveryPackageService;
+import com.example.courierdistributionsystem.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,119 +18,169 @@ public class CourierController {
 
     private final ICourierService courierService;
     private final IDeliveryPackageService deliveryPackageService;
+    private final JwtUtils jwtUtils;
 
     @Autowired
-    public CourierController(ICourierService courierService, IDeliveryPackageService deliveryPackageService) {
+    public CourierController(ICourierService courierService, 
+                           IDeliveryPackageService deliveryPackageService,
+                           JwtUtils jwtUtils) {
         this.courierService = courierService;
         this.deliveryPackageService = deliveryPackageService;
+        this.jwtUtils = jwtUtils;
     }
 
     @GetMapping("/available")
-    public ResponseEntity<List<CourierDto>> getAvailableCouriers() {
+    public ResponseEntity<List<CourierDto>> getAvailableCouriers(
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken);
         List<CourierDto> couriers = courierService.getAllAvailableCouriers();
         return ResponseEntity.ok(couriers);
     }
 
     @GetMapping("/{username}")
-    public ResponseEntity<CourierDto> getCourierByUsername(@PathVariable String username) {
+    public ResponseEntity<CourierDto> getCourierByUsername(
+            @RequestHeader("Authorization") String token,
+            @PathVariable String username) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken);
         return courierService.getCourierByUsername(username)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PutMapping("/{username}/location")
+    @PutMapping("/location")
     public ResponseEntity<CourierDto> updateCourierLocation(
-            @PathVariable String username,
+            @RequestHeader("Authorization") String token,
             @RequestBody LocationUpdateDto location) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         CourierDto updatedCourier = courierService.updateCourierLocation(username, location);
         return ResponseEntity.ok(updatedCourier);
     }
 
-    @PutMapping("/{username}/availability")
+    @PutMapping("/availability")
     public ResponseEntity<CourierDto> updateCourierAvailability(
-            @PathVariable String username,
-            @RequestParam boolean available) {
-        CourierDto updatedCourier = courierService.updateCourierAvailability(username, available);
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, Boolean> request) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
+        CourierDto updatedCourier = courierService.updateCourierAvailability(username, request.get("available"));
         return ResponseEntity.ok(updatedCourier);
     }
 
     @GetMapping("/zone/{zone}")
-    public ResponseEntity<List<CourierDto>> getCouriersByZone(@PathVariable String zone) {
+    public ResponseEntity<List<CourierDto>> getCouriersByZone(
+            @RequestHeader("Authorization") String token,
+            @PathVariable String zone) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken);
         List<CourierDto> couriers = courierService.getCouriersByZone(zone);
         return ResponseEntity.ok(couriers);
     }
 
-    @GetMapping("/{username}/stats")
-    public ResponseEntity<Map<String, Object>> getCourierStats(@PathVariable String username) {
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getCourierStats(
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         Map<String, Object> stats = courierService.getCourierStats(username);
         return ResponseEntity.ok(stats);
     }
 
-    @PutMapping("/{username}/profile")
+    @PutMapping("/profile")
     public ResponseEntity<CourierDto> updateCourierProfile(
-            @PathVariable String username,
+            @RequestHeader("Authorization") String token,
             @RequestBody Map<String, String> updates) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         CourierDto updatedCourier = courierService.updateCourierProfile(username, updates);
         return ResponseEntity.ok(updatedCourier);
     }
 
-    @DeleteMapping("/{username}")
-    public ResponseEntity<Void> deleteCourier(@PathVariable String username) {
+    @DeleteMapping
+    public ResponseEntity<Void> deleteCourier(
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         courierService.deleteCourier(username);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping
-    public ResponseEntity<List<CourierDto>> getAllCouriers() {
+    public ResponseEntity<List<CourierDto>> getAllCouriers(
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken);
         List<CourierDto> couriers = courierService.getAllCouriers();
         return ResponseEntity.ok(couriers);
     }
 
     @GetMapping("/id/{id}")
-    public ResponseEntity<CourierDto> getCourierById(@PathVariable Long id) {
+    public ResponseEntity<CourierDto> getCourierById(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken);
         return courierService.getCourierById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<CourierDto> createCourier(@RequestBody CourierDto courierDto) {
+    public ResponseEntity<CourierDto> createCourier(
+            @RequestHeader("Authorization") String token,
+            @RequestBody CourierDto courierDto) {
+        String jwtToken = token.replace("Bearer ", "");
+        jwtUtils.validateToken(jwtToken);
         CourierDto createdCourier = courierService.createCourier(courierDto);
         return ResponseEntity.ok(createdCourier);
     }
 
-    @PutMapping("/{username}/status")
+    @PutMapping("/status")
     public ResponseEntity<Void> updateCourierStatus(
-            @PathVariable String username,
-            @RequestParam String status) {
-        courierService.updateCourierStatus(username, status);
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, String> request) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
+        courierService.updateCourierStatus(username, request.get("status"));
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{username}/delivery-history")
-    public ResponseEntity<Map<String, Object>> getCourierDeliveryHistory(@PathVariable String username) {
+    @GetMapping("/delivery-history")
+    public ResponseEntity<Map<String, Object>> getCourierDeliveryHistory(
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         Map<String, Object> history = courierService.getCourierDeliveryHistory(username);
         return ResponseEntity.ok(history);
     }
 
-    @GetMapping("/{username}/performance")
-    public ResponseEntity<Map<String, Object>> getCourierPerformanceMetrics(@PathVariable String username) {
+    @GetMapping("/performance")
+    public ResponseEntity<Map<String, Object>> getCourierPerformanceMetrics(
+            @RequestHeader("Authorization") String token) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         Map<String, Object> metrics = courierService.getCourierPerformanceMetrics(username);
         return ResponseEntity.ok(metrics);
     }
 
-    @PostMapping("/{username}/deliveries/{deliveryId}/assign")
+    @PostMapping("/deliveries/{deliveryId}/assign")
     public ResponseEntity<Void> assignDeliveryToCourier(
-            @PathVariable String username,
+            @RequestHeader("Authorization") String token,
             @PathVariable Long deliveryId) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         courierService.assignDeliveryToCourier(deliveryId, username);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/{username}/deliveries/{deliveryId}/unassign")
+    @PostMapping("/deliveries/{deliveryId}/unassign")
     public ResponseEntity<Void> unassignDeliveryFromCourier(
-            @PathVariable String username,
+            @RequestHeader("Authorization") String token,
             @PathVariable Long deliveryId) {
+        String jwtToken = token.replace("Bearer ", "");
+        String username = jwtUtils.getUsernameFromToken(jwtToken);
         courierService.unassignDeliveryFromCourier(deliveryId, username);
         return ResponseEntity.ok().build();
     }
