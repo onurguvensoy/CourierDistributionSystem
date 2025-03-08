@@ -1,0 +1,342 @@
+/* SB Admin 2 Auth Styles */
+.bg-gradient-primary {
+  background-color: #4e73df;
+  background-image: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
+  background-size: cover;
+}
+
+.bg-login-image {
+  background: url("../assets/img/delivery-bg.jpg");
+  background-position: center;
+  background-size: cover;
+}
+
+.bg-register-image {
+  background: url("../assets/img/delivery-register.jpg");
+  background-position: center;
+  background-size: cover;
+}
+
+.auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+}
+
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1677ff;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 600px;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  padding: 24px;
+}
+
+.auth-title {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 24px;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.auth-error {
+  color: #ff4d4f;
+  margin-bottom: 24px;
+  padding: 8px 0;
+}
+
+.auth-form {
+  width: 100%;
+}
+
+.auth-remember {
+  float: left;
+}
+
+.auth-forgot {
+  float: right;
+}
+
+.auth-submit {
+  width: 100%;
+  height: 40px;
+  font-size: 16px;
+  border-radius: 4px;
+}
+
+.auth-divider {
+  position: relative;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 24px);
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.auth-divider::before {
+  left: 0;
+}
+
+.auth-divider::after {
+  right: 0;
+}
+
+.auth-divider span {
+  padding: 0 16px;
+  color: rgba(0, 0, 0, 0.45);
+  background: #fff;
+}
+
+.auth-footer {
+  text-align: center;
+}
+
+.auth-footer a {
+  color: #1677ff;
+  font-size: 14px;
+}
+
+.auth-footer a:hover {
+  color: #4096ff;
+}
+
+/* Form Controls */
+.form-control-user {
+  font-size: 0.8rem;
+  border-radius: 10rem;
+  padding: 1.5rem 1rem;
+}
+
+.form-control-user:focus {
+  box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+  border-color: #bac8f3;
+}
+
+.btn-user {
+  font-size: 0.8rem;
+  border-radius: 10rem;
+  padding: 0.75rem 1rem;
+}
+
+.btn-google {
+  color: #fff;
+  background-color: #ea4335;
+  border-color: #fff;
+}
+
+.btn-facebook {
+  color: #fff;
+  background-color: #3b5998;
+  border-color: #fff;
+}
+
+/* Text Utilities */
+.text-gray-900 {
+  color: #3a3b45 !important;
+}
+
+.text-gray-600 {
+  color: #858796 !important;
+}
+
+.small {
+  font-size: .875rem;
+}
+
+/* Dividers */
+hr.divider {
+  margin: 1rem 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Remember Me Checkbox */
+.custom-checkbox {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.custom-control-input:checked ~ .custom-control-label::before {
+  border-color: #4e73df;
+  background-color: #4e73df;
+}
+
+.custom-control-input:focus ~ .custom-control-label::before {
+  box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+}
+
+/* Reset some antd styles */
+.ant-input-affix-wrapper {
+  border-radius: 4px !important;
+}
+
+.ant-btn-primary {
+  background-color: #1677ff !important;
+}
+
+/* Auth container and card */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1677ff;
+  padding: 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 450px;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Form elements */
+.auth-title {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 24px;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.auth-error {
+  color: #ff4d4f;
+  margin-bottom: 24px;
+  padding: 8px 0;
+}
+
+.auth-form {
+  width: 100%;
+}
+
+.required-label::before {
+  content: "* ";
+  color: #ff4d4f;
+}
+
+/* Remember me and forgot password row */
+.auth-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.forgot-link {
+  color: #1677ff;
+  font-size: 14px;
+}
+
+.forgot-link:hover {
+  color: #4096ff;
+}
+
+/* Submit button */
+.auth-submit {
+  width: 100%;
+  height: 40px;
+  font-size: 16px;
+  border-radius: 4px;
+}
+
+/* Divider */
+.auth-divider {
+  position: relative;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 24px);
+  height: 1px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.auth-divider::before {
+  left: 0;
+}
+
+.auth-divider::after {
+  right: 0;
+}
+
+.auth-divider span {
+  padding: 0 16px;
+  color: rgba(0, 0, 0, 0.45);
+  background: #fff;
+}
+
+/* Footer */
+.auth-footer {
+  text-align: center;
+}
+
+.auth-footer a {
+  color: #1677ff;
+  font-size: 14px;
+}
+
+.auth-footer a:hover {
+  color: #4096ff;
+}
+
+/* Checkbox style */
+.ant-checkbox-wrapper {
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 14px;
+}
+
+/* Input placeholders */
+.ant-input::placeholder {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+/* Add these to your existing styles */
+.ant-select {
+  width: 100%;
+}
+
+.ant-form-item-label {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.ant-select-selection-placeholder {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+/* Add spacing between form rows */
+.ant-row {
+  margin-bottom: 8px;
+}
+
+/* Adjust spacing for mobile */
+@media (max-width: 576px) {
+  .auth-card {
+    max-width: 100%;
+    margin: 16px;
+  }
+
+  .ant-col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+} 

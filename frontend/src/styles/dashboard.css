@@ -1,0 +1,80 @@
+/* Import base styles */
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+/* Dashboard Layout */
+#wrapper {
+  display: flex;
+}
+
+#content-wrapper {
+  width: 100%;
+  overflow-x: hidden;
+  background-color: #f8f9fc;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 14rem;
+  min-height: 100vh;
+  background-color: #4e73df;
+  background-image: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
+  transition: width 0.15s ease-in-out;
+}
+
+.sidebar.toggled {
+  width: 6.5rem;
+}
+
+.sidebar-brand {
+  height: 4.375rem;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  letter-spacing: 0.05rem;
+  z-index: 1;
+}
+
+/* Topbar */
+.topbar {
+  height: 4.375rem;
+}
+
+.topbar .nav-item .nav-link {
+  height: 4.375rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+}
+
+.topbar .dropdown .dropdown-menu {
+  width: calc(100% - 1.5rem);
+  right: 0.75rem;
+}
+
+/* Utilities */
+.sidebar .nav-item .collapse {
+  position: relative;
+  left: 0;
+  z-index: 1;
+  top: 0;
+  animation: none;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .sidebar .nav-item .collapse {
+    position: relative;
+    left: 0;
+    z-index: 1;
+    top: 0;
+    animation: none;
+  }
+  
+  .sidebar .nav-item .collapse .collapse-inner {
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+  }
+} 

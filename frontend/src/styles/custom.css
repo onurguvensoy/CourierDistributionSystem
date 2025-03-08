@@ -1,0 +1,167 @@
+/* Global Styles */
+:root {
+    --bs-blue: #0d6efd;
+    --bs-indigo: #6610f2;
+    --bs-purple: #6f42c1;
+    --bs-pink: #d63384;
+    --bs-red: #dc3545;
+    --bs-orange: #fd7e14;
+    --bs-yellow: #ffc107;
+    --bs-green: #198754;
+    --bs-teal: #20c997;
+    --bs-cyan: #0dcaf0;
+    --bs-white: #fff;
+    --bs-gray: #6c757d;
+    --bs-gray-dark: #343a40;
+    --bs-primary: #0d6efd;
+    --bs-secondary: #6c757d;
+    --bs-success: #198754;
+    --bs-info: #0dcaf0;
+    --bs-warning: #ffc107;
+    --bs-danger: #dc3545;
+    --bs-light: #f8f9fa;
+    --bs-dark: #212529;
+}
+
+/* Authentication Layout */
+#layoutAuthentication {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+#layoutAuthentication #layoutAuthentication_content {
+    min-width: 0;
+    flex-grow: 1;
+}
+
+#layoutAuthentication #layoutAuthentication_footer {
+    min-width: 0;
+}
+
+/* Card Styles */
+.card {
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+    border: none;
+}
+
+.card .card-header {
+    font-weight: 500;
+}
+
+/* Form Controls */
+.form-control-user {
+    height: auto;
+    padding: 1rem;
+    font-size: 0.9rem;
+    border-radius: 10rem;
+    border: 1px solid #d1d3e2;
+}
+
+.form-control-user:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Buttons */
+.btn-user {
+    font-size: 0.9rem;
+    border-radius: 10rem;
+    padding: 0.75rem 1rem;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Background Images */
+.bg-login-image {
+    background: url("/img/undraw_profile.svg");
+    background-position: center;
+    background-size: cover;
+}
+
+.bg-register-image {
+    background: url("/img/undraw_profile.svg");
+    background-position: center;
+    background-size: cover;
+}
+
+/* Container Styles */
+.container {
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+/* Toast Container */
+.toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1050;
+}
+
+/* Card Body */
+.card-body {
+    padding: 3rem;
+}
+
+/* Form Group Spacing */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+/* Alert Styles */
+.alert {
+    border-radius: 0.35rem;
+    border: 1px solid transparent;
+}
+
+.alert-danger {
+    color: #842029;
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+}
+
+/* Responsive Adjustments */
+@media (min-width: 992px) {
+    .col-lg-6 {
+        flex: 0 0 auto;
+        width: 50%;
+    }
+}
+
+/* Animation */
+.card {
+    animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Links */
+.small {
+    font-size: 0.875rem;
+    color: var(--bs-gray);
+}
+
+.small:hover {
+    color: var(--bs-gray-dark);
+    text-decoration: none;
+} 
