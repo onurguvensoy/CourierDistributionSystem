@@ -129,7 +129,7 @@ spring.redis.host=localhost
 spring.redis.port=6379
 
 # JWT Configuration
-jwt.secret=your-secret-key
+jwt.secret=${JWT_SECRET}   # set the JWT_SECRET environment variable (min. 32 characters)
 jwt.expiration=86400000
 ```
 
