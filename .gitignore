@@ -184,3 +184,12 @@ frontend/.idea
 frontend/.vscode
 frontend/.mvn
 
+
+### Local / generated (do not commit) ###
+.env
+.env.*
+.DS_Store
+backend/target/
+backend/logs/
+backend/data/
+logs/

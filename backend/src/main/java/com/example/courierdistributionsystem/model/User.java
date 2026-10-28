@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
 
@@ -18,7 +16,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "users")
 @Inheritance(strategy = InheritanceType.JOINED)
-@OnDelete(action = OnDeleteAction.CASCADE)
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS)
 @JsonIdentityInfo(
     generator = ObjectIdGenerators.PropertyGenerator.class,
